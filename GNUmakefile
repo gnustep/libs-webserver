@@ -1,0 +1,52 @@
+include $(GNUSTEP_MAKEFILES)/common.make
+
+-include config.make
+
+PACKAGE_NAME = WebServer
+PACKAGE_VERSION = 1.0.0
+CVS_MODULE_NAME = gnustep/dev-libs/WebServer
+CVS_TAG_NAME = WebServer
+
+TEST_TOOL_NAME=
+
+LIBRARY_NAME=WebServer
+DOCUMENT_NAME=WebServer
+
+WebServer_INTERFACE_VERSION=1.0
+
+WebServer_OBJC_FILES += WebServer.m WebServerBundles.m
+WebServer_HEADER_FILES += WebServer.h
+WebServer_AGSDOC_FILES += WebServer.h
+
+# Optional Java wrappers for the library
+JAVA_WRAPPER_NAME = WebServer
+
+#
+# Assume that the use of the gnu runtime means we have the gnustep
+# base library and can use its extensions to build WebServer stuff.
+#
+ifeq ($(OBJC_RUNTIME_LIB),gnu)
+APPLE=0
+else
+APPLE=1
+endif
+
+ifeq ($(APPLE),1)
+ADDITIONAL_OBJC_LIBS += -lgnustep-baseadd
+WebServer_LIBRARIES_DEPEND_UPON = -lgnustep-baseadd
+endif
+
+WebServer_HEADER_FILES_INSTALL_DIR = WebServer
+
+TEST_TOOL_NAME+=testWebServer
+testWebServer_OBJC_FILES = testWebServer.m
+testWebServer_TOOL_LIBS += -lWebServer
+testWebServer_LIB_DIRS += -L./obj
+
+-include GNUmakefile.preamble
+
+include $(GNUSTEP_MAKEFILES)/library.make
+include $(GNUSTEP_MAKEFILES)/test-tool.make
+include $(GNUSTEP_MAKEFILES)/documentation.make
+
+-include GNUmakefile.postamble
