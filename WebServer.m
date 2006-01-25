@@ -220,6 +220,7 @@
 - (void) _didRead: (NSNotification*)notification;
 - (void) _didWrite: (NSNotification*)notification;
 - (void) _endSession: (WebServerSession*)session;
+- (void) _log: (NSString*)fmt, ...;
 - (void) _process: (WebServerSession*)session;
 - (void) _timeout: (NSTimer*)timer;
 @end
@@ -696,24 +697,24 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   mgr = [NSFileManager defaultManager];
   if ([path hasPrefix: str] == NO)
     {
-      [self _alert: @"Illegal static page '%@' ('%@')", aPath, path];
+      [self _log: @"Illegal static page '%@' ('%@')", aPath, path];
       result = NO;
     }
   else if ([mgr isReadableFileAtPath: path] == NO)
     {
-      [self _alert: @"Can't read static page '%@' ('%@')", aPath, path];
+      [self _log: @"Can't read static page '%@' ('%@')", aPath, path];
       result = NO;
     }
   else if (string == YES
     && (data = [NSString stringWithContentsOfFile: path]) == nil)
     {
-      [self _alert: @"Failed to load string '%@' ('%@')", aPath, path];
+      [self _log: @"Failed to load string '%@' ('%@')", aPath, path];
       result = NO;
     }
   else if (string == NO
     && (data = [NSData dataWithContentsOfFile: path]) == nil)
     {
-      [self _alert: @"Failed to load data '%@' ('%@')", aPath, path];
+      [self _log: @"Failed to load data '%@' ('%@')", aPath, path];
       result = NO;
     }
   else
@@ -741,17 +742,17 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   mgr = [NSFileManager defaultManager];
   if ([path hasPrefix: str] == NO)
     {
-      [self _alert: @"Illegal template '%@' ('%@')", aPath, path];
+      [self _log: @"Illegal template '%@' ('%@')", aPath, path];
       result = NO;
     }
   else if ([mgr isReadableFileAtPath: path] == NO)
     {
-      [self _alert: @"Can't read template '%@' ('%@')", aPath, path];
+      [self _log: @"Can't read template '%@' ('%@')", aPath, path];
       result = NO;
     }
   else if ((str = [NSString stringWithContentsOfFile: path]) == nil)
     {
-      [self _alert: @"Failed to load template '%@' ('%@')", aPath, path];
+      [self _log: @"Failed to load template '%@' ('%@')", aPath, path];
       result = NO;
     }
   else
@@ -1213,7 +1214,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	   */
 	  if ([_quiet containsObject: a] == NO)
 	    {
-	      [self _alert: @"Invalid host (%@) on new connection.", a];
+	      [self _log: @"Invalid host (%@) on new connection.", a];
 	    }
 	}
       else if (_maxPerHost > 0 && [_perHost countForObject: a] >= _maxPerHost)
@@ -1228,7 +1229,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	   */
 	  if ([_quiet containsObject: a] == NO)
 	    {
-	      [self _alert: @"SSL accept fail on new connection (%@).", a];
+	      [self _log: @"SSL accept fail on new connection (%@).", a];
 	    }
 	}
       else
@@ -1254,7 +1255,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	  [hdl readInBackgroundAndNotify];
 	  if (_verbose == YES && [_quiet containsObject: a] == NO)
 	    {
-	      [self _alert: @"%@ connect", session];
+	      [self _log: @"%@ connect", session];
 	    }
 	}
     }
@@ -1303,19 +1304,19 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	      if ([session hasReset] == NO
 		&& [_quiet containsObject: [session address]] == NO)
 		{
-		  [self _alert: @"%@ read end-of-file in empty request",
+		  [self _log: @"%@ read end-of-file in empty request",
 		    session];
 		}
 	    }
 	  else
 	    {
-	      [self _alert: @"%@ read end-of-file in partial request - %@",
+	      [self _log: @"%@ read end-of-file in partial request - %@",
 		session, buffer];
 	    }
 	}
       else
 	{
-	  [self _alert: @"%@ read end-of-file in incomplete request - %@",
+	  [self _log: @"%@ read end-of-file in incomplete request - %@",
 	    session, [parser mimeDocument]];
 	}
       [self _endSession: session];
@@ -1363,7 +1364,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
        */
       if (pos >= _maxBodySize)
 	{
-	  [self _alert: @"Request too long ... rejected"];
+	  [self _log: @"Request too long ... rejected"];
 	  [session setShouldEnd: YES];
 	  [hdl writeInBackgroundAndNotify:
 	    [@"HTTP/1.0 500 Request data too long\r\n\r\n"
@@ -1521,7 +1522,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 
   if ([session moreBytes: [d length]] > _maxRequestSize)
     {
-      [self _alert: @"Request body too long ... rejected"];
+      [self _log: @"Request body too long ... rejected"];
       [session setShouldEnd: YES];	// Not persistent.
       [hdl writeInBackgroundAndNotify:
 	[@"HTTP/1.0 500 Request body too long\r\n\r\n"
@@ -1536,7 +1537,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	}
       else
 	{
-	  [self _alert: @"HTTP parse failure - %@", parser];
+	  [self _log: @"HTTP parse failure - %@", parser];
 	  [self _endSession: session];
 	}
     }
@@ -1574,12 +1575,12 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	    {
 	      if ([_quiet containsObject: [session address]] == NO)
 		{
-		  [self _alert: @"%@ reset", session];
+		  [self _log: @"%@ reset", session];
 		}
 	    }
 	  else
 	    {
-	      [self _alert: @"%@ end of request (duration %g)", session, t];
+	      [self _log: @"%@ end of request (duration %g)", session, t];
 	    }
 	}
       [session reset];
@@ -1599,14 +1600,14 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 
 	  if (r > 0.0)
 	    {
-	      [self _alert: @"%@ end of request (duration %g)", session, r];
+	      [self _log: @"%@ end of request (duration %g)", session, r];
 	    }
 	}
       if (_verbose == YES)
 	{
 	  NSTimeInterval	s = [session sessionDuration: _ticked];
 
-	  [self _alert: @"%@ disconnect (duration %g)", session, s];
+	  [self _log: @"%@ disconnect (duration %g)", session, s];
 	}
       _handled++;
     }
@@ -1624,6 +1625,21 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
       [_listener acceptConnectionInBackgroundAndNotify];
       _accepting = YES;
     }
+}
+
+- (void) _log: (NSString*)fmt, ...
+{
+  va_list	args;
+
+  va_start(args, fmt);
+  if ([_delegate respondsToSelector: @selector(webLog:for:)] == YES)
+    {
+      NSString	*s;
+
+      s = [NSString stringWithFormat: fmt arguments: args];
+      [_delegate webLog: s for: self];
+    }
+  va_end(args);
 }
 
 - (void) _process: (WebServerSession*)session
@@ -1700,7 +1716,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
       _requests++;
       if (_verbose == YES)
 	{
-	  [self _alert: @"Request %@ - %@", session, request];
+	  [self _log: @"Request %@ - %@", session, request];
 	}
     }
   NS_DURING
@@ -1809,7 +1825,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
     }
   if (_verbose == YES && [_quiet containsObject: [session address]] == NO)
     {
-      [self _alert: @"Response %@ - %@", session, out];
+      [self _log: @"Response %@ - %@", session, out];
     }
   [[session handle] writeInBackgroundAndNotify: out];
 }
@@ -1845,7 +1861,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	  session = [array objectAtIndex: 0];
 	  if (_verbose == YES)
 	    {
-	      [self _alert: @"Session timed out - %@", session];
+	      [self _log: @"Session timed out - %@", session];
 	    }
 	  [self _endSession: session];
 	  [array removeObjectAtIndex: 0];

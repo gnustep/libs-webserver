@@ -137,6 +137,12 @@
  * method, the message is logged to stderr using the NSLog function.
  */
 - (void) webAlert: (NSString*)message for: (WebServer*)http;
+
+/**
+ * Log a debug or audit message ... if the delegate does not implement this
+ * method, no logging is done.
+ */
+- (void) webLog: (NSString*)message for: (WebServer*)http;
 @end
 
 /**
@@ -371,7 +377,7 @@
  * Sets a flag to determine whether logging of request and session
  * durations is to be performed.<br />
  * If this is YES then the duration of requests and sessions will
- * be logged using the [(WebServerDelegate)-webAlert:for:] method.<br />
+ * be logged using the [(WebServerDelegate)-webLog:for:] method.<br />
  * The request duration is calculated from the point where the first byte
  * of data in the request is read to the point where the response has
  * been completely written.<br />
@@ -451,7 +457,7 @@
 /**
  * Sets a flag to determine whether verbose logging is to be performed.<br />
  * If this is YES then all incoming requests and their responses will
- * be logged using the [(WebServerDelegate)-webAlert:for:] method.<br />
+ * be logged using the [(WebServerDelegate)-webLog:for:] method.<br />
  * Setting this to YES automatically sets duration logging to YES as well,
  * though you can then call -setDurationLogging: to set it back to NO.<br />
  * This is useful for debugging and where a full audit trail is required.
