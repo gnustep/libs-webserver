@@ -85,4 +85,10 @@ Browse at http://svn.gna.org/viewcvs/gnustep/libs/webserver/tags/1.0.0
 Download with:
 svn co svn://svn.gna.org/svn/gnustep/libs/webserver/tags/1.0.0 webserver
 
+Bugs
+====
+Please report bugs to https://savannah.gnu.org/bugs/?group=gnustep selecting
+'Libraries' as the catagory.  NB. please check to see if a bug has already
+been reported before submitting a new one.
+
 
