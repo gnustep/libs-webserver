@@ -1,0 +1,88 @@
+
+This is the initial release of the 'webserver' library (version 1.0.0)
+Initial release is made at version 1.0.0 because this library is in fact
+very well tested and was previously part of the SQLClient library.
+
+
+Scope
+====
+This library provides a single main WebServer class which works with a
+framework to support the use of loadable bundles to handle requests
+on particular URLs.
+The main of the library is to make it easy for you to write programs
+which can act as web servers (eg. and XMLRPC server) or simply provide
+a web-based user interface so that your application can be controlled
+from a web browser.
+Incoming requests may by handled by a delegate, or passed to a bundle
+loaded at runtime on the basis of the URL requested.
+Convenience methods are provided to vend static pages or vend template
+pages where values provided by your code are inserted into the templates.
+The class supports HTTPS on a unix-like platform, but only HTTP on windows.
+
+Platforms
+=========
+GNUstep gnu/linux
+GNUstep	windows/mingw32
+
+
+Contents
+========
+WebServer
+The WebServer class provides the framework for a GNUstep program to act
+as an HTTP or HTTPS server for simple applications.
+It does not attempt to be a general-purpose web server, but is rather
+intended to permit a program to easily handle requests from automated
+systems which are intended to control, monitor, or use the services
+provided by the program in which the class is embedded.
+The emphasis is on making it robust/reliable/simple, so you can rapidly
+develop software using it. It is a single-threaded, single-process
+system using asynchronous I/O, so you can easily run it under debug
+in gdb to fix any bugs in your delegate object.
+
+The class is controlled by a few straightforward settings and basically
+operates by handing over requests to its delegate. The delegate must at
+least implement the [<WebServerDelegate>-processRequest:response:for:]
+method.
+
+ Built-in facilities include -
+
+ * Parsing of parameter string in request URL
+ * Parsing of url encoded form data in a POST request
+ * Parsing of form encoded data in a POST request
+ * Substitution into template pages on output
+ * SSL support
+ * HTTP Basic authentication
+ * Limit access by IP address
+ * Limit total number of simultaneous connections
+ * Limit number of simultaneous connectionsform one address
+ * Limit idle time permitted on a connection
+ * Limit size of request headers permitted
+ * Limit size of request body permitted
+
+WebServerBundles
+
+This is an example delegate for the WebServer class.
+It is intended to act as a convenience for a scheme where the WebServer
+instance in a program is configured by values obtained from the user
+defaults system, and incoming requests may be handled by different
+delegate objects depending on the path information supplied in the request.
+The WebServerBundles intance is responsible for loading the bundles
+(based on information in the WebServerBundles dictionary in the user defaults
+system) and for forwarding requests to the appropriate bundles for processing.
+If a request comes in which is not an exact match for the path of any handler,
+the request path is repeatedly shortened by chopping off the last path
+component until a matching handler is found.
+The paths in the dictionary must not end with a slash... an empty string
+will match all requests which do not match a handler with a longer path.
+
+
+Location
+========
+Available from the gnustep subversion repository.
+
+Browse at http://svn.gna.org/viewcvs/gnustep/libs/webserver/tags/1.0.0
+
+Download with:
+svn co svn://svn.gna.org/svn/gnustep/libs/webserver/tags/1.0.0 webserver
+
+
