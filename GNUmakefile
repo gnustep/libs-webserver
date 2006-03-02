@@ -3,7 +3,7 @@ include $(GNUSTEP_MAKEFILES)/common.make
 -include config.make
 
 PACKAGE_NAME = WebServer
-PACKAGE_VERSION = 1.0.0
+PACKAGE_VERSION = 1.1.0
 CVS_MODULE_NAME = gnustep/dev-libs/WebServer
 CVS_TAG_NAME = WebServer
 SVN_BASE_URL=http://svn.gna.org/svn/gnustep/libs
@@ -14,7 +14,7 @@ TEST_TOOL_NAME=
 LIBRARY_NAME=WebServer
 DOCUMENT_NAME=WebServer
 
-WebServer_INTERFACE_VERSION=1.0
+WebServer_INTERFACE_VERSION=1.1
 
 WebServer_OBJC_FILES += WebServer.m WebServerBundles.m
 WebServer_HEADER_FILES += WebServer.h

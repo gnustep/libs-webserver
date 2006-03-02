@@ -26,7 +26,7 @@
 #include <Foundation/Foundation.h>
 #include "WebServer.h"
 
-@interface	WebServerSession : NSObject
+@interface	WebServerConnection : NSObject
 {
   NSString		*address;
   NSFileHandle		*handle;
@@ -36,7 +36,7 @@
   unsigned		identity;
   NSTimeInterval	ticked;
   NSTimeInterval	requestStart;
-  NSTimeInterval	sessionStart;
+  NSTimeInterval	connectionStart;
   BOOL			processing;
   BOOL			shouldEnd;
   BOOL			hasReset;
@@ -51,21 +51,21 @@
 - (BOOL) processing;
 - (NSTimeInterval) requestDuration: (NSTimeInterval)now;
 - (void) reset;
-- (NSTimeInterval) sessionDuration: (NSTimeInterval)now;
+- (NSTimeInterval) connectionDuration: (NSTimeInterval)now;
 - (void) setAddress: (NSString*)aString;
 - (void) setBuffer: (NSMutableData*)aBuffer;
+- (void) setConnectionStart: (NSTimeInterval)when;
 - (void) setHandle: (NSFileHandle*)aHandle;
 - (void) setParser: (GSMimeParser*)aParser;
 - (void) setProcessing: (BOOL)aFlag;
 - (void) setRequestStart: (NSTimeInterval)when;
-- (void) setSessionStart: (NSTimeInterval)when;
 - (void) setShouldEnd: (BOOL)aFlag;
 - (void) setTicked: (NSTimeInterval)when;
 - (BOOL) shouldEnd;
 - (NSTimeInterval) ticked;
 @end
 
-@implementation	WebServerSession
+@implementation	WebServerConnection
 - (NSString*) address
 {
   return address;
@@ -88,7 +88,7 @@
 
 - (NSString*) description
 {
-  return [NSString stringWithFormat: @"WebServerSession: %08x [%@] ",
+  return [NSString stringWithFormat: @"WebServerConnection: %08x [%@] ",
     [self identity], [self address]];
 }
 
@@ -109,9 +109,9 @@
 
 - (id) init
 {
-  static unsigned	sessionIdentity = 0;
+  static unsigned	connectionIdentity = 0;
 
-  identity = ++sessionIdentity;
+  identity = ++connectionIdentity;
   return self;
 }
 
@@ -149,11 +149,11 @@
   [self setProcessing: NO];
 }
 
-- (NSTimeInterval) sessionDuration: (NSTimeInterval)now
+- (NSTimeInterval) connectionDuration: (NSTimeInterval)now
 {
-  if (sessionStart > 0.0)
+  if (connectionStart > 0.0)
     {
-      return now - sessionStart;
+      return now - connectionStart;
     }
   return 0.0;
 }
@@ -166,6 +166,11 @@
 - (void) setBuffer: (NSMutableData*)aBuffer
 {
   ASSIGN(buffer, aBuffer);
+}
+
+- (void) setConnectionStart: (NSTimeInterval)when
+{
+  connectionStart = when;
 }
 
 - (void) setHandle: (NSFileHandle*)aHandle
@@ -186,11 +191,6 @@
 - (void) setRequestStart: (NSTimeInterval)when
 {
   requestStart = when;
-}
-
-- (void) setSessionStart: (NSTimeInterval)when
-{
-  sessionStart = when;
 }
 
 - (void) setShouldEnd: (BOOL)aFlag
@@ -219,9 +219,9 @@
 - (void) _didConnect: (NSNotification*)notification;
 - (void) _didRead: (NSNotification*)notification;
 - (void) _didWrite: (NSNotification*)notification;
-- (void) _endSession: (WebServerSession*)session;
+- (void) _endConnection: (WebServerConnection*)connection;
 - (void) _log: (NSString*)fmt, ...;
-- (void) _process: (WebServerSession*)session;
+- (void) _process: (WebServerConnection*)connection;
 - (void) _timeout: (NSTimer*)timer;
 @end
 
@@ -317,10 +317,10 @@
   DESTROY(_quiet);
   DESTROY(_hosts);
   DESTROY(_perHost);
-  if (_sessions != 0)
+  if (_connections != 0)
     {
-      NSFreeMapTable(_sessions);
-      _sessions = 0;
+      NSFreeMapTable(_connections);
+      _connections = 0;
     }
   [super dealloc];
 }
@@ -607,11 +607,11 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 
 - (NSString*) description
 {
-  return [NSString stringWithFormat: @"%@ on %@(%@), %u of %u sessions active,"
+  return [NSString stringWithFormat: @"%@ on %@(%@), %u of %u connections active,"
     @" %u ended, %u requests, listening: %@",
     [super description], _port, ([self isSecure] ? @"https" : @"http"),
-    NSCountMapTable(_sessions),
-    _maxSessions, _handled, _requests, _accepting == YES ? @"yes" : @"no"];
+    NSCountMapTable(_connections),
+    _maxConnections, _handled, _requests, _accepting == YES ? @"yes" : @"no"];
 }
 
 - (id) init
@@ -621,13 +621,13 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   _hosts = RETAIN([defs arrayForKey: @"WebServerHosts"]);
   _quiet = RETAIN([defs arrayForKey: @"WebServerQuiet"]);
   _nc = RETAIN([NSNotificationCenter defaultCenter]);
-  _sessionTimeout = 30.0;
+  _connectionTimeout = 30.0;
   _maxPerHost = 8;
-  _maxSessions = 32;
+  _maxConnections = 32;
   _maxBodySize = 8*1024;
   _maxRequestSize = 4*1024*1024;
   _substitutionLimit = 4;
-  _sessions = NSCreateMapTable(NSNonOwnedPointerMapKeyCallBacks,
+  _connections = NSCreateMapTable(NSNonOwnedPointerMapKeyCallBacks,
     NSObjectMapValueCallBacks, 0);
   _perHost = [NSCountedSet new];
   _ticker = [NSTimer scheduledTimerWithTimeInterval: 0.8
@@ -921,19 +921,19 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   _maxBodySize = max;
 }
 
+- (void) setMaxConnections: (unsigned)max
+{
+  _maxConnections = max;
+}
+
+- (void) setMaxConnectionsPerHost: (unsigned)max
+{
+  _maxPerHost = max;
+}
+
 - (void) setMaxRequestSize: (unsigned)max
 {
   _maxRequestSize = max;
-}
-
-- (void) setMaxSessions: (unsigned)max
-{
-  _maxSessions = max;
-}
-
-- (void) setMaxSessionsPerHost: (unsigned)max
-{
-  _maxPerHost = max;
 }
 
 - (BOOL) setPort: (NSString*)aPort secure: (NSDictionary*)secure
@@ -993,8 +993,8 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 		      selector: @selector(_didConnect:)
 			  name: NSFileHandleConnectionAcceptedNotification
 			object: _listener];
-	      if (_accepting == NO && (_maxSessions <= 0
-		|| NSCountMapTable(_sessions) < _maxSessions))
+	      if (_accepting == NO && (_maxConnections <= 0
+		|| NSCountMapTable(_connections) < _maxConnections))
 		{
 		  [_listener acceptConnectionInBackgroundAndNotify];
 		  _accepting = YES;
@@ -1010,9 +1010,9 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   ASSIGN(_root, aPath);
 }
 
-- (void) setSessionTimeout: (NSTimeInterval)aDelay
+- (void) setConnectionTimeout: (NSTimeInterval)aDelay
 {
-  _sessionTimeout = aDelay;
+  _connectionTimeout = aDelay;
 }
 
 - (void) setSubstitutionLimit: (unsigned)depth
@@ -1234,16 +1234,16 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	}
       else
 	{
-	  WebServerSession	*session = [WebServerSession new];
+	  WebServerConnection	*connection = [WebServerConnection new];
 
-	  [session setAddress: a];
-	  [session setHandle: hdl];
-	  [session setBuffer: [NSMutableData dataWithCapacity: 1024]];
-	  [session setTicked: _ticked];
-	  [session setSessionStart: _ticked];
-	  NSMapInsert(_sessions, (void*)hdl, (void*)session);
-	  [_perHost addObject: [session address]];
-	  RELEASE(session);
+	  [connection setAddress: a];
+	  [connection setHandle: hdl];
+	  [connection setBuffer: [NSMutableData dataWithCapacity: 1024]];
+	  [connection setTicked: _ticked];
+	  [connection setConnectionStart: _ticked];
+	  NSMapInsert(_connections, (void*)hdl, (void*)connection);
+	  [_perHost addObject: [connection address]];
+	  RELEASE(connection);
 	  [_nc addObserver: self
 		  selector: @selector(_didRead:)
 		      name: NSFileHandleReadCompletionNotification
@@ -1255,12 +1255,12 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	  [hdl readInBackgroundAndNotify];
 	  if (_verbose == YES && [_quiet containsObject: a] == NO)
 	    {
-	      [self _log: @"%@ connect", session];
+	      [self _log: @"%@ connect", connection];
 	    }
 	}
     }
   if (_accepting == NO
-    && (_maxSessions == 0 || NSCountMapTable(_sessions) < _maxSessions))
+    && (_maxConnections == 0 || NSCountMapTable(_connections) < _maxConnections))
     {
       [_listener acceptConnectionInBackgroundAndNotify];
       _accepting = YES;
@@ -1277,13 +1277,13 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   NSString		*query = @"";
   NSString		*path = @"";
   NSString		*version = @"";
-  WebServerSession	*session;
+  WebServerConnection	*connection;
   GSMimeDocument	*doc;
 
   _ticked = [NSDate timeIntervalSinceReferenceDate];
-  session = (WebServerSession*)NSMapGet(_sessions, (void*)hdl);
-  NSAssert(session != nil, NSInternalInconsistencyException);
-  parser = [session parser];
+  connection = (WebServerConnection*)NSMapGet(_connections, (void*)hdl);
+  NSAssert(connection != nil, NSInternalInconsistencyException);
+  parser = [connection parser];
 
   d = [dict objectForKey: NSFileHandleNotificationDataItem];
 
@@ -1291,7 +1291,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
     {
       if (parser == nil)
 	{
-	  NSMutableData	*buffer = [session buffer];
+	  NSMutableData	*buffer = [connection buffer];
 
 	  if ([buffer length] == 0)
 	    {
@@ -1301,31 +1301,31 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	       * Don't log this in quiet mode as it could just be a
 	       * test connection that we are ignoring.
 	       */
-	      if ([session hasReset] == NO
-		&& [_quiet containsObject: [session address]] == NO)
+	      if ([connection hasReset] == NO
+		&& [_quiet containsObject: [connection address]] == NO)
 		{
 		  [self _log: @"%@ read end-of-file in empty request",
-		    session];
+		    connection];
 		}
 	    }
 	  else
 	    {
 	      [self _log: @"%@ read end-of-file in partial request - %@",
-		session, buffer];
+		connection, buffer];
 	    }
 	}
       else
 	{
 	  [self _log: @"%@ read end-of-file in incomplete request - %@",
-	    session, [parser mimeDocument]];
+	    connection, [parser mimeDocument]];
 	}
-      [self _endSession: session];
+      [self _endConnection: connection];
       return;
     }
-  // NSLog(@"Data read on %@ ... %@", session, d);
+  // NSLog(@"Data read on %@ ... %@", connection, d);
 
-  // Mark session as having had I/O ... not idle.
-  [session setTicked: _ticked];
+  // Mark connection as having had I/O ... not idle.
+  [connection setTicked: _ticked];
 
   if (parser == nil)
     {
@@ -1338,15 +1338,15 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
        * If we are starting to read a new request, record the request
        * startup time.
        */
-      if ([session requestDuration: _ticked] == 0.0)
+      if ([connection requestDuration: _ticked] == 0.0)
 	{
-	  [session setRequestStart: _ticked];
+	  [connection setRequestStart: _ticked];
 	}
       /*
        * Add new data to any we already have and search for the end
        * of the initial request line.
        */
-      buffer = [session buffer];
+      buffer = [connection buffer];
       [buffer appendData: d];
       bytes = [buffer mutableBytes];
       length = [buffer length];
@@ -1365,7 +1365,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
       if (pos >= _maxBodySize)
 	{
 	  [self _log: @"Request too long ... rejected"];
-	  [session setShouldEnd: YES];
+	  [connection setShouldEnd: YES];
 	  [hdl writeInBackgroundAndNotify:
 	    [@"HTTP/1.0 500 Request data too long\r\n\r\n"
 	    dataUsingEncoding: NSASCIIStringEncoding]];
@@ -1411,7 +1411,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	    }
 	  if ([version floatValue] < 1.1)
 	    {
-	      [session setShouldEnd: YES];	// Not persistent.
+	      [connection setShouldEnd: YES];	// Not persistent.
 	    }
 
 	  /*
@@ -1469,7 +1469,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	  if ([method isEqualToString: @"GET"] == NO
 	    && [method isEqualToString: @"POST"] == NO)
 	    {
-	      [session setShouldEnd: YES];	// Not persistent.
+	      [connection setShouldEnd: YES];	// Not persistent.
 	      [hdl writeInBackgroundAndNotify:
 		[@"HTTP/1.0 501 Not Implemented\r\n\r\n"
 		dataUsingEncoding: NSASCIIStringEncoding]];
@@ -1505,7 +1505,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 		   value: version
 	      parameters: nil];
 
-	  [session setParser: parser];
+	  [connection setParser: parser];
 	  RELEASE(parser);
 
 	  if (pos >= length)
@@ -1520,10 +1520,10 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   doc = [parser mimeDocument];
   method = [[doc headerNamed: @"x-http-method"] value];
 
-  if ([session moreBytes: [d length]] > _maxRequestSize)
+  if ([connection moreBytes: [d length]] > _maxRequestSize)
     {
       [self _log: @"Request body too long ... rejected"];
-      [session setShouldEnd: YES];	// Not persistent.
+      [connection setShouldEnd: YES];	// Not persistent.
       [hdl writeInBackgroundAndNotify:
 	[@"HTTP/1.0 500 Request body too long\r\n\r\n"
 	dataUsingEncoding: NSASCIIStringEncoding]];
@@ -1533,18 +1533,18 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
     {
       if ([parser isComplete] == YES)
 	{
-	  [self _process: session];
+	  [self _process: connection];
 	}
       else
 	{
 	  [self _log: @"HTTP parse failure - %@", parser];
-	  [self _endSession: session];
+	  [self _endConnection: connection];
 	}
     }
   else if (([parser isComplete] == YES)
     || ([parser isInHeaders] == NO && ([method isEqualToString: @"GET"])))
     {
-      [self _process: session];
+      [self _process: connection];
     }
   else
     {
@@ -1555,59 +1555,59 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 - (void) _didWrite: (NSNotification*)notification
 {
   NSFileHandle		*hdl = [notification object];
-  WebServerSession	*session;
+  WebServerConnection	*connection;
 
   _ticked = [NSDate timeIntervalSinceReferenceDate];
-  session = (WebServerSession*)NSMapGet(_sessions, (void*)hdl);
-  NSAssert(session != nil, NSInternalInconsistencyException);
+  connection = (WebServerConnection*)NSMapGet(_connections, (void*)hdl);
+  NSAssert(connection != nil, NSInternalInconsistencyException);
 
-  if ([session shouldEnd] == YES)
+  if ([connection shouldEnd] == YES)
     {
-      [self _endSession: session];
+      [self _endConnection: connection];
     }
   else
     {
       if (_durations == YES)
 	{
-	  NSTimeInterval	t = [session requestDuration: _ticked];
+	  NSTimeInterval	t = [connection requestDuration: _ticked];
 
 	  if (t == 0.0)
 	    {
-	      if ([_quiet containsObject: [session address]] == NO)
+	      if ([_quiet containsObject: [connection address]] == NO)
 		{
-		  [self _log: @"%@ reset", session];
+		  [self _log: @"%@ reset", connection];
 		}
 	    }
 	  else
 	    {
-	      [self _log: @"%@ end of request (duration %g)", session, t];
+	      [self _log: @"%@ end of request (duration %g)", connection, t];
 	    }
 	}
-      [session reset];
+      [connection reset];
       [hdl readInBackgroundAndNotify];	// Want another request.
     }
 }
 
-- (void) _endSession: (WebServerSession*)session
+- (void) _endConnection: (WebServerConnection*)connection
 {
-  NSFileHandle	*hdl = [session handle];
+  NSFileHandle	*hdl = [connection handle];
 
-  if ([_quiet containsObject: [session address]] == NO)
+  if ([_quiet containsObject: [connection address]] == NO)
     {
       if (_durations == YES)
 	{
-	  NSTimeInterval	r = [session requestDuration: _ticked];
+	  NSTimeInterval	r = [connection requestDuration: _ticked];
 
 	  if (r > 0.0)
 	    {
-	      [self _log: @"%@ end of request (duration %g)", session, r];
+	      [self _log: @"%@ end of request (duration %g)", connection, r];
 	    }
 	}
       if (_verbose == YES)
 	{
-	  NSTimeInterval	s = [session sessionDuration: _ticked];
+	  NSTimeInterval	s = [connection connectionDuration: _ticked];
 
-	  [self _log: @"%@ disconnect (duration %g)", session, s];
+	  [self _log: @"%@ disconnect (duration %g)", connection, s];
 	}
       _handled++;
     }
@@ -1617,10 +1617,10 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   [_nc removeObserver: self
 		 name: GSFileHandleWriteCompletionNotification
 	       object: hdl];
-  [_perHost removeObject: [session address]];
-  NSMapRemove(_sessions, (void*)hdl);
+  [_perHost removeObject: [connection address]];
+  NSMapRemove(_connections, (void*)hdl);
   if (_accepting == NO
-    && (_maxSessions <= 0 || NSCountMapTable(_sessions) < _maxSessions))
+    && (_maxConnections <= 0 || NSCountMapTable(_connections) < _maxConnections))
     {
       [_listener acceptConnectionInBackgroundAndNotify];
       _accepting = YES;
@@ -1642,7 +1642,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   va_end(args);
 }
 
-- (void) _process: (WebServerSession*)session
+- (void) _process: (WebServerConnection*)connection
 {
   GSMimeDocument	*request;
   GSMimeDocument	*response;
@@ -1657,8 +1657,8 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   NSEnumerator		*enumerator;
   GSMimeHeader		*hdr;
 
-  AUTORELEASE(RETAIN(session));
-  request = [[session parser] mimeDocument];
+  AUTORELEASE(RETAIN(connection));
+  request = [[connection parser] mimeDocument];
 
   /*
    * If the client specified that the connection should close, we don't
@@ -1667,23 +1667,23 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   con = [[request headerNamed: @"connection"] value]; 
   if (con != nil && [con caseInsensitiveCompare: @"close"] == NSOrderedSame)
     {
-      [session setShouldEnd: YES];	// Not persistent.
+      [connection setShouldEnd: YES];	// Not persistent.
     }
 
   /*
    * Provide more information about the connection.
    */
   [request setHeader: @"x-local-address"
-	       value: [[session handle] socketLocalAddress]
+	       value: [[connection handle] socketLocalAddress]
 	  parameters: nil];
   [request setHeader: @"x-local-port"
-	       value: [[session handle] socketLocalService]
+	       value: [[connection handle] socketLocalService]
 	  parameters: nil];
   [request setHeader: @"x-remote-address"
-	       value: [[session handle] socketAddress]
+	       value: [[connection handle] socketAddress]
 	  parameters: nil];
   [request setHeader: @"x-remote-port"
-	       value: [[session handle] socketService]
+	       value: [[connection handle] socketService]
 	  parameters: nil];
 
   str = [[request headerNamed: @"authorization"] value];
@@ -1711,18 +1711,18 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   response = AUTORELEASE([GSMimeDocument new]);
   [response setContent: [NSData data] type: @"text/plain" name: nil];
 
-  if ([_quiet containsObject: [session address]] == NO)
+  if ([_quiet containsObject: [connection address]] == NO)
     {
       _requests++;
       if (_verbose == YES)
 	{
-	  [self _log: @"Request %@ - %@", session, request];
+	  [self _log: @"Request %@ - %@", connection, request];
 	}
     }
   NS_DURING
     {
-      [session setProcessing: YES];
-      [session setTicked: _ticked];
+      [connection setProcessing: YES];
+      [connection setTicked: _ticked];
       if ([self accessRequest: request response: response] == YES)
 	{
 	  [_delegate processRequest: request
@@ -1730,12 +1730,12 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 				for: self];
 	}
       _ticked = [NSDate timeIntervalSinceReferenceDate];
-      [session setTicked: _ticked];
-      [session setProcessing: NO];
+      [connection setTicked: _ticked];
+      [connection setProcessing: NO];
     }
   NS_HANDLER
     {
-      [session setProcessing: NO];
+      [connection setProcessing: NO];
       [self _alert: @"Exception %@, processing %@", localException, request];
       [response setHeader: @"http"
 		    value: @"HTTP/1.0 500 Internal Server Error"
@@ -1806,7 +1806,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
       if ([s hasPrefix: @"HTTP/"] == NO
 	|| [[s substringFromIndex: 5] floatValue] < 1.1) 
 	{
-	  [session setShouldEnd: YES];
+	  [connection setShouldEnd: YES];
 	}
     }
 
@@ -1823,11 +1823,11 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
     {
       [out appendBytes: "\r\n" length: 2];	// Terminate headers
     }
-  if (_verbose == YES && [_quiet containsObject: [session address]] == NO)
+  if (_verbose == YES && [_quiet containsObject: [connection address]] == NO)
     {
-      [self _log: @"Response %@ - %@", session, out];
+      [self _log: @"Response %@ - %@", connection, out];
     }
-  [[session handle] writeInBackgroundAndNotify: out];
+  [[connection handle] writeInBackgroundAndNotify: out];
 }
 
 - (void) _timeout: (NSTimer*)timer
@@ -1836,34 +1836,34 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 
   _ticked = [NSDate timeIntervalSinceReferenceDate];
 
-  count = NSCountMapTable(_sessions);
+  count = NSCountMapTable(_connections);
   if (count > 0)
     {
       NSMapEnumerator	enumerator;
-      WebServerSession	*session;
+      WebServerConnection	*connection;
       NSFileHandle	*handle;
       NSMutableArray	*array;
 
       array = [NSMutableArray arrayWithCapacity: count];
-      enumerator = NSEnumerateMapTable(_sessions);
+      enumerator = NSEnumerateMapTable(_connections);
       while (NSNextMapEnumeratorPair(&enumerator,
-	(void **)(&handle), (void**)(&session)))
+	(void **)(&handle), (void**)(&connection)))
 	{
-	  if (_ticked - [session ticked] > _sessionTimeout
-	      && [session processing] == NO)
+	  if (_ticked - [connection ticked] > _connectionTimeout
+	      && [connection processing] == NO)
 	    {
-	      [array addObject: session];
+	      [array addObject: connection];
 	    }
 	}
       NSEndMapTableEnumeration(&enumerator);
       while ([array count] > 0)
 	{
-	  session = [array objectAtIndex: 0];
+	  connection = [array objectAtIndex: 0];
 	  if (_verbose == YES)
 	    {
-	      [self _log: @"Session timed out - %@", session];
+	      [self _log: @"Connection timed out - %@", connection];
 	    }
-	  [self _endSession: session];
+	  [self _endConnection: connection];
 	  [array removeObjectAtIndex: 0];
 	}
     }

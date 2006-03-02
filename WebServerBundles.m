@@ -240,6 +240,10 @@
     }
 }
 
+- (void) webLog: (NSString*)message for: (WebServer*)http
+{
+}
+
 - (void) webAlert: (NSString*)message for: (WebServer*)http
 {
   NSLog(@"%@", message);

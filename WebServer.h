@@ -193,16 +193,16 @@
   unsigned int		_substitutionLimit;
   unsigned int		_maxBodySize;
   unsigned int		_maxRequestSize;
-  unsigned int		_maxSessions;
+  unsigned int		_maxConnections;
   unsigned int		_maxPerHost;
   id			_delegate;
   NSFileHandle		*_listener;
-  NSMapTable		*_sessions;
+  NSMapTable		*_connections;
   unsigned		_handled;
   unsigned		_requests;
   NSString		*_root;
   NSTimer		*_ticker;
-  NSTimeInterval	_sessionTimeout;
+  NSTimeInterval	_connectionTimeout;
   NSTimeInterval	_ticked;
   NSCountedSet		*_perHost;
 }
@@ -369,14 +369,20 @@
 		   using: (NSDictionary*)map;
 
 /**
+ * Sets the time after which an idle connection should be shut down.<br />
+ * Default is 30.0
+ */
+- (void) setConnectionTimeout: (NSTimeInterval)aDelay;
+
+/**
  * Sets the delegate object which processes requests for the receiver.
  */
 - (void) setDelegate: (id)anObject;
 
 /**
- * Sets a flag to determine whether logging of request and session
+ * Sets a flag to determine whether logging of request and connection
  * durations is to be performed.<br />
- * If this is YES then the duration of requests and sessions will
+ * If this is YES then the duration of requests and connections will
  * be logged using the [(WebServerDelegate)-webLog:for:] method.<br />
  * The request duration is calculated from the point where the first byte
  * of data in the request is read to the point where the response has
@@ -392,26 +398,26 @@
 - (void) setMaxBodySize: (unsigned)max;
 
 /**
+ * Sets the maximum number of simultaneous connections with clients.<br />
+ * The default is 32.<br />
+ * A value of zero permits unlimited connections.
+ */
+- (void) setMaxConnections: (unsigned)max;
+
+/**
+ * Sets the maximum number of simultaneous connections with a particular
+ * remote host.<br />
+ * The default is 8.<br />
+ * A value of zero permits unlimited connections.
+ */
+- (void) setMaxConnectionsPerHost: (unsigned)max;
+
+/**
  * Sets the maximum size of an incoming request (including all headers,
  * but not the body).<br />
  * The default is 8K bytes.<br />
  */
 - (void) setMaxRequestSize: (unsigned)max;
-
-/**
- * Sets the maximum number of simultaneous sessions with clients.<br />
- * The default is 32.<br />
- * A value of zero permits unlimited connections.
- */
-- (void) setMaxSessions: (unsigned)max;
-
-/**
- * Sets the maximum number of simultaneous sessions with a particular
- * remote host.<br />
- * The default is 8.<br />
- * A value of zero permits unlimited connections.
- */
-- (void) setMaxSessionsPerHost: (unsigned)max;
 
 /**
  * Sets the port and security information for the receiver ... without
@@ -447,12 +453,6 @@
  * Templates may only be loaded from within this directory.
  */
 - (void) setRoot: (NSString*)aPath;
-
-/**
- * Sets the time after which an idle session should be shut down.<br />
- * Default is 30.0
- */
-- (void) setSessionTimeout: (NSTimeInterval)aDelay;
 
 /**
  * Sets a flag to determine whether verbose logging is to be performed.<br />
@@ -590,6 +590,12 @@
  * Registering a nil handler destroys any existing handler for the path.
  */
 - (void) registerHandler: (id)handler forPath: (NSString*)path;
+
+/**
+ * Just discard the message ... please subclass or use a category to
+ * override this method if you wish to used the logged messages.
+ */
+- (void) webLog: (NSString*)message for: (WebServer*)http;
 
 /**
  * Just write to stderr using NSLog.
