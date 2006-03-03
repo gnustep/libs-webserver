@@ -402,10 +402,13 @@
  * Sets the maximum number of simultaneous connections with clients.<br />
  * The default is 128.<br />
  * A value of zero permits unlimited connections.<br />
- * If the number of connections is exceeded, the server simply accepts no
- * more until an existing connection is terminated.  The operating system
- * will queue further incoming connections for a while, and those queued
- * connections will be handled as and when active connections are dropped.
+ * If the number of connections is exceeded, the server will refuse the
+ * first additional connection with an HTTP 503 response, and will simply
+ * accepts no more until an existing connection is terminated (eg. by that
+ * last response being written to the client and the connection being
+ * dropped).  The operating system will queue further incoming connections
+ * for a while, and those queued connections will be handled as and when
+ * active connections are dropped.
  */
 - (void) setMaxConnections: (unsigned)max;
 

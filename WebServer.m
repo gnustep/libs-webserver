@@ -995,7 +995,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 			  name: NSFileHandleConnectionAcceptedNotification
 			object: _listener];
 	      if (_accepting == NO && (_maxConnections <= 0
-		|| NSCountMapTable(_connections) < _maxConnections))
+		|| NSCountMapTable(_connections) <= _maxConnections))
 		{
 		  [_listener acceptConnectionInBackgroundAndNotify];
 		  _accepting = YES;
@@ -1235,6 +1235,15 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	{
 	  [self _alert: @"Too many connections from (%@) for new connect.", a];
 	  [hdl writeInBackgroundAndNotify:
+	    [@"HTTP/1.0 503 Too many existing connections from host\r\n\r\n"
+	    dataUsingEncoding: NSASCIIStringEncoding]];
+	  refusal = YES;
+	}
+      else if (_maxConnections > 0
+        && NSCountMapTable(_connections) >= _maxConnections)
+	{
+	  [self _alert: @"Too many connections in total for new connect.", a];
+	  [hdl writeInBackgroundAndNotify:
 	    [@"HTTP/1.0 503 Too many existing connections\r\n\r\n"
 	    dataUsingEncoding: NSASCIIStringEncoding]];
 	  refusal = YES;
@@ -1298,7 +1307,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
     }
   if (_accepting == NO
   && (_maxConnections == 0
-    || NSCountMapTable(_connections) < _maxConnections))
+    || NSCountMapTable(_connections) <= _maxConnections))
     {
       [_listener acceptConnectionInBackgroundAndNotify];
       _accepting = YES;
@@ -1658,7 +1667,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   [_perHost removeObject: [connection address]];
   NSMapRemove(_connections, (void*)hdl);
   if (_accepting == NO && (_maxConnections <= 0
-    || NSCountMapTable(_connections) < _maxConnections))
+    || NSCountMapTable(_connections) <= _maxConnections))
     {
       [_listener acceptConnectionInBackgroundAndNotify];
       _accepting = YES;
