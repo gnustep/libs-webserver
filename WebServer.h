@@ -165,8 +165,8 @@
  *   <term>WebServerHosts</term>
  *   <desc>An array of host IP addresses to list the mhosts permitted to
  *   send requests to the server.  If defined, requests from other hosts
- *   will be rejected.  It's better to use firewalling to control this
- *   sort of thing.
+ *   will be rejected (with an HTTP 403 response).
+ *   It may be better to use firewalling to control this sort of thing.
  *   </desc>
  *   <term>WebServerQuiet</term>
  *   <desc>An array of host IP addresses to refrain from logging ...
@@ -394,21 +394,27 @@
 /**
  * Sets the maximum size of an uploaded request body.<br />
  * The default is 4M bytes.<br />
+ * The HTTP failure response for too large a body is 413.
  */
 - (void) setMaxBodySize: (unsigned)max;
 
 /**
  * Sets the maximum number of simultaneous connections with clients.<br />
- * The default is 32.<br />
- * A value of zero permits unlimited connections.
+ * The default is 128.<br />
+ * A value of zero permits unlimited connections.<br />
+ * If the number of connections is exceeded, the server simply accepts no
+ * more until an existing connection is terminated.  The operating system
+ * will queue further incoming connections for a while, and those queued
+ * connections will be handled as and when active connections are dropped.
  */
 - (void) setMaxConnections: (unsigned)max;
 
 /**
  * Sets the maximum number of simultaneous connections with a particular
  * remote host.<br />
- * The default is 8.<br />
- * A value of zero permits unlimited connections.
+ * The default is 32.<br />
+ * A value of zero permits unlimited connections.<br />
+ * The HTTP failure response for too many connections from a host is 503.
  */
 - (void) setMaxConnectionsPerHost: (unsigned)max;
 
@@ -416,6 +422,7 @@
  * Sets the maximum size of an incoming request (including all headers,
  * but not the body).<br />
  * The default is 8K bytes.<br />
+ * The HTTP failure response for too large a request is 413.
  */
 - (void) setMaxRequestSize: (unsigned)max;
 

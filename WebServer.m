@@ -607,7 +607,8 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 
 - (NSString*) description
 {
-  return [NSString stringWithFormat: @"%@ on %@(%@), %u of %u connections active,"
+  return [NSString stringWithFormat:
+    @"%@ on %@(%@), %u of %u connections active,"
     @" %u ended, %u requests, listening: %@",
     [super description], _port, ([self isSecure] ? @"https" : @"http"),
     NSCountMapTable(_connections),
@@ -622,8 +623,8 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   _quiet = RETAIN([defs arrayForKey: @"WebServerQuiet"]);
   _nc = RETAIN([NSNotificationCenter defaultCenter]);
   _connectionTimeout = 30.0;
-  _maxPerHost = 8;
-  _maxConnections = 32;
+  _maxPerHost = 32;
+  _maxConnections = 128;
   _maxBodySize = 8*1024;
   _maxRequestSize = 4*1024*1024;
   _substitutionLimit = 4;
@@ -1160,13 +1161,10 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 		  format: @"[%@ -%@] missing handle",
 	NSStringFromClass([self class]), NSStringFromSelector(_cmd)];
     }
-  else if ((a = [hdl socketAddress]) == nil)
-    {
-      [self _alert: @"Unknown address for new connection."]; 
-      [hdl closeFile];
-    }
   else
     {
+      BOOL	refusal = NO;
+
       if (_sslConfig != nil)
 	{
 	  NSString	*address = [hdl socketLocalAddress];
@@ -1195,7 +1193,15 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 		       PEMpasswd: password];
 	}
 
-      if ((h = [NSHost hostWithAddress: a]) == nil)
+      if ((a = [hdl socketAddress]) == nil)
+	{
+	  [self _alert: @"Unknown address for new connection."]; 
+	  [hdl writeInBackgroundAndNotify:
+	    [@"HTTP/1.0 403 Unknown client host\r\n\r\n"
+	    dataUsingEncoding: NSASCIIStringEncoding]];
+	  refusal = YES;
+	}
+      else if ((h = [NSHost hostWithAddress: a]) == nil)
 	{
 	  /*
 	   * Don't log this in quiet mode as it could just be a
@@ -1205,6 +1211,10 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	    {
 	      [self _alert: @"Unknown host (%@) on new connection.", a];
 	    }
+	  [hdl writeInBackgroundAndNotify:
+	    [@"HTTP/1.0 403 Bad client host\r\n\r\n"
+	    dataUsingEncoding: NSASCIIStringEncoding]];
+	  refusal = YES;
 	}
       else if (_hosts != nil && [_hosts containsObject: a] == NO)
 	{
@@ -1216,10 +1226,18 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	    {
 	      [self _log: @"Invalid host (%@) on new connection.", a];
 	    }
+	  [hdl writeInBackgroundAndNotify:
+	    [@"HTTP/1.0 403 Not a permitted client host\r\n\r\n"
+	    dataUsingEncoding: NSASCIIStringEncoding]];
+	  refusal = YES;
 	}
       else if (_maxPerHost > 0 && [_perHost countForObject: a] >= _maxPerHost)
 	{
 	  [self _alert: @"Too many connections from (%@) for new connect.", a];
+	  [hdl writeInBackgroundAndNotify:
+	    [@"HTTP/1.0 503 Too many existing connections\r\n\r\n"
+	    dataUsingEncoding: NSASCIIStringEncoding]];
+	  refusal = YES;
 	}
       else if (_sslConfig != nil && [hdl sslAccept] == NO)
 	{
@@ -1231,12 +1249,15 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	    {
 	      [self _log: @"SSL accept fail on new connection (%@).", a];
 	    }
+	  [hdl closeFile];
+	  hdl = nil;
 	}
-      else
+
+      if (hdl != nil)
 	{
 	  WebServerConnection	*connection = [WebServerConnection new];
 
-	  [connection setAddress: a];
+	  [connection setAddress: a == nil ? @"unknown" : a];
 	  [connection setHandle: hdl];
 	  [connection setBuffer: [NSMutableData dataWithCapacity: 1024]];
 	  [connection setTicked: _ticked];
@@ -1245,14 +1266,30 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	  [_perHost addObject: [connection address]];
 	  RELEASE(connection);
 	  [_nc addObserver: self
-		  selector: @selector(_didRead:)
-		      name: NSFileHandleReadCompletionNotification
-		    object: hdl];
-	  [_nc addObserver: self
 		  selector: @selector(_didWrite:)
 		      name: GSFileHandleWriteCompletionNotification
 		    object: hdl];
-	  [hdl readInBackgroundAndNotify];
+	  if (refusal == YES)
+	    {
+	      /*
+	       * We are simply refusing a connection, so we should end as
+	       * soon as the response has been written, and we should not
+	       * read anything from the client.
+	       */
+	      [connection setShouldEnd: YES];
+	    }
+	  else
+	    {
+	      /*
+	       * We have accepted the connection ... so we need to set up
+	       * to read the incoming request and parse/handle it.
+	       */
+	      [_nc addObserver: self
+		      selector: @selector(_didRead:)
+			  name: NSFileHandleReadCompletionNotification
+			object: hdl];
+	      [hdl readInBackgroundAndNotify];
+	    }
 	  if (_verbose == YES && [_quiet containsObject: a] == NO)
 	    {
 	      [self _log: @"%@ connect", connection];
@@ -1260,7 +1297,8 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	}
     }
   if (_accepting == NO
-    && (_maxConnections == 0 || NSCountMapTable(_connections) < _maxConnections))
+  && (_maxConnections == 0
+    || NSCountMapTable(_connections) < _maxConnections))
     {
       [_listener acceptConnectionInBackgroundAndNotify];
       _accepting = YES;
@@ -1367,7 +1405,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	  [self _log: @"Request too long ... rejected"];
 	  [connection setShouldEnd: YES];
 	  [hdl writeInBackgroundAndNotify:
-	    [@"HTTP/1.0 500 Request data too long\r\n\r\n"
+	    [@"HTTP/1.0 413 Request data too long\r\n\r\n"
 	    dataUsingEncoding: NSASCIIStringEncoding]];
 	  return;
 	}
@@ -1525,7 +1563,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
       [self _log: @"Request body too long ... rejected"];
       [connection setShouldEnd: YES];	// Not persistent.
       [hdl writeInBackgroundAndNotify:
-	[@"HTTP/1.0 500 Request body too long\r\n\r\n"
+	[@"HTTP/1.0 413 Request body too long\r\n\r\n"
 	dataUsingEncoding: NSASCIIStringEncoding]];
       return;
     }
@@ -1619,8 +1657,8 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	       object: hdl];
   [_perHost removeObject: [connection address]];
   NSMapRemove(_connections, (void*)hdl);
-  if (_accepting == NO
-    && (_maxConnections <= 0 || NSCountMapTable(_connections) < _maxConnections))
+  if (_accepting == NO && (_maxConnections <= 0
+    || NSCountMapTable(_connections) < _maxConnections))
     {
       [_listener acceptConnectionInBackgroundAndNotify];
       _accepting = YES;
