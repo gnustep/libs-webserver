@@ -1310,8 +1310,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	    }
 	}
     }
-  if (_accepting == NO
-    && (_maxConnections == 0
+  if (_accepting == NO && (_maxConnections == 0
     || NSCountMapTable(_connections) < (_maxConnections + _reject)))
     {
       [_listener acceptConnectionInBackgroundAndNotify];
