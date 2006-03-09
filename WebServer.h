@@ -187,6 +187,7 @@
   BOOL			_accepting;
   BOOL			_verbose;
   BOOL			_durations;
+  unsigned char		_reject;
   NSDictionary		*_sslConfig;
   NSArray		*_quiet;
   NSArray		*_hosts;
@@ -402,13 +403,8 @@
  * Sets the maximum number of simultaneous connections with clients.<br />
  * The default is 128.<br />
  * A value of zero permits unlimited connections.<br />
- * If the number of connections is exceeded, the server will refuse the
- * first additional connection with an HTTP 503 response, and will simply
- * accepts no more until an existing connection is terminated (eg. by that
- * last response being written to the client and the connection being
- * dropped).  The operating system will queue further incoming connections
- * for a while, and those queued connections will be handled as and when
- * active connections are dropped.
+ * If this limit is reached, the behavior of the software depends upon
+ * the value set by the -setMaxConnectionsReject: method.
  */
 - (void) setMaxConnections: (unsigned)max;
 
@@ -417,9 +413,35 @@
  * remote host.<br />
  * The default is 32.<br />
  * A value of zero permits unlimited connections.<br />
+ * If this value is greater than that of -setMaxConnections: then it will
+ * have no effect as the maximum number of connections from one host
+ * cannot be reached.<br />
  * The HTTP failure response for too many connections from a host is 503.
  */
 - (void) setMaxConnectionsPerHost: (unsigned)max;
+
+/**
+ * <p>This setting (default value NO) determines the behavior of the software
+ * when the number of sumultaneous incoming connections exceeds the value
+ * set by the -setMaxConnections: method.
+ * </p>
+ * <p>If reject is NO, the software will simply not accept the incoming
+ * connections until some earlier connection is terminated, so the
+ * incoming connections will be queued by the operating system and
+ * may time-out if no connections become free quickly enough for them
+ * to be handled.  In the case of a huge number of incoming connections
+ * the 'listen' queue of the operating system may fill up and connections
+ * may be lost altogether.
+ * </p>
+ * <p>If reject is yes, then the service will sety aside a slot for one
+ * extra connection and, when the number of permited connections is
+ * exceeded, the server will accept the first additional connection,
+ * send back an HTTP 503 response, and drop the additional connection
+ * again. This means that clients should recieve a 503 response rather
+ * than finding that their connecton attempts block and possible time out.
+ * </p>
+ */
+- (void) setMaxConnectionsReject: (BOOL)reject;
 
 /**
  * Sets the maximum size of an incoming request (including all headers,
