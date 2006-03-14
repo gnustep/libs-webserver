@@ -6,7 +6,7 @@ PACKAGE_NAME = WebServer
 PACKAGE_VERSION = 1.1.0
 CVS_MODULE_NAME = gnustep/dev-libs/WebServer
 CVS_TAG_NAME = WebServer
-SVN_BASE_URL=http://svn.gna.org/svn/gnustep/libs
+SVN_BASE_URL=svn+ssh://svn.gna.org/svn/gnustep/libs
 SVN_MODULE_NAME=webserver
 
 TEST_TOOL_NAME=
