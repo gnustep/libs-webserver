@@ -61,6 +61,40 @@
       <item>Limit size of request body permitted</item>
     </list>
   </section>
+  <section>
+    <heading>Performance and threading</heading>
+    <p>
+      The WebServer class essentially works using asynchronous I/O in a
+      single thread.  The asynchronous I/O mechanism is capably of reading
+      a request of up to the operating systems network buffer size in a
+      single operation and similarly writing out a response of upo to the
+      operating systems's network buffer size.<br />
+      As long as requests and responses are within those limits, it can be
+      assumed that low processing of a request in the 
+      [(WebServerDelegate)-processRequest:response:for:] method will have
+      little impact on efficiency as the WebServer read request and write
+      responses as rapidly as the delegates processing can handle them.<br />
+      If however the I/O sizes are larger than the buffers, then writing
+      a response will need to be multiple operations and each buffer full
+      of data may need to wait for the next call to the prodcessing method
+      before it can be sent.<br />
+      So, for large request/response sizes, or other cases where processing 
+      a single request at a time is a problem, the WebServer class provides
+      a simple mechanism for supporting multithreaded use.
+    </p>
+    <p>To use multiple threads, all you need to do is have the delegate
+      implementation of [(WebServerDelegate)-processRequest:response:for:]
+      pass processing to another thread and return NO.  When processing is
+      complete, the delegate calls -completedWithResponse: to pass the
+      response back to the WebServer instance for delivery to the client.<br />
+      NB. the -completedWithResponse: method is safe to call from any thread
+      but all other methods of the class should be called only from the
+      main thread.  If a delegate needs to call methods of the WebServer
+      instance in order to handle a request, it should do so in the
+      [(WebServerDelegate)-processRequest:response:for:] method before
+      handing controlo to another thread.
+    </p>
+  </section>
 </chapter>
 
    $Date$ $Revision$
@@ -127,7 +161,14 @@
  * not.<br />
  * If an exception is raised by this method, the response produced will
  * be set to 'HTTP/1.0 500 Internal Server Error' and the connection will
- * be closed.
+ * be closed.<br />
+ * If the method returns YES, the WebServer instance sends the response to
+ * the client process which made the request.<br />
+ * If the method returns NO, the WebSerever instance assumes that the
+ * delegate it processing the request in another thread (perhaps it will
+ * take a long time to process) and takes no action until the delegate
+ * calls [WebServer-completedWithResponse:] to let it know that processing
+ * is complete and the response should at last be sent out. 
  */
 - (BOOL) processRequest: (GSMimeDocument*)request
 	       response: (GSMimeDocument*)response
@@ -199,6 +240,7 @@
   id			_delegate;
   NSFileHandle		*_listener;
   NSMapTable		*_connections;
+  NSMapTable		*_processing;
   unsigned		_handled;
   unsigned		_requests;
   NSString		*_root;
@@ -239,6 +281,22 @@
  */
 - (BOOL) accessRequest: (GSMimeDocument*)request
 	      response: (GSMimeDocument*)response;
+
+/**
+ * <p>This may only be called in the case where a call to the delegate's
+ * [(WebServerDelegate)-processRequest:response:for:] method
+ * to process a request returned NO, indicating that the delegate
+ * would handle the request in another thread and complety it later.
+ * </p>
+ * <p>In such a case, the thread handling the request in the delegate
+ * <em>must</em> call this method upon completion (passing in the same
+ * request parameter that was passed to the delegate) to inform the
+ * WebServer instance that processing of the request has been completed
+ * and that it should now take over the job of sending the response to
+ * the client process.
+ * </p>
+ */
+- (void) completedWithResponse: (GSMimeDocument*)response;
 
 /**         
  * Decode an application/x-www-form-urlencoded form and store its
@@ -599,19 +657,21 @@
 - (id) initAsDelegateOf: (WebServer*)http;
 
 /**
- * Handles an incoming request by forwarding it to another handler.<br />
+ * <p>Handles an incoming request by forwarding it to another handler.<br />
  * If a direct mapping is available from the path in the request to
  * an existing handler, that handler is used to process the request.
  * Otherwise, the WebServerBundles dictionary (obtained from the
  * defaults system) is used to map the request path to configuration
- * information listing the bundle containing the handler to be used.<br />
- * The configuration information is a dictionary containing the name
+ * information listing the bundle containing the handler to be used.
+ * </p>
+ * <p>The configuration information is a dictionary containing the name
  * of the bundle (keyed on 'Name'), and this is used to locate the
  * bundle in the applications resources.<br />
  * Before a request is passed on to a handler, two extra headers are set
  * in it ... <code>x-http-path-base</code> and <code>x-http-path-info</code>
  * being the actual path matched for the handler, and the remainder of the
  * path after that base part.
+ * </p>
  */
 - (BOOL) processRequest: (GSMimeDocument*)request
                response: (GSMimeDocument*)response

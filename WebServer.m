@@ -49,6 +49,7 @@
 - (unsigned) moreBytes: (unsigned)count;
 - (GSMimeParser*) parser;
 - (BOOL) processing;
+- (GSMimeDocument*) request;
 - (NSTimeInterval) requestDuration: (NSTimeInterval)now;
 - (void) reset;
 - (NSTimeInterval) connectionDuration: (NSTimeInterval)now;
@@ -129,6 +130,11 @@
 - (BOOL) processing
 {
   return processing;
+}
+
+- (GSMimeDocument*) request
+{
+  return [parser mimeDocument];
 }
 
 - (NSTimeInterval) requestDuration: (NSTimeInterval)now
@@ -216,6 +222,7 @@
 
 @interface	WebServer (Private)
 - (void) _alert: (NSString*)fmt, ...;
+- (void) _completedWithResponse: (GSMimeDocument*)response;
 - (void) _didConnect: (NSNotification*)notification;
 - (void) _didRead: (NSNotification*)notification;
 - (void) _didWrite: (NSNotification*)notification;
@@ -304,6 +311,23 @@
     }
 }
 
+- (void) completedWithResponse: (GSMimeDocument*)response
+{
+  static NSArray	*modes = nil;
+
+  if (modes == nil)
+    {
+      id	objs[1];
+
+      objs[0] = NSDefaultRunLoopMode;
+      modes = [[NSArray alloc] initWithObjects: objs count: 1];
+    }
+  [self performSelectorOnMainThread: @selector(_completedWithResponse:)
+			 withObject: response
+		      waitUntilDone: NO
+			      modes: modes];
+}
+
 - (void) dealloc
 {
   if (_ticker != nil)
@@ -321,6 +345,11 @@
     {
       NSFreeMapTable(_connections);
       _connections = 0;
+    }
+  if (_processing != 0)
+    {
+      NSFreeMapTable(_processing);
+      _processing = 0;
     }
   [super dealloc];
 }
@@ -629,6 +658,8 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   _maxRequestSize = 4*1024*1024;
   _substitutionLimit = 4;
   _connections = NSCreateMapTable(NSNonOwnedPointerMapKeyCallBacks,
+    NSObjectMapValueCallBacks, 0);
+  _processing = NSCreateMapTable(NSObjectMapKeyCallBacks,
     NSObjectMapValueCallBacks, 0);
   _perHost = [NSCountedSet new];
   _ticker = [NSTimer scheduledTimerWithTimeInterval: 0.8
@@ -1150,6 +1181,112 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   va_end(args);
 }
 
+- (void) _completedWithResponse: (GSMimeDocument*)response
+{
+  WebServerConnection	*connection = nil;
+  NSMutableData		*raw;
+  NSMutableData		*out;
+  unsigned char		*buf;
+  unsigned int		len;
+  unsigned int		pos;
+  unsigned int		contentLength;
+  NSEnumerator		*enumerator;
+  GSMimeHeader		*hdr;
+
+  connection = (WebServerConnection*)NSMapGet(_processing, (void*)response);
+  _ticked = [NSDate timeIntervalSinceReferenceDate];
+  [connection setTicked: _ticked];
+  [connection setProcessing: NO];
+
+  [response setHeader: @"content-transfer-encoding"
+		value: @"binary"
+	   parameters: nil];
+  raw = [response rawMimeData];
+  buf = [raw mutableBytes];
+  len = [raw length];
+
+  for (pos = 4; pos < len; pos++)
+    {
+      if (strncmp((char*)&buf[pos-4], "\r\n\r\n", 4) == 0)
+	{
+	  break;
+	}
+    }
+  contentLength = len - pos;
+  pos -= 2;
+  [raw replaceBytesInRange: NSMakeRange(0, pos) withBytes: 0 length: 0];
+
+  out = [NSMutableData dataWithCapacity: len + 1024];
+  [response deleteHeaderNamed: @"mime-version"];
+  [response deleteHeaderNamed: @"content-length"];
+  [response deleteHeaderNamed: @"content-encoding"];
+  [response deleteHeaderNamed: @"content-transfer-encoding"];
+  if (contentLength > 0)
+    {
+      NSString	*str;
+
+      str = [NSString stringWithFormat: @"%u", contentLength];
+      [response setHeader: @"content-length" value: str parameters: nil];
+    }
+  else
+    {
+      [response deleteHeaderNamed: @"content-type"];
+    }
+  hdr = [response headerNamed: @"http"];
+  if (hdr == nil)
+    {
+      const char	*s;
+
+      if (contentLength == 0)
+	{
+	  s = "HTTP/1.1 204 No Content\r\n";
+	}
+      else
+	{
+	  s = "HTTP/1.1 200 Success\r\n";
+	}
+      [out appendBytes: s length: strlen(s)];
+    }
+  else
+    {
+      NSString	*s = [[hdr value] stringByTrimmingSpaces];
+
+      s = [s stringByAppendingString: @"\r\n"];
+      [out appendData: [s dataUsingEncoding: NSASCIIStringEncoding]];
+      [response deleteHeader: hdr];
+      /*
+       * If the http version has been set to be an old one,
+       * we must be prepared to close the connection at once.
+       */
+      if ([s hasPrefix: @"HTTP/"] == NO
+	|| [[s substringFromIndex: 5] floatValue] < 1.1) 
+	{
+	  [connection setShouldEnd: YES];
+	}
+    }
+
+  enumerator = [[response allHeaders] objectEnumerator];
+  while ((hdr = [enumerator nextObject]) != nil)
+    {
+      [out appendData: [hdr rawMimeData]];
+    }
+  if ([raw length] > 0)
+    {
+      [out appendData: raw];
+    }
+  else
+    {
+      [out appendBytes: "\r\n" length: 2];	// Terminate headers
+    }
+  if (_verbose == YES && [_quiet containsObject: [connection address]] == NO)
+    {
+      [self _log: @"Response %@ - %@", connection, out];
+    }
+  [[connection handle] writeInBackgroundAndNotify: out];
+
+  NSMapRemove(_processing, (void*)response);
+}
+
 - (void) _didConnect: (NSNotification*)notification
 {
   NSDictionary		*userInfo = [notification userInfo];
@@ -1450,15 +1587,16 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	    {
 	      back--;
 	    }
-	  if (isspace(bytes[back]))
+	  if (isspace(bytes[back])
+	    && strncmp((char*)bytes + back + 1, "HTTP/", 5) == 0)
 	    {
 	      bytes[back] = '\0';
-	      end = back + 1;
-	      if (strncmp((char*)bytes + end, "HTTP/", 5) == 0)
-		{
-		  end += 5;
-		  version = [NSString stringWithUTF8String: (char*)bytes + end];
-		}
+	      end = back + 6;
+	      version = [NSString stringWithUTF8String: (char*)bytes + end];
+	    }
+	  else
+	    {
+	      back = strlen(bytes);
 	    }
 	  if ([version floatValue] < 1.1)
 	    {
@@ -1699,17 +1837,14 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   GSMimeDocument	*response;
   NSString		*str;
   NSString		*con;
-  NSMutableData		*raw;
-  NSMutableData		*out;
-  unsigned char		*buf;
-  unsigned int		len;
-  unsigned int		pos;
-  unsigned int		contentLength;
-  NSEnumerator		*enumerator;
-  GSMimeHeader		*hdr;
+  BOOL			processed = YES;
 
-  AUTORELEASE(RETAIN(connection));
-  request = [[connection parser] mimeDocument];
+  response = [GSMimeDocument new];
+  NSMapInsert(_processing, (void*)response, (void*)connection);
+  RELEASE(response);
+  [connection setProcessing: YES];
+
+  request = [connection request];
 
   /*
    * If the client specified that the connection should close, we don't
@@ -1759,7 +1894,6 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	}
     }
 
-  response = AUTORELEASE([GSMimeDocument new]);
   [response setContent: [NSData data] type: @"text/plain" name: nil];
 
   if ([_quiet containsObject: [connection address]] == NO)
@@ -1772,21 +1906,18 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
     }
   NS_DURING
     {
-      [connection setProcessing: YES];
       [connection setTicked: _ticked];
       if ([self accessRequest: request response: response] == YES)
 	{
-	  [_delegate processRequest: request
-			   response: response
-				for: self];
+	  processed = [_delegate processRequest: request
+				       response: response
+					    for: self];
 	}
       _ticked = [NSDate timeIntervalSinceReferenceDate];
       [connection setTicked: _ticked];
-      [connection setProcessing: NO];
     }
   NS_HANDLER
     {
-      [connection setProcessing: NO];
       [self _alert: @"Exception %@, processing %@", localException, request];
       [response setHeader: @"http"
 		    value: @"HTTP/1.0 500 Internal Server Error"
@@ -1794,91 +1925,10 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
     }
   NS_ENDHANDLER
 
-  [response setHeader: @"content-transfer-encoding"
-		value: @"binary"
-	   parameters: nil];
-  raw = [response rawMimeData];
-  buf = [raw mutableBytes];
-  len = [raw length];
-
-  for (pos = 4; pos < len; pos++)
+  if (processed == YES)
     {
-      if (strncmp((char*)&buf[pos-4], "\r\n\r\n", 4) == 0)
-	{
-	  break;
-	}
+      [self _completedWithResponse: response];
     }
-  contentLength = len - pos;
-  pos -= 2;
-  [raw replaceBytesInRange: NSMakeRange(0, pos) withBytes: 0 length: 0];
-
-  out = [NSMutableData dataWithCapacity: len + 1024];
-  [response deleteHeaderNamed: @"mime-version"];
-  [response deleteHeaderNamed: @"content-length"];
-  [response deleteHeaderNamed: @"content-encoding"];
-  [response deleteHeaderNamed: @"content-transfer-encoding"];
-  if (contentLength > 0)
-    {
-      NSString	*str;
-
-      str = [NSString stringWithFormat: @"%u", contentLength];
-      [response setHeader: @"content-length" value: str parameters: nil];
-    }
-  else
-    {
-      [response deleteHeaderNamed: @"content-type"];
-    }
-  hdr = [response headerNamed: @"http"];
-  if (hdr == nil)
-    {
-      const char	*s;
-
-      if (contentLength == 0)
-	{
-	  s = "HTTP/1.1 204 No Content\r\n";
-	}
-      else
-	{
-	  s = "HTTP/1.1 200 Success\r\n";
-	}
-      [out appendBytes: s length: strlen(s)];
-    }
-  else
-    {
-      NSString	*s = [[hdr value] stringByTrimmingSpaces];
-
-      s = [s stringByAppendingString: @"\r\n"];
-      [out appendData: [s dataUsingEncoding: NSASCIIStringEncoding]];
-      [response deleteHeader: hdr];
-      /*
-       * If the http version has been set to be an old one,
-       * we must be prepared to close the connection at once.
-       */
-      if ([s hasPrefix: @"HTTP/"] == NO
-	|| [[s substringFromIndex: 5] floatValue] < 1.1) 
-	{
-	  [connection setShouldEnd: YES];
-	}
-    }
-
-  enumerator = [[response allHeaders] objectEnumerator];
-  while ((hdr = [enumerator nextObject]) != nil)
-    {
-      [out appendData: [hdr rawMimeData]];
-    }
-  if ([raw length] > 0)
-    {
-      [out appendData: raw];
-    }
-  else
-    {
-      [out appendBytes: "\r\n" length: 2];	// Terminate headers
-    }
-  if (_verbose == YES && [_quiet containsObject: [connection address]] == NO)
-    {
-      [self _log: @"Response %@ - %@", connection, out];
-    }
-  [[connection handle] writeInBackgroundAndNotify: out];
 }
 
 - (void) _timeout: (NSTimer*)timer
