@@ -40,9 +40,11 @@
   BOOL			processing;
   BOOL			shouldEnd;
   BOOL			hasReset;
+  BOOL			simple;
 }
 - (NSString*) address;
 - (NSMutableData*) buffer;
+- (NSTimeInterval) connectionDuration: (NSTimeInterval)now;
 - (NSFileHandle*) handle;
 - (BOOL) hasReset;
 - (unsigned) identity;
@@ -52,7 +54,6 @@
 - (GSMimeDocument*) request;
 - (NSTimeInterval) requestDuration: (NSTimeInterval)now;
 - (void) reset;
-- (NSTimeInterval) connectionDuration: (NSTimeInterval)now;
 - (void) setAddress: (NSString*)aString;
 - (void) setBuffer: (NSMutableData*)aBuffer;
 - (void) setConnectionStart: (NSTimeInterval)when;
@@ -61,8 +62,10 @@
 - (void) setProcessing: (BOOL)aFlag;
 - (void) setRequestStart: (NSTimeInterval)when;
 - (void) setShouldEnd: (BOOL)aFlag;
+- (void) setSimple: (BOOL)aFlag;
 - (void) setTicked: (NSTimeInterval)when;
 - (BOOL) shouldEnd;
+- (BOOL) simple;
 - (NSTimeInterval) ticked;
 @end
 
@@ -149,6 +152,7 @@
 - (void) reset
 {
   hasReset = YES;
+  simple = NO;
   [self setRequestStart: 0.0];
   [self setBuffer: [NSMutableData dataWithCapacity: 1024]];
   [self setParser: nil];
@@ -204,6 +208,11 @@
   shouldEnd = aFlag;
 }
 
+- (void) setSimple: (BOOL)aFlag
+{
+  simple = aFlag;
+}
+
 - (void) setTicked: (NSTimeInterval)when
 {
   ticked = when;
@@ -212,6 +221,11 @@
 - (BOOL) shouldEnd
 {
   return shouldEnd;
+}
+
+- (BOOL) simple
+{
+  return simple;
 }
 
 - (NSTimeInterval) ticked
@@ -1184,14 +1198,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 - (void) _completedWithResponse: (GSMimeDocument*)response
 {
   WebServerConnection	*connection = nil;
-  NSMutableData		*raw;
-  NSMutableData		*out;
-  unsigned char		*buf;
-  unsigned int		len;
-  unsigned int		pos;
-  unsigned int		contentLength;
-  NSEnumerator		*enumerator;
-  GSMimeHeader		*hdr;
+  NSData		*result;
 
   connection = (WebServerConnection*)NSMapGet(_processing, (void*)response);
   _ticked = [NSDate timeIntervalSinceReferenceDate];
@@ -1201,88 +1208,111 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   [response setHeader: @"content-transfer-encoding"
 		value: @"binary"
 	   parameters: nil];
-  raw = [response rawMimeData];
-  buf = [raw mutableBytes];
-  len = [raw length];
 
-  for (pos = 4; pos < len; pos++)
+  if ([connection simple] == YES)
     {
-      if (strncmp((char*)&buf[pos-4], "\r\n\r\n", 4) == 0)
-	{
-	  break;
-	}
-    }
-  contentLength = len - pos;
-  pos -= 2;
-  [raw replaceBytesInRange: NSMakeRange(0, pos) withBytes: 0 length: 0];
-
-  out = [NSMutableData dataWithCapacity: len + 1024];
-  [response deleteHeaderNamed: @"mime-version"];
-  [response deleteHeaderNamed: @"content-length"];
-  [response deleteHeaderNamed: @"content-encoding"];
-  [response deleteHeaderNamed: @"content-transfer-encoding"];
-  if (contentLength > 0)
-    {
-      NSString	*str;
-
-      str = [NSString stringWithFormat: @"%u", contentLength];
-      [response setHeader: @"content-length" value: str parameters: nil];
-    }
+      /*
+       * If we had a 'simple' request with no HTTP version, we must respond
+       * with a 'simple' response ... just the raw data with no headers.
+       */
+      result = [response convertToData];
+    } 
   else
     {
-      [response deleteHeaderNamed: @"content-type"];
-    }
-  hdr = [response headerNamed: @"http"];
-  if (hdr == nil)
-    {
-      const char	*s;
+      NSMutableData	*out;
+      NSMutableData	*raw;
+      unsigned char	*buf;
+      unsigned int	len;
+      unsigned int	pos;
+      unsigned int	contentLength;
+      NSEnumerator	*enumerator;
+      GSMimeHeader	*hdr;
 
-      if (contentLength == 0)
+      raw = [response rawMimeData];
+      buf = [raw mutableBytes];
+      len = [raw length];
+
+      for (pos = 4; pos < len; pos++)
 	{
-	  s = "HTTP/1.1 204 No Content\r\n";
+	  if (strncmp((char*)&buf[pos-4], "\r\n\r\n", 4) == 0)
+	    {
+	      break;
+	    }
+	}
+      contentLength = len - pos;
+      pos -= 2;
+      [raw replaceBytesInRange: NSMakeRange(0, pos) withBytes: 0 length: 0];
+
+      out = [NSMutableData dataWithCapacity: len + 1024];
+      [response deleteHeaderNamed: @"mime-version"];
+      [response deleteHeaderNamed: @"content-length"];
+      [response deleteHeaderNamed: @"content-encoding"];
+      [response deleteHeaderNamed: @"content-transfer-encoding"];
+      if (contentLength > 0)
+	{
+	  NSString	*str;
+
+	  str = [NSString stringWithFormat: @"%u", contentLength];
+	  [response setHeader: @"content-length" value: str parameters: nil];
 	}
       else
 	{
-	  s = "HTTP/1.1 200 Success\r\n";
+	  [response deleteHeaderNamed: @"content-type"];
 	}
-      [out appendBytes: s length: strlen(s)];
-    }
-  else
-    {
-      NSString	*s = [[hdr value] stringByTrimmingSpaces];
-
-      s = [s stringByAppendingString: @"\r\n"];
-      [out appendData: [s dataUsingEncoding: NSASCIIStringEncoding]];
-      [response deleteHeader: hdr];
-      /*
-       * If the http version has been set to be an old one,
-       * we must be prepared to close the connection at once.
-       */
-      if ([s hasPrefix: @"HTTP/"] == NO
-	|| [[s substringFromIndex: 5] floatValue] < 1.1) 
+      hdr = [response headerNamed: @"http"];
+      if (hdr == nil)
 	{
-	  [connection setShouldEnd: YES];
+	  const char	*s;
+
+	  if (contentLength == 0)
+	    {
+	      s = "HTTP/1.1 204 No Content\r\n";
+	    }
+	  else
+	    {
+	      s = "HTTP/1.1 200 Success\r\n";
+	    }
+	  [out appendBytes: s length: strlen(s)];
 	}
+      else
+	{
+	  NSString	*s = [[hdr value] stringByTrimmingSpaces];
+
+	  s = [s stringByAppendingString: @"\r\n"];
+	  [out appendData: [s dataUsingEncoding: NSASCIIStringEncoding]];
+	  [response deleteHeader: hdr];
+	  /*
+	   * If the http version has been set to be an old one,
+	   * we must be prepared to close the connection at once.
+	   */
+	  if ([s hasPrefix: @"HTTP/"] == NO
+	    || [[s substringFromIndex: 5] floatValue] < 1.1) 
+	    {
+	      [connection setShouldEnd: YES];
+	    }
+	}
+
+      enumerator = [[response allHeaders] objectEnumerator];
+      while ((hdr = [enumerator nextObject]) != nil)
+	{
+	  [out appendData: [hdr rawMimeData]];
+	}
+      if ([raw length] > 0)
+	{
+	  [out appendData: raw];
+	}
+      else
+	{
+	  [out appendBytes: "\r\n" length: 2];	// Terminate headers
+	}
+      result = out;
     }
 
-  enumerator = [[response allHeaders] objectEnumerator];
-  while ((hdr = [enumerator nextObject]) != nil)
-    {
-      [out appendData: [hdr rawMimeData]];
-    }
-  if ([raw length] > 0)
-    {
-      [out appendData: raw];
-    }
-  else
-    {
-      [out appendBytes: "\r\n" length: 2];	// Terminate headers
-    }
   if (_verbose == YES && [_quiet containsObject: [connection address]] == NO)
     {
-      [self _log: @"Response %@ - %@", connection, out];
+      [self _log: @"Response %@ - %@", connection, result];
     }
-  [[connection handle] writeInBackgroundAndNotify: out];
+  [[connection handle] writeInBackgroundAndNotify: result];
 
   NSMapRemove(_processing, (void*)response);
 }
@@ -1408,7 +1438,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	{
 	  WebServerConnection	*connection = [WebServerConnection new];
 
-	  [connection setAddress: a == nil ? @"unknown" : a];
+	  [connection setAddress: a == nil ? (id)@"unknown" : (id)a];
 	  [connection setHandle: hdl];
 	  [connection setBuffer: [NSMutableData dataWithCapacity: 1024]];
 	  [connection setTicked: _ticked];
@@ -1593,13 +1623,15 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	      bytes[back] = '\0';
 	      end = back + 6;
 	      version = [NSString stringWithUTF8String: (char*)bytes + end];
+	      if ([version floatValue] < 1.1)
+		{
+		  [connection setShouldEnd: YES];	// Not persistent.
+		}
 	    }
 	  else
 	    {
-	      back = strlen(bytes);
-	    }
-	  if ([version floatValue] < 1.1)
-	    {
+	      back = strlen((const char*)bytes);
+	      [connection setSimple: YES];	// Old style simple request.
 	      [connection setShouldEnd: YES];	// Not persistent.
 	    }
 

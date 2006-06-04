@@ -1,3 +1,10 @@
+2006-06-04 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServer.h:
+	* WebServer.m:
+	Add thread support and support for very old clients sending simple
+	http0.9 requests.
+
 2006-03-02 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* WebServerBundles.m: Add missing method.
