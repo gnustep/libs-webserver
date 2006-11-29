@@ -180,7 +180,13 @@
 - (void) webAlert: (NSString*)message for: (WebServer*)http;
 
 /**
- * Log a debug or audit message ... if the delegate does not implement this
+ * Log an audit record ... if the delegate does not implement this
+ * method, the message is logged to stderr.
+ */
+- (void) webAudit: (NSString*)message for: (WebServer*)http;
+
+/**
+ * Log a debug ... if the delegate does not implement this
  * method, no logging is done.
  */
 - (void) webLog: (NSString*)message for: (WebServer*)http;
@@ -684,15 +690,21 @@
 - (void) registerHandler: (id)handler forPath: (NSString*)path;
 
 /**
+ * Just write to stderr using NSLog.
+ */
+- (void) webAlert: (NSString*)message for: (WebServer*)http;
+
+/**
+ * Log an audit record as UTF8 data on stderr.
+ */
+- (void) webAudit: (NSString*)message for: (WebServer*)http;
+
+/**
  * Just discard the message ... please subclass or use a category to
  * override this method if you wish to used the logged messages.
  */
 - (void) webLog: (NSString*)message for: (WebServer*)http;
 
-/**
- * Just write to stderr using NSLog.
- */
-- (void) webAlert: (NSString*)message for: (WebServer*)http;
 @end
 
 #endif

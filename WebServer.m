@@ -28,7 +28,10 @@
 
 @interface	WebServerConnection : NSObject
 {
-  NSString		*address;
+  NSString		*address;	// Client address
+  NSString		*command;	// Command sent by client
+  NSString		*agent;		// User-Agent header
+  NSString		*result;	// Result sent back
   NSFileHandle		*handle;
   GSMimeParser		*parser;
   NSMutableData		*buffer;
@@ -43,6 +46,7 @@
   BOOL			simple;
 }
 - (NSString*) address;
+- (NSString*) audit;
 - (NSMutableData*) buffer;
 - (NSTimeInterval) connectionDuration: (NSTimeInterval)now;
 - (NSFileHandle*) handle;
@@ -55,12 +59,15 @@
 - (NSTimeInterval) requestDuration: (NSTimeInterval)now;
 - (void) reset;
 - (void) setAddress: (NSString*)aString;
+- (void) setAgent: (NSString*)aString;
 - (void) setBuffer: (NSMutableData*)aBuffer;
+- (void) setCommand: (NSString*)aString;
 - (void) setConnectionStart: (NSTimeInterval)when;
 - (void) setHandle: (NSFileHandle*)aHandle;
 - (void) setParser: (GSMimeParser*)aParser;
 - (void) setProcessing: (BOOL)aFlag;
 - (void) setRequestStart: (NSTimeInterval)when;
+- (void) setResult: (NSString*)aString;
 - (void) setShouldEnd: (BOOL)aFlag;
 - (void) setSimple: (BOOL)aFlag;
 - (void) setTicked: (NSTimeInterval)when;
@@ -75,6 +82,26 @@
   return address;
 }
 
+- (NSString*) audit
+{
+  NSString	*h = (address == nil) ? (id)@"-" : (id)address;	
+  NSString	*c = (command == nil) ? (id)@"-" : (id)command;	
+  NSString	*a = (agent == nil) ? (id)@"-" : (id)agent;	
+  NSString	*r = (result == nil) ? (id)@"-" : (id)result;	
+  NSDate	*d;
+
+  if (requestStart == 0.0)
+    {
+      d = [NSDate date];
+    }
+  else
+    {
+      d = [NSDate dateWithTimeIntervalSinceReferenceDate: requestStart];
+    }
+  return [NSString stringWithFormat: @"%@ [%@] \"%@\"; \"%@\"; \"%@\"",
+    h, d, c, a, r];
+}
+
 - (NSMutableData*) buffer
 {
   return buffer;
@@ -87,6 +114,9 @@
   DESTROY(buffer);
   DESTROY(handle);
   DESTROY(parser);
+  DESTROY(command);
+  DESTROY(agent);
+  DESTROY(result);
   [super dealloc];
 }
 
@@ -116,6 +146,7 @@
   static unsigned	connectionIdentity = 0;
 
   identity = ++connectionIdentity;
+  requestStart = 0.0;
   return self;
 }
 
@@ -153,6 +184,9 @@
 {
   hasReset = YES;
   simple = NO;
+  DESTROY(command);
+  DESTROY(agent);
+  DESTROY(result);
   [self setRequestStart: 0.0];
   [self setBuffer: [NSMutableData dataWithCapacity: 1024]];
   [self setParser: nil];
@@ -173,9 +207,19 @@
   ASSIGN(address, aString);
 }
 
+- (void) setAgent: (NSString*)aString
+{
+  ASSIGN(agent, aString);
+}
+
 - (void) setBuffer: (NSMutableData*)aBuffer
 {
   ASSIGN(buffer, aBuffer);
+}
+
+- (void) setCommand: (NSString*)aString
+{
+  ASSIGN(command, aString);
 }
 
 - (void) setConnectionStart: (NSTimeInterval)when
@@ -201,6 +245,11 @@
 - (void) setRequestStart: (NSTimeInterval)when
 {
   requestStart = when;
+}
+
+- (void) setResult: (NSString*)aString
+{
+  ASSIGN(result, aString);
 }
 
 - (void) setShouldEnd: (BOOL)aFlag
@@ -236,6 +285,7 @@
 
 @interface	WebServer (Private)
 - (void) _alert: (NSString*)fmt, ...;
+- (void) _audit: (WebServerConnection*)connection;
 - (void) _completedWithResponse: (GSMimeDocument*)response;
 - (void) _didConnect: (NSNotification*)notification;
 - (void) _didRead: (NSNotification*)notification;
@@ -1195,6 +1245,21 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   va_end(args);
 }
 
+- (void) _audit: (WebServerConnection*)connection
+{
+  if ([_quiet containsObject: [connection address]] == NO)
+    {
+      if ([_delegate respondsToSelector: @selector(webAudit:for:)] == YES)
+	{
+	  [_delegate webAudit: [connection audit] for: self];
+	}
+      else
+	{
+	  fprintf(stderr, "%s\r\n", [[connection audit] UTF8String]);
+	} 
+    }
+}
+
 - (void) _completedWithResponse: (GSMimeDocument*)response
 {
   WebServerConnection	*connection = nil;
@@ -1216,6 +1281,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
        * with a 'simple' response ... just the raw data with no headers.
        */
       result = [response convertToData];
+      [connection setResult: @""];
     } 
   else
     {
@@ -1267,10 +1333,12 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	  if (contentLength == 0)
 	    {
 	      s = "HTTP/1.1 204 No Content\r\n";
+	      [connection setResult: @"HTTP/1.1 204 No Content"];
 	    }
 	  else
 	    {
 	      s = "HTTP/1.1 200 Success\r\n";
+	      [connection setResult: @"HTTP/1.1 200 Success"];
 	    }
 	  [out appendBytes: s length: strlen(s)];
 	}
@@ -1278,6 +1346,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	{
 	  NSString	*s = [[hdr value] stringByTrimmingSpaces];
 
+	  [connection setResult: s];
 	  s = [s stringByAppendingString: @"\r\n"];
 	  [out appendData: [s dataUsingEncoding: NSASCIIStringEncoding]];
 	  [response deleteHeader: hdr];
@@ -1335,7 +1404,8 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
     }
   else
     {
-      BOOL	refusal = NO;
+      WebServerConnection	*connection = [WebServerConnection new];
+      BOOL			refusal = NO;
 
       if (_sslConfig != nil)
 	{
@@ -1368,6 +1438,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
       if ((a = [hdl socketAddress]) == nil)
 	{
 	  [self _alert: @"Unknown address for new connection."]; 
+	  [connection setResult: @"HTTP/1.0 403 Unknown client host"];
 	  [hdl writeInBackgroundAndNotify:
 	    [@"HTTP/1.0 403 Unknown client host\r\n\r\n"
 	    dataUsingEncoding: NSASCIIStringEncoding]];
@@ -1383,6 +1454,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	    {
 	      [self _alert: @"Unknown host (%@) on new connection.", a];
 	    }
+	  [connection setResult: @"HTTP/1.0 403 Bad client host"];
 	  [hdl writeInBackgroundAndNotify:
 	    [@"HTTP/1.0 403 Bad client host\r\n\r\n"
 	    dataUsingEncoding: NSASCIIStringEncoding]];
@@ -1398,6 +1470,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	    {
 	      [self _log: @"Invalid host (%@) on new connection.", a];
 	    }
+	  [connection setResult: @"HTTP/1.0 403 Not a permitted client host"];
 	  [hdl writeInBackgroundAndNotify:
 	    [@"HTTP/1.0 403 Not a permitted client host\r\n\r\n"
 	    dataUsingEncoding: NSASCIIStringEncoding]];
@@ -1407,6 +1480,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
         && NSCountMapTable(_connections) >= _maxConnections)
 	{
 	  [self _alert: @"Too many connections in total for new connect.", a];
+	  [connection setResult: @"HTTP/1.0 503 Too many existing connections"];
 	  [hdl writeInBackgroundAndNotify:
 	    [@"HTTP/1.0 503 Too many existing connections\r\n\r\n"
 	    dataUsingEncoding: NSASCIIStringEncoding]];
@@ -1415,6 +1489,8 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
       else if (_maxPerHost > 0 && [_perHost countForObject: a] >= _maxPerHost)
 	{
 	  [self _alert: @"Too many connections from (%@) for new connect.", a];
+	  [connection setResult:
+	    @"HTTP/1.0 503 Too many existing connections from host"];
 	  [hdl writeInBackgroundAndNotify:
 	    [@"HTTP/1.0 503 Too many existing connections from host\r\n\r\n"
 	    dataUsingEncoding: NSASCIIStringEncoding]];
@@ -1434,15 +1510,20 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	  hdl = nil;
 	}
 
-      if (hdl != nil)
-	{
-	  WebServerConnection	*connection = [WebServerConnection new];
+      [connection setAddress: a == nil ? (id)@"unknown" : (id)a];
+      [connection setTicked: _ticked];
+      [connection setConnectionStart: _ticked];
 
-	  [connection setAddress: a == nil ? (id)@"unknown" : (id)a];
+      if (hdl == nil)
+        {
+          [self _audit: connection];
+	  RELEASE(connection);
+	}
+      else
+	{
 	  [connection setHandle: hdl];
 	  [connection setBuffer: [NSMutableData dataWithCapacity: 1024]];
-	  [connection setTicked: _ticked];
-	  [connection setConnectionStart: _ticked];
+
 	  NSMapInsert(_connections, (void*)hdl, (void*)connection);
 	  [_perHost addObject: [connection address]];
 	  RELEASE(connection);
@@ -1584,6 +1665,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	{
 	  [self _log: @"Request too long ... rejected"];
 	  [connection setShouldEnd: YES];
+	  [connection setResult: @"HTTP/1.0 413 Request data too long"];
 	  [hdl writeInBackgroundAndNotify:
 	    [@"HTTP/1.0 413 Request data too long\r\n\r\n"
 	    dataUsingEncoding: NSASCIIStringEncoding]];
@@ -1609,6 +1691,12 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	    {
 	      bytes[back] = '\0';
 	    }
+
+	  /*
+	   * Store the actual command string used.
+	   */
+	  [connection setCommand:
+	    [NSString stringWithUTF8String: (const char*)bytes]];
 
 	  /*
 	   * Remove and store trailing HTTP version extension
@@ -1691,6 +1779,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	    && [method isEqualToString: @"POST"] == NO)
 	    {
 	      [connection setShouldEnd: YES];	// Not persistent.
+	      [connection setResult: @"HTTP/1.0 501 Not Implemented"];
 	      [hdl writeInBackgroundAndNotify:
 		[@"HTTP/1.0 501 Not Implemented\r\n\r\n"
 		dataUsingEncoding: NSASCIIStringEncoding]];
@@ -1745,6 +1834,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
     {
       [self _log: @"Request body too long ... rejected"];
       [connection setShouldEnd: YES];	// Not persistent.
+      [connection setResult: @"HTTP/1.0 413 Request body too long"];
       [hdl writeInBackgroundAndNotify:
 	[@"HTTP/1.0 413 Request body too long\r\n\r\n"
 	dataUsingEncoding: NSASCIIStringEncoding]];
@@ -1804,6 +1894,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	      [self _log: @"%@ end of request (duration %g)", connection, t];
 	    }
 	}
+      [self _audit: connection];
       [connection reset];
       [hdl readInBackgroundAndNotify];	// Want another request.
     }
@@ -1830,6 +1921,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 
 	  [self _log: @"%@ disconnect (duration %g)", connection, s];
 	}
+      [self _audit: connection];
       _handled++;
     }
   [_nc removeObserver: self
@@ -1877,6 +1969,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   [connection setProcessing: YES];
 
   request = [connection request];
+  [connection setAgent: [[request headerNamed: @"user-agent"] value]];
 
   /*
    * If the client specified that the connection should close, we don't
@@ -1983,7 +2076,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	(void **)(&handle), (void**)(&connection)))
 	{
 	  if (_ticked - [connection ticked] > _connectionTimeout
-	      && [connection processing] == NO)
+	    && [connection processing] == NO)
 	    {
 	      [array addObject: connection];
 	    }

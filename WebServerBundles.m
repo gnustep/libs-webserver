@@ -240,13 +240,19 @@
     }
 }
 
-- (void) webLog: (NSString*)message for: (WebServer*)http
-{
-}
-
 - (void) webAlert: (NSString*)message for: (WebServer*)http
 {
   NSLog(@"%@", message);
 }
+
+- (void) webAudit: (NSString*)message for: (WebServer*)http
+{
+  fprintf(stderr, "%s", [message UTF8String]);
+}
+
+- (void) webLog: (NSString*)message for: (WebServer*)http
+{
+}
+
 @end
 
