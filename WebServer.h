@@ -181,7 +181,27 @@
 
 /**
  * Log an audit record ... if the delegate does not implement this
- * method, the message is logged to stderr.
+ * method, the message is logged to stderr.<br />
+ * The logged record is similar to the Apache common log format,
+ * though it differs after the timestamp:
+ * <deflist>
+ *   <term>ip address</term>
+ *   <desc>the address of the client host making the request</desc>
+ *   <term>ident</term>
+ *   <desc>not currently implemented ... '-' as placeholder</desc>
+ *   <term>ident</term>
+ *   <desc>not currently implemented ... '-' as placeholder</desc>
+ *   <term>user</term>
+ *   <desc>the remote user name from the authorization header, or '-'</desc>
+ *   <term>timestamp</term>
+ *   <desc>the date/time enclosed in square brackets</desc>
+ *   <term>command</term>
+ *   <desc>The command sent in the request ... as a quoted string</desc>
+ *   <term>agent</term>
+ *   <desc>The user-agent header from the request ... as a quoted string</desc>
+ *   <term>result</term>
+ *   <desc>The initial response line ... as a quoted string</desc>
+ * </deflist>
  */
 - (void) webAudit: (NSString*)message for: (WebServer*)http;
 

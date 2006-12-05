@@ -32,6 +32,7 @@
   NSString		*command;	// Command sent by client
   NSString		*agent;		// User-Agent header
   NSString		*result;	// Result sent back
+  NSString		*user;		// The remote user
   NSFileHandle		*handle;
   GSMimeParser		*parser;
   NSMutableData		*buffer;
@@ -71,6 +72,7 @@
 - (void) setShouldEnd: (BOOL)aFlag;
 - (void) setSimple: (BOOL)aFlag;
 - (void) setTicked: (NSTimeInterval)when;
+- (void) setUser: (NSString*)aString;
 - (BOOL) shouldEnd;
 - (BOOL) simple;
 - (NSTimeInterval) ticked;
@@ -84,11 +86,84 @@
 
 - (NSString*) audit
 {
-  NSString	*h = (address == nil) ? (id)@"-" : (id)address;	
-  NSString	*c = (command == nil) ? (id)@"-" : (id)command;	
-  NSString	*a = (agent == nil) ? (id)@"-" : (id)agent;	
-  NSString	*r = (result == nil) ? (id)@"-" : (id)result;	
+  NSString	*h;
+  NSString	*c;
+  NSString	*a;
+  NSString	*r;
+  NSString	*u;
   NSDate	*d;
+
+  if (address == nil)
+    {
+      h = @"-";
+    }
+  else
+    {
+      h = address;	
+    }
+
+  if (command == nil)
+    {
+      c = @"-";
+    }
+  else
+    {
+      c = [command description];	
+      if ([c rangeOfString: @"\\"].length > 0)
+        {
+	  c = [c stringByReplacingString: @"\\" withString: @"\\\\"];
+	}
+      if ([c rangeOfString: @"\""].length > 0)
+        {
+	  c = [c stringByReplacingString: @"\"" withString: @"\\\""];
+	}
+      c = [NSString stringWithFormat: @"\"%@\"", c];
+    }
+
+  if (agent == nil)
+    {
+      a = @"-";
+    }
+  else
+    {
+      a = agent;	
+      if ([a rangeOfString: @"\\"].length > 0)
+        {
+	  a = [a stringByReplacingString: @"\\" withString: @"\\\\"];
+	}
+      if ([a rangeOfString: @"\""].length > 0)
+        {
+	  a = [a stringByReplacingString: @"\"" withString: @"\\\""];
+	}
+      a = [NSString stringWithFormat: @"\"%@\"", a];
+    }
+
+  if (result == nil)
+    {
+      r = @"-";
+    }
+  else
+    {
+      r = result;	
+      if ([r rangeOfString: @"\\"].length > 0)
+        {
+	  r = [r stringByReplacingString: @"\\" withString: @"\\\\"];
+	}
+      if ([r rangeOfString: @"\""].length > 0)
+        {
+	  r = [r stringByReplacingString: @"\"" withString: @"\\\""];
+	}
+      r = [NSString stringWithFormat: @"\"%@\"", r];
+    }
+
+  if (user == nil)
+    {
+      u = @"-";
+    }
+  else
+    {
+      u = user;	
+    }
 
   if (requestStart == 0.0)
     {
@@ -98,8 +173,8 @@
     {
       d = [NSDate dateWithTimeIntervalSinceReferenceDate: requestStart];
     }
-  return [NSString stringWithFormat: @"%@ [%@] \"%@\"; \"%@\"; \"%@\"",
-    h, d, c, a, r];
+  return [NSString stringWithFormat: @"%@ - %@ [%@] %@ %@ %@",
+    h, u, d, c, a, r];
 }
 
 - (NSMutableData*) buffer
@@ -265,6 +340,11 @@
 - (void) setTicked: (NSTimeInterval)when
 {
   ticked = when;
+}
+
+- (void) setUser: (NSString*)aString
+{
+  ASSIGN(user, aString);
 }
 
 - (BOOL) shouldEnd
@@ -2009,8 +2089,11 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 
 	  if (r.length > 0)
 	    {
+	      NSString	*user = [str substringToIndex: r.location];
+
+	      [connection setUser: user];
 	      [request setHeader: @"x-http-username"
-			   value: [str substringToIndex: r.location]
+			   value: user
 		      parameters: nil];
 	      [request setHeader: @"x-http-password"
 			   value: [str substringFromIndex: NSMaxRange(r)]
