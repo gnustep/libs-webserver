@@ -1952,6 +1952,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   connection = (WebServerConnection*)NSMapGet(_connections, (void*)hdl);
   NSAssert(connection != nil, NSInternalInconsistencyException);
 
+  [self _audit: connection];
   if ([connection shouldEnd] == YES)
     {
       [self _endConnection: connection];
@@ -1974,7 +1975,6 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	      [self _log: @"%@ end of request (duration %g)", connection, t];
 	    }
 	}
-      [self _audit: connection];
       [connection reset];
       [hdl readInBackgroundAndNotify];	// Want another request.
     }
