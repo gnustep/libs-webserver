@@ -1461,6 +1461,9 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
     {
       [self _log: @"Response %@ - %@", connection, result];
     }
+  [_nc removeObserver: self
+		 name: NSFileHandleReadCompletionNotification
+	       object: [connection handle]];
   [[connection handle] writeInBackgroundAndNotify: result];
 
   NSMapRemove(_processing, (void*)response);
@@ -1976,6 +1979,10 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	    }
 	}
       [connection reset];
+      [_nc addObserver: self
+	      selector: @selector(_didRead:)
+		  name: NSFileHandleReadCompletionNotification
+		object: hdl];
       [hdl readInBackgroundAndNotify];	// Want another request.
     }
 }
