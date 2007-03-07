@@ -1373,6 +1373,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
       unsigned int	contentLength;
       NSEnumerator	*enumerator;
       GSMimeHeader	*hdr;
+      NSString		*str;
 
       raw = [response rawMimeData];
       buf = [raw mutableBytes];
@@ -1394,17 +1395,13 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
       [response deleteHeaderNamed: @"content-length"];
       [response deleteHeaderNamed: @"content-encoding"];
       [response deleteHeaderNamed: @"content-transfer-encoding"];
-      if (contentLength > 0)
-	{
-	  NSString	*str;
-
-	  str = [NSString stringWithFormat: @"%u", contentLength];
-	  [response setHeader: @"content-length" value: str parameters: nil];
-	}
-      else
+      if (contentLength == 0)
 	{
 	  [response deleteHeaderNamed: @"content-type"];
 	}
+      str = [NSString stringWithFormat: @"%u", contentLength];
+      [response setHeader: @"content-length" value: str parameters: nil];
+
       hdr = [response headerNamed: @"http"];
       if (hdr == nil)
 	{
