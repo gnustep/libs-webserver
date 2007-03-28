@@ -262,6 +262,7 @@
   DESTROY(command);
   DESTROY(agent);
   DESTROY(result);
+  byteCount = 0;
   [self setRequestStart: 0.0];
   [self setBuffer: [NSMutableData dataWithCapacity: 1024]];
   [self setParser: nil];
