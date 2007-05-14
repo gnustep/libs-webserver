@@ -799,8 +799,8 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   _connectionTimeout = 30.0;
   _maxPerHost = 32;
   _maxConnections = 128;
-  _maxBodySize = 8*1024;
-  _maxRequestSize = 4*1024*1024;
+  _maxBodySize = 4*1024*1024;
+  _maxRequestSize = 8*1024;
   _substitutionLimit = 4;
   _connections = NSCreateMapTable(NSNonOwnedPointerMapKeyCallBacks,
     NSObjectMapValueCallBacks, 0);
@@ -1742,7 +1742,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
        * Attackers may try to send too much data in the hope of causing
        * a buffer overflow ... so we try to detect it here.
        */
-      if (pos >= _maxBodySize)
+      if (pos >= _maxRequestSize)
 	{
 	  [self _log: @"Request too long ... rejected"];
 	  [connection setShouldEnd: YES];
@@ -1911,7 +1911,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   doc = [parser mimeDocument];
   method = [[doc headerNamed: @"x-http-method"] value];
 
-  if ([connection moreBytes: [d length]] > _maxRequestSize)
+  if ([connection moreBytes: [d length]] > _maxBodySize)
     {
       [self _log: @"Request body too long ... rejected"];
       [connection setShouldEnd: YES];	// Not persistent.
