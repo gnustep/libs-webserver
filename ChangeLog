@@ -1,3 +1,10 @@
+2007-05-25 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServer.m:
+	Add support for the unofficial old-style (http-1.0) implementation of
+	keep-alive.  Also add fix for buggy browsers/libraries which
+	illegally add a CR-LF after POSTed data.
+
 2007-03-07 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* WebServer.m:

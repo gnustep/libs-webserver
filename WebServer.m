@@ -1430,13 +1430,32 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	  [response deleteHeader: hdr];
 	  /*
 	   * If the http version has been set to be an old one,
-	   * we must be prepared to close the connection at once.
+	   * we must be prepared to close the connection at once
+	   * unless connection keep-alive has been set.
 	   */
-	  if ([s hasPrefix: @"HTTP/"] == NO
-	    || [[s substringFromIndex: 5] floatValue] < 1.1) 
+	  if ([s hasPrefix: @"HTTP/"] == NO)
 	    {
 	      [connection setShouldEnd: YES];
 	    }
+	  else if ([[s substringFromIndex: 5] floatValue] < 1.1) 
+	    {
+	      s = [[response headerNamed: @"connection"] value]; 
+	      if (s == nil
+	        || ([s caseInsensitiveCompare: @"keep-alive"] != NSOrderedSame))
+		{
+		  [connection setShouldEnd: YES];
+		}
+	    }
+	}
+
+      /* Ensure that we send a connection close if we are about to drop
+       * the connection.
+       */
+      if ([connection shouldEnd] == YES)
+        {
+	  [response setHeader: @"Connection"
+			value: @"close"
+		   parameters: nil];
 	}
 
       enumerator = [[response allHeaders] objectEnumerator];
@@ -1730,6 +1749,20 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
       [buffer appendData: d];
       bytes = [buffer mutableBytes];
       length = [buffer length];
+
+      /*
+       * Some buggy browsers/libraries add a CR-LF after POSTing data,
+       * so if we are using a connection which has been kept alive,
+       * we must eat up that initial white space.
+       */
+      while (length > 0 && isspace(bytes[0]))
+        {
+	  bytes++;
+	  length--;
+	}
+
+      /* Try to find end of first line (the request line).
+       */
       for (pos = 0; pos < length; pos++)
 	{
 	  if (bytes[pos] == '\n')
@@ -1950,7 +1983,6 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   WebServerConnection	*connection;
 
   _ticked = [NSDate timeIntervalSinceReferenceDate];
-  connection = (WebServerConnection*)NSMapGet(_connections, (void*)hdl);
   NSAssert(connection != nil, NSInternalInconsistencyException);
 
   if ([connection shouldEnd] == YES)
@@ -2061,9 +2093,19 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
    * keep it open.
    */
   con = [[request headerNamed: @"connection"] value]; 
-  if (con != nil && [con caseInsensitiveCompare: @"close"] == NSOrderedSame)
+  if (con != nil)
     {
-      [connection setShouldEnd: YES];	// Not persistent.
+      if ([con caseInsensitiveCompare: @"keep-alive"] == NSOrderedSame)
+	{
+	  [connection setShouldEnd: NO];	// Persistent (even in HTTP 1.0)
+	  [response setHeader: @"Connection"
+		        value: @"Keep-Alive"
+		   parameters: nil];
+	}
+      else if ([con caseInsensitiveCompare: @"close"] == NSOrderedSame)
+	{
+	  [connection setShouldEnd: YES];	// Not persistent.
+	}
     }
 
   /*
