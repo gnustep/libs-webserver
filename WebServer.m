@@ -1983,6 +1983,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   WebServerConnection	*connection;
 
   _ticked = [NSDate timeIntervalSinceReferenceDate];
+  connection = (WebServerConnection*)NSMapGet(_connections, (void*)hdl);
   NSAssert(connection != nil, NSInternalInconsistencyException);
 
   if ([connection shouldEnd] == YES)
