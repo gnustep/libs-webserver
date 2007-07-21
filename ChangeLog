@@ -1,3 +1,8 @@
+2007-07-21 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServer.m: When responding with a 503 status due to too many
+	incoming connections, set the Retry-After header to 120 (two minutes).
+
 2007-05-25 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* WebServer.m:

@@ -1582,7 +1582,8 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	  [self _alert: @"Too many connections in total for new connect.", a];
 	  [connection setResult: @"HTTP/1.0 503 Too many existing connections"];
 	  [hdl writeInBackgroundAndNotify:
-	    [@"HTTP/1.0 503 Too many existing connections\r\n\r\n"
+	    [@"HTTP/1.0 503 Too many existing connections\r\n"
+            @"Retry-After: 120\r\n\r\n"
 	    dataUsingEncoding: NSASCIIStringEncoding]];
 	  refusal = YES;
 	}
@@ -1592,7 +1593,8 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	  [connection setResult:
 	    @"HTTP/1.0 503 Too many existing connections from host"];
 	  [hdl writeInBackgroundAndNotify:
-	    [@"HTTP/1.0 503 Too many existing connections from host\r\n\r\n"
+	    [@"HTTP/1.0 503 Too many existing connections from host\r\n"
+            @"Retry-After: 120\r\n\r\n"
 	    dataUsingEncoding: NSASCIIStringEncoding]];
 	  refusal = YES;
 	}
