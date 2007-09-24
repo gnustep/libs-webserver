@@ -1723,7 +1723,11 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
       [self _endConnection: connection];
       return;
     }
-  // NSLog(@"Data read on %@ ... %@", connection, d);
+
+  if (_verbose == YES)
+    {
+      [self _log: @"Data read on %@ ... %@", connection, d];
+    }
 
   // Mark connection as having had I/O ... not idle.
   [connection setTicked: _ticked];
@@ -1965,7 +1969,12 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
       else
 	{
 	  [self _log: @"HTTP parse failure - %@", parser];
-	  [self _endConnection: connection];
+          [connection setShouldEnd: YES];	// Not persistent.
+          [connection setResult: @"HTTP/1.0 400 Bad Request"];
+          [hdl writeInBackgroundAndNotify:
+            [@"HTTP/1.0 400 Bad Request\r\n\r\n"
+            dataUsingEncoding: NSASCIIStringEncoding]];
+	  return;
 	}
     }
   else if (([parser isComplete] == YES)
