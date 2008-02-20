@@ -9,6 +9,8 @@ CVS_TAG_NAME = WebServer
 SVN_BASE_URL=svn+ssh://svn.gna.org/svn/gnustep/libs
 SVN_MODULE_NAME=webserver
 
+NEEDS_GUI = NO
+
 TEST_TOOL_NAME=
 
 LIBRARY_NAME=WebServer
@@ -19,8 +21,6 @@ WebServer_INTERFACE_VERSION=1.2
 WebServer_OBJC_FILES += WebServer.m WebServerBundles.m
 WebServer_HEADER_FILES += WebServer.h
 WebServer_AGSDOC_FILES += WebServer.h
-
-WebServer_NEEDS_GUI = NO
 
 # Optional Java wrappers for the library
 JAVA_WRAPPER_NAME = WebServer
@@ -46,7 +46,6 @@ TEST_TOOL_NAME+=testWebServer
 testWebServer_OBJC_FILES = testWebServer.m
 testWebServer_TOOL_LIBS += -lWebServer
 testWebServer_LIB_DIRS += -L./$(GNUSTEP_OBJ_DIR)
-testWebServer_NEEDS_GUI = NO
 
 -include GNUmakefile.preamble
 
