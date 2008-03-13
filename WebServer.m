@@ -1178,14 +1178,6 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 		}
 	    }
 	}
-      if (_port != nil && _ticker == nil)
-        {
-          _ticker = [NSTimer scheduledTimerWithTimeInterval: 0.8
-            target: self
-            selector: @selector(_timeout:)
-            userInfo: 0
-            repeats: YES];
-        }
     }
   return ok;
 }
@@ -1496,6 +1488,14 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   NSString		*a;
   NSHost		*h;
 
+  if (_ticker == nil)
+    {
+      _ticker = [NSTimer scheduledTimerWithTimeInterval: 0.8
+        target: self
+        selector: @selector(_timeout:)
+        userInfo: 0
+        repeats: YES];
+    }
   _ticked = [NSDate timeIntervalSinceReferenceDate];
   _accepting = NO;
   hdl = [userInfo objectForKey: NSFileHandleNotificationFileHandleItem];
@@ -2238,11 +2238,9 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	  [array removeObjectAtIndex: 0];
 	}
     }
-  else if (_port == nil)
+  else
     {
-      /* No open connection, no port for new incoming connections ...
-       * So we should invalidate the timer, and that will cause this
-       * object to be released.
+      /* No open connections ... so we should invalidate the timer.
        */
       _ticker = nil;
       [timer invalidate];
