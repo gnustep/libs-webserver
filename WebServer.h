@@ -217,7 +217,7 @@
  * incoming http or https requests on a single port.
  * </p>
  * <p>Before use, it must be configured using the -setPort:secure: method
- * to specify the port and if/how ssl is to be used.
+ * to specify the port and if/how SSL is to be used.
  * </p>
  * <p>You must also set a delegate to handle incoming requests,
  * and may specify a maximum number of simultaneous connections
@@ -245,6 +245,13 @@
  *   counted in statistics we generate.
  *   </desc>
  * </deflist>
+ * <p>To shut down the WebServer, you should call -setPort:secure: with
+ * nil arguments.  This will stop the server listening for incoming
+ * connections and wait for any existing connections to be closed
+ * (or to time out), after which the timer used to check connection
+ * timeouts will be stopped, releasing the WebServer instance (which
+ * may cause it to be deallocated if you haven't retained it).
+ * </p>
  */
 @interface	WebServer : NSObject
 {
@@ -554,7 +561,9 @@
  * web requests!<br />
  * Typically a failure will be due to an invalid port being specified ...
  * a port may not already be in use and may not be in the range up to 1024
- * (unless running as the super-user).
+ * (unless running as the super-user).<br />
+ * Call this with a nil port argument to shut the server down as soon as
+ * all current connections are closed.
  */
 - (BOOL) setPort: (NSString*)aPort secure: (NSDictionary*)secure;
 

@@ -807,11 +807,6 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   _processing = NSCreateMapTable(NSObjectMapKeyCallBacks,
     NSObjectMapValueCallBacks, 0);
   _perHost = [NSCountedSet new];
-  _ticker = [NSTimer scheduledTimerWithTimeInterval: 0.8
-					     target: self
-					   selector: @selector(_timeout:)
-					   userInfo: 0
-					    repeats: YES];
   return self;
 }
 
@@ -1183,6 +1178,14 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 		}
 	    }
 	}
+      if (_port != nil && _ticker == nil)
+        {
+          _ticker = [NSTimer scheduledTimerWithTimeInterval: 0.8
+            target: self
+            selector: @selector(_timeout:)
+            userInfo: 0
+            repeats: YES];
+        }
     }
   return ok;
 }
@@ -2234,6 +2237,15 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	  [self _endConnection: connection];
 	  [array removeObjectAtIndex: 0];
 	}
+    }
+  else if (_port == nil)
+    {
+      /* No open connection, no port for new incoming connections ...
+       * So we should invalidate the timer, and that will cause this
+       * object to be released.
+       */
+      _ticker = nil;
+      [timer invalidate];
     }
 }
 @end
