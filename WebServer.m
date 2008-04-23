@@ -797,6 +797,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   _quiet = RETAIN([defs arrayForKey: @"WebServerQuiet"]);
   _nc = RETAIN([NSNotificationCenter defaultCenter]);
   _connectionTimeout = 30.0;
+  _reverse = [defs boolForKey: @"ReverseHostLookup"];
   _maxPerHost = 32;
   _maxConnections = 128;
   _maxBodySize = 4*1024*1024;
@@ -1486,7 +1487,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   NSDictionary		*userInfo = [notification userInfo];
   NSFileHandle		*hdl;
   NSString		*a;
-  NSHost		*h;
+  NSHost		*h = nil;
 
   if (_ticker == nil)
     {
@@ -1547,7 +1548,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	    dataUsingEncoding: NSASCIIStringEncoding]];
 	  refusal = YES;
 	}
-      else if ((h = [NSHost hostWithAddress: a]) == nil)
+      else if (_reverse == YES && ((h = [NSHost hostWithAddress: a]) == nil))
 	{
 	  /*
 	   * Don't log this in quiet mode as it could just be a
@@ -1659,7 +1660,14 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	    }
 	  if (_verbose == YES && [_quiet containsObject: a] == NO)
 	    {
-	      [self _log: @"%@ connect", connection];
+              if (h == nil)
+                {
+                  [self _log: @"%@ connect", connection];
+                }
+              else
+                {
+                  [self _log: @"%@ connect from %@", connection, [h name]];
+                }
 	    }
 	}
     }

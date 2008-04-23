@@ -244,6 +244,12 @@
  *   about these hosts, connections and requests by these hosts are not
  *   counted in statistics we generate.
  *   </desc>
+ *   <term>ReverseHostLookup</term>
+ *   <desc>A boolean (default NO) which specifes whether the server should
+ *   lookup the host name for each incoming connection, and refuse
+ *   connections where no host can be found.  The downside of enabling this
+ *   is that host lookups can be slow and cause performance problems.
+ *   </desc>
  * </deflist>
  * <p>To shut down the WebServer, you should call -setPort:secure: with
  * nil arguments.  This will stop the server listening for incoming
@@ -261,6 +267,7 @@
   BOOL			_accepting;
   BOOL			_verbose;
   BOOL			_durations;
+  BOOL                  _reverse;
   unsigned char		_reject;
   NSDictionary		*_sslConfig;
   NSArray		*_quiet;
