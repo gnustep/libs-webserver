@@ -1472,7 +1472,6 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   NSDictionary		*userInfo = [notification userInfo];
   NSFileHandle		*hdl;
   NSString		*a;
-  NSHost		*h;
 
   _ticked = [NSDate timeIntervalSinceReferenceDate];
   _accepting = NO;
@@ -1522,22 +1521,6 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	  [connection setResult: @"HTTP/1.0 403 Unknown client host"];
 	  [hdl writeInBackgroundAndNotify:
 	    [@"HTTP/1.0 403 Unknown client host\r\n\r\n"
-	    dataUsingEncoding: NSASCIIStringEncoding]];
-	  refusal = YES;
-	}
-      else if ((h = [NSHost hostWithAddress: a]) == nil)
-	{
-	  /*
-	   * Don't log this in quiet mode as it could just be a
-	   * test connection that we are ignoring.
-	   */
-	  if ([_quiet containsObject: a] == NO)
-	    {
-	      [self _alert: @"Unknown host (%@) on new connection.", a];
-	    }
-	  [connection setResult: @"HTTP/1.0 403 Bad client host"];
-	  [hdl writeInBackgroundAndNotify:
-	    [@"HTTP/1.0 403 Bad client host\r\n\r\n"
 	    dataUsingEncoding: NSASCIIStringEncoding]];
 	  refusal = YES;
 	}
