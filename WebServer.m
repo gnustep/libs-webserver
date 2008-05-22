@@ -1735,7 +1735,8 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
       return;
     }
 
-  if (_verbose == YES)
+  if (_verbose == YES
+    && [_quiet containsObject: [connection address]] == NO)
     {
       [self _log: @"Data read on %@ ... %@", connection, d];
     }
