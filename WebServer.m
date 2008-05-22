@@ -2016,19 +2016,20 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
     {
       if (_durations == YES)
 	{
-	  NSTimeInterval	t = [connection requestDuration: _ticked];
+          if ([_quiet containsObject: [connection address]] == NO)
+            {
+              NSTimeInterval	t = [connection requestDuration: _ticked];
 
-	  if (t == 0.0)
-	    {
-	      if ([_quiet containsObject: [connection address]] == NO)
+              if (t == 0.0)
 		{
 		  [self _log: @"%@ reset", connection];
 		}
-	    }
-	  else
-	    {
-	      [self _log: @"%@ end of request (duration %g)", connection, t];
-	    }
+              else
+                {
+                  [self _log: @"%@ end of request (duration %g)",
+                    connection, t];
+                }
+            }
 	}
       [self _audit: connection];
       [connection reset];
