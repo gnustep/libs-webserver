@@ -844,6 +844,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	    @"image/gif", @"gif",
 	    @"image/png", @"png",
 	    @"image/jpeg", @"jpeg",
+	    @"image/jpeg", @"jpg",
 	    @"text/html", @"html",
 	    @"text/plain", @"txt",
 	    @"text/xml", @"xml",
