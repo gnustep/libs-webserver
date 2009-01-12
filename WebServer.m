@@ -1215,7 +1215,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 {
   unsigned	length;
   unsigned	pos = 0;
-  NSRange	r = NSMakeRange(pos, length);
+  NSRange	r;
 
   if (depth > _substitutionLimit)
     {
