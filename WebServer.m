@@ -386,7 +386,7 @@
   NSDictionary		*conf = [defs dictionaryForKey: @"WebServerAccess"];
   NSString		*path = [[request headerNamed: @"x-http-path"] value];
   NSDictionary		*access = nil;
-  NSString		*stored;
+  NSString		*stored = nil;
   NSString		*username;
   NSString		*password;
 
@@ -397,6 +397,7 @@
 	{
 	  NSRange	r;
 
+	  access = nil;
 	  r = [path rangeOfString: @"/" options: NSBackwardsSearch];
 	  if (r.length > 0)
 	    {
