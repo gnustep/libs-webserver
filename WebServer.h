@@ -150,6 +150,20 @@
  *   <term>x-http-password</term>
  *   <desc>The password from the 'authorization' header if the request
  *     supplied http basic authentication.</desc>
+ *   <term>x-count-requests</term>
+ *   <desc>The number of requests being processsed at the point when
+ *      this request started (includes this request).</desc>
+ *   <term>x-count-connections</term>
+ *   <desc>The number of connections established to the WebServer at the
+ *      point when this request started (including the connection this
+ *      request arrived on).</desc>
+ *   <term>x-count-connected-hosts</term>
+ *   <desc>The number of connects hosts (IP addresses) at the point when
+ *      this request started (including the host which sent this request).</desc>
+ *   <term>x-count-host-connections</term>
+ *   <desc>The number of connections to the web server from the host which
+ *     sent this request at the point when this request started (includes the
+ *     connection that this request arrived on).</desc>
  * </deflist>
  * On completion, the method must modify response to contain the data
  * and headers to be sent out.<br />

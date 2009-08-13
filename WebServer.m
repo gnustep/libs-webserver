@@ -2151,6 +2151,28 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	       value: [[connection handle] socketService]
 	  parameters: nil];
 
+  /*
+   * Provide more information about the process statistics.
+   */
+  str = [NSString stringWithFormat: @"%u", NSCountMapTable(_processing)];
+  [request setHeader: @"x-count-requests"
+	       value: str
+	  parameters: nil];
+  str = [NSString stringWithFormat: @"%u", NSCountMapTable(_connections)];
+  [request setHeader: @"x-count-connections"
+	       value: str
+	  parameters: nil];
+  str = [NSString stringWithFormat: @"%u", [_perHost count]];
+  [request setHeader: @"x-count-connected-hosts"
+	       value: str
+	  parameters: nil];
+  str = [[connection handle] socketAddress];
+  str = [NSString stringWithFormat: @"%u", [_perHost countForObject: str]];
+  [request setHeader: @"x-count-host-connections"
+	       value: str
+	  parameters: nil];
+
+
   str = [[request headerNamed: @"authorization"] value];
   if ([str length] > 6 && [[str substringToIndex: 6] caseInsensitiveCompare:
     @"Basic "] == NSOrderedSame)
