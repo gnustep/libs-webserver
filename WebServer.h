@@ -305,6 +305,16 @@
   NSCountedSet		*_perHost;
 }
 
+/** Same as the -decodeURLEncodedForm:into: instance method.
+ */
++ (unsigned) decodeURLEncodedForm: (NSData*)data
+			     into: (NSMutableDictionary*)dict;
+
+/** Same as the -encodeURLEncodedForm:into: instance method.
+ */
++ (unsigned) encodeURLEncodedForm: (NSDictionary*)dict
+			     into: (NSMutableData*)data;
+
 /**
  * This method is called for each incoming request, and checks that the
  * requested resource is accessible (basic user/password access control).<br />
@@ -379,7 +389,8 @@
  * Each value in the array may be a data object or a string.<br />
  * As a special case, a value may be a data object or a string rather
  * than an array ... this is treated like an array of one value.<br />
- * All non data keys and values are converted to data using utf-8 encoding.<br />
+ * All non data keys and values are converted to data using
+ * utf-8 encoding.<br />
  * This method returns the number of values actually encoded.
  */         
 - (unsigned) encodeURLEncodedForm: (NSDictionary*)dict

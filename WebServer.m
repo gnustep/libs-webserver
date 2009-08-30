@@ -379,125 +379,14 @@
 
 @implementation	WebServer
 
-- (BOOL) accessRequest: (GSMimeDocument*)request
-	      response: (GSMimeDocument*)response
+static	Class	myClass = Nil;
+
++ (void) initialize
 {
-  NSUserDefaults	*defs = [NSUserDefaults standardUserDefaults];
-  NSDictionary		*conf = [defs dictionaryForKey: @"WebServerAccess"];
-  NSString		*path = [[request headerNamed: @"x-http-path"] value];
-  NSDictionary		*access = nil;
-  NSString		*stored = nil;
-  NSString		*username;
-  NSString		*password;
-
-  while (access == nil)
+  if (myClass == Nil)
     {
-      access = [conf objectForKey: path];
-      if ([access isKindOfClass: [NSDictionary class]] == NO)
-	{
-	  NSRange	r;
-
-	  access = nil;
-	  r = [path rangeOfString: @"/" options: NSBackwardsSearch];
-	  if (r.length > 0)
-	    {
-	      path = [path substringToIndex: r.location];
-	    }
-	  else
-	    {
-	      return YES;	// No access dictionary - permit access
-	    }
-	}
+      myClass = [WebServer class];
     }
-
-  username = [[request headerNamed: @"x-http-username"] value];
-  password = [[request headerNamed: @"x-http-password"] value];
-  if ([access objectForKey: @"Users"] != nil)
-    {
-      NSDictionary	*users = [access objectForKey: @"Users"];
-
-      stored = [users objectForKey: username];
-    }
-
-  if (username == nil || password == nil || [password isEqual: stored] == NO)
-    {
-      NSString	*realm = [access objectForKey: @"Realm"];
-      NSString	*auth;
-
-      auth = [NSString stringWithFormat: @"Basic realm=\"%@\"", realm];
-
-      /*
-       * Return status code 401 (Aunauthorised)
-       */
-      [response setHeader: @"http"
-		    value: @"HTTP/1.1 401 Unauthorised"
-	       parameters: nil];
-      [response setHeader: @"WWW-authenticate"
-		    value: auth
-	       parameters: nil];
-
-      [response setContent:
-@"<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n"
-@"<html><head><title>401 Authorization Required</title></head><body>\n"
-@"<h1>Authorization Required</h1>\n"
-@"<p>This server could not verify that you "
-@"are authorized to access the resource "
-@"requested.  Either you supplied the wrong "
-@"credentials (e.g., bad password), or your "
-@"browser doesn't understand how to supply "
-@"the credentials required.</p>\n"
-@"</body></html>\n"
-	type: @"text/html"];
-
-      return NO;
-    }
-  else
-    {
-      return YES;	// OK to access
-    }
-}
-
-- (void) completedWithResponse: (GSMimeDocument*)response
-{
-  static NSArray	*modes = nil;
-
-  if (modes == nil)
-    {
-      id	objs[1];
-
-      objs[0] = NSDefaultRunLoopMode;
-      modes = [[NSArray alloc] initWithObjects: objs count: 1];
-    }
-  [self performSelectorOnMainThread: @selector(_completedWithResponse:)
-			 withObject: response
-		      waitUntilDone: NO
-			      modes: modes];
-}
-
-- (void) dealloc
-{
-  if (_ticker != nil)
-    {
-      [_ticker invalidate];
-      _ticker = nil;
-    }
-  [self setPort: nil secure: nil];
-  DESTROY(_nc);
-  DESTROY(_root);
-  DESTROY(_quiet);
-  DESTROY(_hosts);
-  DESTROY(_perHost);
-  if (_connections != 0)
-    {
-      NSFreeMapTable(_connections);
-      _connections = 0;
-    }
-  if (_processing != 0)
-    {
-      NSFreeMapTable(_processing);
-      _processing = 0;
-    }
-  [super dealloc];
 }
 
 static unsigned
@@ -560,7 +449,7 @@ unescapeData(const unsigned char* bytes, unsigned length, unsigned char *buf)
   return to;
 }
 
-- (unsigned) decodeURLEncodedForm: (NSData*)data
++ (unsigned) decodeURLEncodedForm: (NSData*)data
 			     into: (NSMutableDictionary*)dict
 {
   const unsigned char	*bytes = (const unsigned char*)[data bytes];
@@ -716,7 +605,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   return d;
 }
 
-- (unsigned) encodeURLEncodedForm: (NSDictionary*)dict
++ (unsigned) encodeURLEncodedForm: (NSDictionary*)dict
 			     into: (NSMutableData*)data
 {
   CREATE_AUTORELEASE_POOL(arp);
@@ -778,6 +667,139 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
     }
   RELEASE(arp);
   return valueCount;
+}
+
+- (BOOL) accessRequest: (GSMimeDocument*)request
+	      response: (GSMimeDocument*)response
+{
+  NSUserDefaults	*defs = [NSUserDefaults standardUserDefaults];
+  NSDictionary		*conf = [defs dictionaryForKey: @"WebServerAccess"];
+  NSString		*path = [[request headerNamed: @"x-http-path"] value];
+  NSDictionary		*access = nil;
+  NSString		*stored = nil;
+  NSString		*username;
+  NSString		*password;
+
+  while (access == nil)
+    {
+      access = [conf objectForKey: path];
+      if ([access isKindOfClass: [NSDictionary class]] == NO)
+	{
+	  NSRange	r;
+
+	  access = nil;
+	  r = [path rangeOfString: @"/" options: NSBackwardsSearch];
+	  if (r.length > 0)
+	    {
+	      path = [path substringToIndex: r.location];
+	    }
+	  else
+	    {
+	      return YES;	// No access dictionary - permit access
+	    }
+	}
+    }
+
+  username = [[request headerNamed: @"x-http-username"] value];
+  password = [[request headerNamed: @"x-http-password"] value];
+  if ([access objectForKey: @"Users"] != nil)
+    {
+      NSDictionary	*users = [access objectForKey: @"Users"];
+
+      stored = [users objectForKey: username];
+    }
+
+  if (username == nil || password == nil || [password isEqual: stored] == NO)
+    {
+      NSString	*realm = [access objectForKey: @"Realm"];
+      NSString	*auth;
+
+      auth = [NSString stringWithFormat: @"Basic realm=\"%@\"", realm];
+
+      /*
+       * Return status code 401 (Aunauthorised)
+       */
+      [response setHeader: @"http"
+		    value: @"HTTP/1.1 401 Unauthorised"
+	       parameters: nil];
+      [response setHeader: @"WWW-authenticate"
+		    value: auth
+	       parameters: nil];
+
+      [response setContent:
+@"<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n"
+@"<html><head><title>401 Authorization Required</title></head><body>\n"
+@"<h1>Authorization Required</h1>\n"
+@"<p>This server could not verify that you "
+@"are authorized to access the resource "
+@"requested.  Either you supplied the wrong "
+@"credentials (e.g., bad password), or your "
+@"browser doesn't understand how to supply "
+@"the credentials required.</p>\n"
+@"</body></html>\n"
+	type: @"text/html"];
+
+      return NO;
+    }
+  else
+    {
+      return YES;	// OK to access
+    }
+}
+
+- (void) completedWithResponse: (GSMimeDocument*)response
+{
+  static NSArray	*modes = nil;
+
+  if (modes == nil)
+    {
+      id	objs[1];
+
+      objs[0] = NSDefaultRunLoopMode;
+      modes = [[NSArray alloc] initWithObjects: objs count: 1];
+    }
+  [self performSelectorOnMainThread: @selector(_completedWithResponse:)
+			 withObject: response
+		      waitUntilDone: NO
+			      modes: modes];
+}
+
+- (void) dealloc
+{
+  if (_ticker != nil)
+    {
+      [_ticker invalidate];
+      _ticker = nil;
+    }
+  [self setPort: nil secure: nil];
+  DESTROY(_nc);
+  DESTROY(_root);
+  DESTROY(_quiet);
+  DESTROY(_hosts);
+  DESTROY(_perHost);
+  if (_connections != 0)
+    {
+      NSFreeMapTable(_connections);
+      _connections = 0;
+    }
+  if (_processing != 0)
+    {
+      NSFreeMapTable(_processing);
+      _processing = 0;
+    }
+  [super dealloc];
+}
+
+- (unsigned) decodeURLEncodedForm: (NSData*)data
+			     into: (NSMutableDictionary*)dict
+{
+  return [myClass decodeURLEncodedForm: data into: dict];
+}
+
+- (unsigned) encodeURLEncodedForm: (NSDictionary*)dict
+			     into: (NSMutableData*)data
+{
+  return [myClass encodeURLEncodedForm: dict into: data];
 }
 
 - (NSString*) description
