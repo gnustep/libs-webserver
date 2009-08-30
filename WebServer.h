@@ -55,7 +55,7 @@
       <item>HTTP Basic authentication</item>
       <item>Limit access by IP address</item>
       <item>Limit total number of simultaneous connections</item>
-      <item>Limit number of simultaneous connectionsform one address</item>
+      <item>Limit number of simultaneous connections from one address</item>
       <item>Limit idle time permitted on a connection</item>
       <item>Limit size of request headers permitted</item>
       <item>Limit size of request body permitted</item>
@@ -67,8 +67,8 @@
       The WebServer class essentially works using asynchronous I/O in a
       single thread.  The asynchronous I/O mechanism is capably of reading
       a request of up to the operating systems network buffer size in a
-      single operation and similarly writing out a response of upo to the
-      operating systems's network buffer size.<br />
+      single operation and similarly writing out a response of up to the
+      operating system's network buffer size.<br />
       As long as requests and responses are within those limits, it can be
       assumed that low processing of a request in the 
       [(WebServerDelegate)-processRequest:response:for:] method will have
@@ -76,7 +76,7 @@
       responses as rapidly as the delegates processing can handle them.<br />
       If however the I/O sizes are larger than the buffers, then writing
       a response will need to be multiple operations and each buffer full
-      of data may need to wait for the next call to the prodcessing method
+      of data may need to wait for the next call to the processing method
       before it can be sent.<br />
       So, for large request/response sizes, or other cases where processing 
       a single request at a time is a problem, the WebServer class provides
@@ -92,7 +92,7 @@
       main thread.  If a delegate needs to call methods of the WebServer
       instance in order to handle a request, it should do so in the
       [(WebServerDelegate)-processRequest:response:for:] method before
-      handing controlo to another thread.
+      handing control to another thread.
     </p>
   </section>
 </chapter>
@@ -122,7 +122,7 @@
  */
 @protocol	WebServerDelegate
 /**
- * Process the http request whose headers and data are provided in
+ * Process the HTTP request whose headers and data are provided in
  * a GSMimeDocument.<br />
  * Extra headers are created as follows -
  * <deflist>
@@ -146,12 +146,12 @@
  *   <desc>The port of the host that the request came from.</desc>
  *   <term>x-http-username</term>
  *   <desc>The username from the 'authorization' header if the request
- *     supplied http basic authentication.</desc>
+ *     supplied HTTP basic authentication.</desc>
  *   <term>x-http-password</term>
  *   <desc>The password from the 'authorization' header if the request
- *     supplied http basic authentication.</desc>
+ *     supplied HTTP basic authentication.</desc>
  *   <term>x-count-requests</term>
- *   <desc>The number of requests being processsed at the point when
+ *   <desc>The number of requests being precessed at the point when
  *      this request started (includes this request).</desc>
  *   <term>x-count-connections</term>
  *   <desc>The number of connections established to the WebServer at the
@@ -159,7 +159,8 @@
  *      request arrived on).</desc>
  *   <term>x-count-connected-hosts</term>
  *   <desc>The number of connects hosts (IP addresses) at the point when
- *      this request started (including the host which sent this request).</desc>
+ *      this request started (including the host which sent this request).
+ *   </desc>
  *   <term>x-count-host-connections</term>
  *   <desc>The number of connections to the web server from the host which
  *     sent this request at the point when this request started (includes the
@@ -169,7 +170,7 @@
  * and headers to be sent out.<br />
  * The 'content-length' header need not be set in the response as it will
  * be overridden anyway.<br />
- * The special 'http' header will be used as the response/status line.
+ * The special 'HTTP' header will be used as the response/status line.
  * If not supplied, 'HTTP/1.1 200 Success' or 'HTTP/1.1 204 No Content' will
  * be used as the response line, depending on whether the data is empty or
  * not.<br />
@@ -178,8 +179,8 @@
  * be closed.<br />
  * If the method returns YES, the WebServer instance sends the response to
  * the client process which made the request.<br />
- * If the method returns NO, the WebSerever instance assumes that the
- * delegate it processing the request in another thread (perhaps it will
+ * If the method returns NO, the WebServer instance assumes that the
+ * delegate is processing the request in another thread (perhaps it will
  * take a long time to process) and takes no action until the delegate
  * calls [WebServer-completedWithResponse:] to let it know that processing
  * is complete and the response should at last be sent out. 
@@ -228,7 +229,7 @@
 
 /**
  * <p>You create an instance of the WebServer class in order to handle
- * incoming http or https requests on a single port.
+ * incoming HTTP or HTTPS requests on a single port.
  * </p>
  * <p>Before use, it must be configured using the -setPort:secure: method
  * to specify the port and if/how SSL is to be used.
@@ -244,7 +245,7 @@
  * </p>
  * <deflist>
  *   <term>WebServerHosts</term>
- *   <desc>An array of host IP addresses to list the mhosts permitted to
+ *   <desc>An array of host IP addresses to list the hosts permitted to
  *   send requests to the server.  If defined, requests from other hosts
  *   will be rejected (with an HTTP 403 response).
  *   It may be better to use firewalling to control this sort of thing.
@@ -259,7 +260,7 @@
  *   counted in statistics we generate.
  *   </desc>
  *   <term>ReverseHostLookup</term>
- *   <desc>A boolean (default NO) which specifes whether the server should
+ *   <desc>A boolean (default NO) which specifies whether the server should
  *   lookup the host name for each incoming connection, and refuse
  *   connections where no host can be found.  The downside of enabling this
  *   is that host lookups can be slow and cause performance problems.
@@ -340,7 +341,7 @@
  * <p>This may only be called in the case where a call to the delegate's
  * [(WebServerDelegate)-processRequest:response:for:] method
  * to process a request returned NO, indicating that the delegate
- * would handle the request in another thread and complety it later.
+ * would handle the request in another thread and complete it later.
  * </p>
  * <p>In such a case, the thread handling the request in the delegate
  * <em>must</em> call this method upon completion (passing in the same
@@ -359,7 +360,7 @@
  * The resulting dictionary values are arrays of NSData objects.<br />
  * You probably don't need to call this method yourself ... more likely
  * you will use the -parameters: method instead.<br />
- * NB. For forms POSTed using <code>multipart/form-data</code> you don't
+ * NB. For forms POST-ed using <code>multipart/form-data</code> you don't
  * need to perform any explicit decoding as this will already have been
  * done for you and the decoded form will be presented as the request
  * GSMimeDocument.  The fields of the form will be the component parts
@@ -378,7 +379,7 @@
  * Each value in the array may be a data object or a string.<br />
  * As a special case, a value may be a data object or a string rather
  * than an array ... this is treated like an array of one value.<br />
- * All non data keys and values are convertd to data using utf-8 encoding.<br />
+ * All non data keys and values are converted to data using utf-8 encoding.<br />
  * This method returns the number of values actually encoded.
  */         
 - (unsigned) encodeURLEncodedForm: (NSDictionary*)dict
@@ -391,7 +392,7 @@
 - (BOOL) isSecure;
 
 /**
- * Extracts request parameters from the http query string and from the
+ * Extracts request parameters from the HTTP query string and from the
  * request body (if it was application/x-www-form-urlencoded or
  * multipart/form-data) and return the extracted parameters as a
  * mutable dictionary whose keys are the parameter names and whose
@@ -457,7 +458,7 @@
  * provided mapping (or a simple built-in default mapping if map is nil).<br />
  * If you have a dedicated web server for handling static pages (eg images)
  * it is better to use that rather than vending static pages using this
- * method.  It's unlikley that this method can be as efficient as a dedicated
+ * method.  It's unlikely that this method can be as efficient as a dedicated
  * server.  However this mechanism is adequate for moderate throughputs.
  */
 - (BOOL) produceResponse: (GSMimeDocument*)aResponse
@@ -534,7 +535,7 @@
 
 /**
  * <p>This setting (default value NO) determines the behavior of the software
- * when the number of sumultaneous incoming connections exceeds the value
+ * when the number of simultaneous incoming connections exceeds the value
  * set by the -setMaxConnections: method.
  * </p>
  * <p>If reject is NO, the software will simply not accept the incoming
@@ -545,12 +546,12 @@
  * the 'listen' queue of the operating system may fill up and connections
  * may be lost altogether.
  * </p>
- * <p>If reject is yes, then the service will sety aside a slot for one
- * extra connection and, when the number of permited connections is
+ * <p>If reject is yes, then the service will set aside a slot for one
+ * extra connection and, when the number of permitted connections is
  * exceeded, the server will accept the first additional connection,
  * send back an HTTP 503 response, and drop the additional connection
- * again. This means that clients should recieve a 503 response rather
- * than finding that their connecton attempts block and possible time out.
+ * again. This means that clients should receive a 503 response rather
+ * than finding that their connection attempts block and possible time out.
  * </p>
  */
 - (void) setMaxConnectionsReject: (BOOL)reject;
@@ -589,7 +590,7 @@
 - (BOOL) setPort: (NSString*)aPort secure: (NSDictionary*)secure;
 
 /**
- * Sets the maximum recursion depth allowed for subsititutions into
+ * Sets the maximum recursion depth allowed for substitutions into
  * templates.  This defaults to 4.
  */
 - (void) setSubstitutionLimit: (unsigned)depth;
@@ -611,7 +612,7 @@
 - (void) setVerbose: (BOOL)aFlag;
 
 /**
- * Perform substituations replacing the markup in aTemplate with the
+ * Perform substitutions replacing the markup in aTemplate with the
  * values supplied by map and appending the results to the result.<br />
  * Substitutions are recursive, and the depth argument is used to
  * specify the current recursion depth (you should normally call this
@@ -640,7 +641,7 @@
  * WebServer instance in a program is configured by values obtained
  * from the user defaults system, and incoming requests may be handled
  * by different delegate objects depending on the path information
- * supplied in the request.  The WebServerBundles intance is responsible
+ * supplied in the request.  The WebServerBundles instance is responsible
  * for loading the bundles (based on information in the WebServerBundles
  * dictionary in the user defaults system) and for forwarding requests
  * to the appropriate bundles for processing.<br />
@@ -706,7 +707,7 @@
 - (WebServer*) http;
 
 /** <init />
- * Initialises the receiver as the delegate of http and configures
+ * Initialises the receiver as the delegate of HTTP and configures
  * the WebServer based upon the settings found in the user defaults
  * system by using the -defaultsUpdate: method.
  */
