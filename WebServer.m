@@ -26,6 +26,21 @@
 #include <Foundation/Foundation.h>
 #include "WebServer.h"
 
+static	Class	NSArrayClass = Nil;
+static	Class	NSDataClass = Nil;
+static	Class	NSDateClass = Nil;
+static	Class	NSDictionaryClass = Nil;
+static	Class	NSMutableArrayClass = Nil;
+static	Class	NSMutableDataClass = Nil;
+static	Class	NSMutableDictionaryClass = Nil;
+static	Class	NSMutableStringClass = Nil;
+static	Class	NSStringClass = Nil;
+static	Class	GSMimeDocumentClass = Nil;
+static NSZone	*defaultMallocZone = 0;
+
+#define	Alloc(X)	[(X) allocWithZone: defaultMallocZone]
+
+
 @interface	WebServerConnection : NSObject
 {
   NSString		*address;	// Client address
@@ -79,6 +94,7 @@
 @end
 
 @implementation	WebServerConnection
+
 - (NSString*) address
 {
   return address;
@@ -117,7 +133,7 @@
         {
 	  c = [c stringByReplacingString: @"\"" withString: @"\\\""];
 	}
-      c = [NSString stringWithFormat: @"\"%@\"", c];
+      c = [NSStringClass stringWithFormat: @"\"%@\"", c];
     }
 
   if (agent == nil)
@@ -135,7 +151,7 @@
         {
 	  a = [a stringByReplacingString: @"\"" withString: @"\\\""];
 	}
-      a = [NSString stringWithFormat: @"\"%@\"", a];
+      a = [NSStringClass stringWithFormat: @"\"%@\"", a];
     }
 
   if (result == nil)
@@ -153,7 +169,7 @@
         {
 	  r = [r stringByReplacingString: @"\"" withString: @"\\\""];
 	}
-      r = [NSString stringWithFormat: @"\"%@\"", r];
+      r = [NSStringClass stringWithFormat: @"\"%@\"", r];
     }
 
   if (user == nil)
@@ -167,13 +183,13 @@
 
   if (requestStart == 0.0)
     {
-      d = [NSDate date];
+      d = [NSDateClass date];
     }
   else
     {
-      d = [NSDate dateWithTimeIntervalSinceReferenceDate: requestStart];
+      d = [NSDateClass dateWithTimeIntervalSinceReferenceDate: requestStart];
     }
-  return [NSString stringWithFormat: @"%@ - %@ [%@] %@ %@ %@",
+  return [NSStringClass stringWithFormat: @"%@ - %@ [%@] %@ %@ %@",
     h, u, d, c, a, r];
 }
 
@@ -197,7 +213,7 @@
 
 - (NSString*) description
 {
-  return [NSString stringWithFormat: @"WebServerConnection: %08x [%@] ",
+  return [NSStringClass stringWithFormat: @"WebServerConnection: %08x [%@] ",
     [self identity], [self address]];
 }
 
@@ -264,7 +280,7 @@
   DESTROY(result);
   byteCount = 0;
   [self setRequestStart: 0.0];
-  [self setBuffer: [NSMutableData dataWithCapacity: 1024]];
+  [self setBuffer: [NSMutableDataClass dataWithCapacity: 1024]];
   [self setParser: nil];
   [self setProcessing: NO];
 }
@@ -379,13 +395,21 @@
 
 @implementation	WebServer
 
-static	Class	myClass = Nil;
-
 + (void) initialize
 {
-  if (myClass == Nil)
+  if (NSDataClass == Nil)
     {
-      myClass = [WebServer class];
+      defaultMallocZone = NSDefaultMallocZone();
+      NSStringClass = [NSString class];
+      NSArrayClass = [NSArray class];
+      NSDataClass = [NSData class];
+      NSDateClass = [NSDate class];
+      NSDictionaryClass = [NSDictionary class];
+      NSMutableArrayClass = [NSMutableArray class];
+      NSMutableDataClass = [NSMutableData class];
+      NSMutableDictionaryClass = [NSMutableDictionary class];
+      NSMutableStringClass = [NSMutableString class];
+      GSMimeDocumentClass = [GSMimeDocument class];
     }
 }
 
@@ -494,17 +518,18 @@ unescapeData(const unsigned char* bytes, unsigned length, unsigned char *buf)
 	{
 	  buf = NSZoneMalloc(NSDefaultMallocZone(), keyEnd - keyStart);
 	  buflen = unescapeData(&bytes[keyStart], keyEnd - keyStart, buf);
-	  d = [[NSData alloc] initWithBytesNoCopy: buf
-					   length: buflen
-				     freeWhenDone: YES];
+	  d = [Alloc(NSDataClass) initWithBytesNoCopy: buf
+						length: buflen
+					  freeWhenDone: YES];
 	}
       else
 	{
-	  d = [[NSData alloc] initWithBytesNoCopy: (void*)&bytes[keyStart]
-					   length: keyEnd - keyStart
-				     freeWhenDone: NO];
+	  d = [Alloc(NSDataClass) initWithBytesNoCopy: (void*)&bytes[keyStart]
+						length: keyEnd - keyStart
+					  freeWhenDone: NO];
 	}
-      k = [[NSString alloc] initWithData: d encoding: NSUTF8StringEncoding];
+      k = [Alloc(NSStringClass) initWithData: d
+				     encoding: NSUTF8StringEncoding];
       if (k == nil)
 	{
 	  [NSException raise: NSInvalidArgumentException
@@ -521,18 +546,18 @@ unescapeData(const unsigned char* bytes, unsigned length, unsigned char *buf)
 	{
 	  buf = NSZoneMalloc(NSDefaultMallocZone(), valEnd - valStart);
 	  buflen = unescapeData(&bytes[valStart], valEnd - valStart, buf);
-	  d = [[NSData alloc] initWithBytesNoCopy: buf
-					   length: buflen
-				     freeWhenDone: YES];
+	  d = [Alloc(NSDataClass) initWithBytesNoCopy: buf
+						length: buflen
+					  freeWhenDone: YES];
 	}
       else
 	{
-	  d = [NSData new];
+	  d = [NSDataClass new];
 	}
       a = [dict objectForKey: k];
       if (a == nil)
 	{
-	  a = [[NSMutableArray alloc] initWithCapacity: 1];
+	  a = [Alloc(NSMutableArrayClass) initWithCapacity: 1];
 	  [dict setObject: a forKey: k];
 	  RELEASE(a);
 	}
@@ -612,7 +637,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   NSEnumerator		*keyEnumerator;
   id			key;
   unsigned		valueCount = 0;
-  NSMutableData		*md = [NSMutableData dataWithCapacity: 100];
+  NSMutableData		*md = [NSMutableDataClass dataWithCapacity: 100];
 
   keyEnumerator = [dict keyEnumerator];
   while ((key = [keyEnumerator nextObject]) != nil)
@@ -622,7 +647,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
       NSEnumerator	*valueEnumerator;
       id		value;
 
-      if ([key isKindOfClass: [NSData class]] == YES)
+      if ([key isKindOfClass: NSDataClass] == YES)
 	{
 	  keyData = key;
 	}
@@ -635,9 +660,9 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
       escapeData([keyData bytes], [keyData length], md);
       keyData = md;
 
-      if ([values isKindOfClass: [NSArray class]] == NO)
+      if ([values isKindOfClass: NSArrayClass] == NO)
         {
-	  values = [NSArray arrayWithObject: values];
+	  values = [NSArrayClass arrayWithObject: values];
 	}
 
       valueEnumerator = [values objectEnumerator];
@@ -652,7 +677,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	    }
 	  [data appendData: keyData];
 	  [data appendBytes: "=" length: 1];
-	  if ([value isKindOfClass: [NSData class]] == YES)
+	  if ([value isKindOfClass: NSDataClass] == YES)
 	    {
 	      valueData = value;
 	    }
@@ -669,11 +694,63 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   return valueCount;
 }
 
++ (NSData*) parameter: (NSString*)name
+		   at: (unsigned)index
+		 from: (NSDictionary*)params
+{
+  NSArray	*a = [params objectForKey: name];
+
+  if (a == nil)
+    {
+      NSEnumerator	*e = [params keyEnumerator];
+      NSString		*k;
+
+      while ((k = [e nextObject]) != nil)
+	{
+	  if ([k caseInsensitiveCompare: name] == NSOrderedSame)
+	    {
+	      a = [params objectForKey: k];
+	      break;
+	    }
+	}
+    }
+  if (index >= [a count])
+    {
+      return nil;
+    }
+  return [a objectAtIndex: index];
+}
+
++ (NSString*) parameterString: (NSString*)name
+			   at: (unsigned)index
+			 from: (NSDictionary*)params
+		      charset: (NSString*)charset
+{
+  NSData	*d = [self parameter: name at: index from: params];
+  NSString	*s = nil;
+
+  if (d != nil)
+    {
+      s = Alloc(NSStringClass);
+      if (charset == nil || [charset length] == 0)
+	{
+	  s = [s initWithData: d encoding: NSUTF8StringEncoding];
+	}
+      else
+	{
+	  NSStringEncoding	enc;
+
+	  enc = [GSMimeDocumentClass encodingFromCharset: charset];
+	  s = [s initWithData: d encoding: enc];
+	}
+    }
+  return AUTORELEASE(s);
+}
+
 - (BOOL) accessRequest: (GSMimeDocument*)request
 	      response: (GSMimeDocument*)response
 {
-  NSUserDefaults	*defs = [NSUserDefaults standardUserDefaults];
-  NSDictionary		*conf = [defs dictionaryForKey: @"WebServerAccess"];
+  NSDictionary		*conf = [_defs dictionaryForKey: @"WebServerAccess"];
   NSString		*path = [[request headerNamed: @"x-http-path"] value];
   NSDictionary		*access = nil;
   NSString		*stored = nil;
@@ -683,7 +760,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   while (access == nil)
     {
       access = [conf objectForKey: path];
-      if ([access isKindOfClass: [NSDictionary class]] == NO)
+      if ([access isKindOfClass: NSDictionaryClass] == NO)
 	{
 	  NSRange	r;
 
@@ -714,7 +791,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
       NSString	*realm = [access objectForKey: @"Realm"];
       NSString	*auth;
 
-      auth = [NSString stringWithFormat: @"Basic realm=\"%@\"", realm];
+      auth = [NSStringClass stringWithFormat: @"Basic realm=\"%@\"", realm];
 
       /*
        * Return status code 401 (Aunauthorised)
@@ -756,7 +833,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
       id	objs[1];
 
       objs[0] = NSDefaultRunLoopMode;
-      modes = [[NSArray alloc] initWithObjects: objs count: 1];
+      modes = [Alloc(NSArrayClass) initWithObjects: objs count: 1];
     }
   [self performSelectorOnMainThread: @selector(_completedWithResponse:)
 			 withObject: response
@@ -773,6 +850,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
     }
   [self setPort: nil secure: nil];
   DESTROY(_nc);
+  DESTROY(_defs);
   DESTROY(_root);
   DESTROY(_quiet);
   DESTROY(_hosts);
@@ -793,18 +871,18 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 - (unsigned) decodeURLEncodedForm: (NSData*)data
 			     into: (NSMutableDictionary*)dict
 {
-  return [myClass decodeURLEncodedForm: data into: dict];
+  return [[self class] decodeURLEncodedForm: data into: dict];
 }
 
 - (unsigned) encodeURLEncodedForm: (NSDictionary*)dict
 			     into: (NSMutableData*)data
 {
-  return [myClass encodeURLEncodedForm: dict into: data];
+  return [[self class] encodeURLEncodedForm: dict into: data];
 }
 
 - (NSString*) description
 {
-  return [NSString stringWithFormat:
+  return [NSStringClass stringWithFormat:
     @"%@ on %@(%@), %u of %u connections active,"
     @" %u ended, %u requests, listening: %@",
     [super description], _port, ([self isSecure] ? @"https" : @"http"),
@@ -814,13 +892,12 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 
 - (id) init
 {
-  NSUserDefaults	*defs = [NSUserDefaults standardUserDefaults];
-
-  _hosts = RETAIN([defs arrayForKey: @"WebServerHosts"]);
-  _quiet = RETAIN([defs arrayForKey: @"WebServerQuiet"]);
+  _defs = RETAIN([NSUserDefaults standardUserDefaults]);
+  _hosts = RETAIN([_defs arrayForKey: @"WebServerHosts"]);
+  _quiet = RETAIN([_defs arrayForKey: @"WebServerQuiet"]);
   _nc = RETAIN([NSNotificationCenter defaultCenter]);
   _connectionTimeout = 30.0;
-  _reverse = [defs boolForKey: @"ReverseHostLookup"];
+  _reverse = [_defs boolForKey: @"ReverseHostLookup"];
   _maxPerHost = 32;
   _maxConnections = 128;
   _maxBodySize = 4*1024*1024;
@@ -863,7 +940,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 
       if (defaultMap == nil)
 	{
-	  defaultMap = [[NSDictionary alloc] initWithObjectsAndKeys:
+	  defaultMap = [Alloc(NSDictionaryClass) initWithObjectsAndKeys:
 	    @"image/gif", @"gif",
 	    @"image/png", @"png",
 	    @"image/jpeg", @"jpeg",
@@ -903,13 +980,13 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
       result = NO;
     }
   else if (string == YES
-    && (data = [NSString stringWithContentsOfFile: path]) == nil)
+    && (data = [NSStringClass stringWithContentsOfFile: path]) == nil)
     {
       [self _log: @"Failed to load string '%@' ('%@')", aPath, path];
       result = NO;
     }
   else if (string == NO
-    && (data = [NSData dataWithContentsOfFile: path]) == nil)
+    && (data = [NSDataClass dataWithContentsOfFile: path]) == nil)
     {
       [self _log: @"Failed to load data '%@' ('%@')", aPath, path];
       result = NO;
@@ -947,15 +1024,16 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
       [self _log: @"Can't read template '%@' ('%@')", aPath, path];
       result = NO;
     }
-  else if ((str = [NSString stringWithContentsOfFile: path]) == nil)
+  else if ((str = [NSStringClass stringWithContentsOfFile: path]) == nil)
     {
       [self _log: @"Failed to load template '%@' ('%@')", aPath, path];
       result = NO;
     }
   else
     {
-      NSMutableString	*m = [NSMutableString stringWithCapacity: [str length]];
+      NSMutableString	*m;
 
+      m = [Alloc(NSMutableStringClass) initWithCapacity: [str length]];
       result = [self substituteFrom: str
 			      using: map
 			       into: m
@@ -966,6 +1044,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	  [[aResponse headerNamed: @"content-type"] setParameter: @"utf-8"
 							  forKey: @"charset"];
 	}
+      RELEASE(m);
     }
   DESTROY(arp);
   return result;
@@ -977,7 +1056,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   NSString		*str = [[request headerNamed: @"x-http-query"] value];
   NSData		*data;
 
-  params = [NSMutableDictionary dictionaryWithCapacity: 32];
+  params = [NSMutableDictionaryClass dictionaryWithCapacity: 32];
   if ([str length] > 0)
     {
       data = [str dataUsingEncoding: NSASCIIStringEncoding];
@@ -1014,7 +1093,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	      a = [params objectForKey: k];
 	      if (a == nil)
 		{
-		  a = [[NSMutableArray alloc] initWithCapacity: 1];
+		  a = [Alloc(NSMutableArrayClass) initWithCapacity: 1];
 		  [params setObject: a forKey: k];
 		  RELEASE(a);
 		}
@@ -1030,27 +1109,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 		   at: (unsigned)index
 		 from: (NSDictionary*)params
 {
-  NSArray	*a = [params objectForKey: name];
-
-  if (a == nil)
-    {
-      NSEnumerator	*e = [params keyEnumerator];
-      NSString		*k;
-
-      while ((k = [e nextObject]) != nil)
-	{
-	  if ([k caseInsensitiveCompare: name] == NSOrderedSame)
-	    {
-	      a = [params objectForKey: k];
-	      break;
-	    }
-	}
-    }
-  if (index >= [a count])
-    {
-      return nil;
-    }
-  return [a objectAtIndex: index];
+  return [[self class] parameter: name at: index from: params];
 }
 
 - (NSData*) parameter: (NSString*)name from: (NSDictionary*)params
@@ -1070,25 +1129,10 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 			 from: (NSDictionary*)params
 		      charset: (NSString*)charset
 {
-  NSData	*d = [self parameter: name at: index from: params];
-  NSString	*s = nil;
-
-  if (d != nil)
-    {
-      s = [NSString alloc];
-      if (charset == nil || [charset length] == 0)
-	{
-	  s = [s initWithData: d encoding: NSUTF8StringEncoding];
-	}
-      else
-	{
-	  NSStringEncoding	enc;
-
-	  enc = [GSMimeDocument encodingFromCharset: charset];
-	  s = [s initWithData: d encoding: enc];
-	}
-    }
-  return AUTORELEASE(s);
+  return [[self class] parameterString: name
+				    at: index
+				  from: params
+			       charset: charset];
 }
 
 - (NSString*) parameterString: (NSString*)name from: (NSDictionary*)params
@@ -1336,7 +1380,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
     {
       NSString	*s;
 
-      s = [NSString stringWithFormat: fmt arguments: args];
+      s = [NSStringClass stringWithFormat: fmt arguments: args];
       [_delegate webAlert: s for: self];
     }
   else
@@ -1367,7 +1411,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   NSData		*result;
 
   connection = (WebServerConnection*)NSMapGet(_processing, (void*)response);
-  _ticked = [NSDate timeIntervalSinceReferenceDate];
+  _ticked = [NSDateClass timeIntervalSinceReferenceDate];
   [connection setTicked: _ticked];
   [connection setProcessing: NO];
 
@@ -1411,7 +1455,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
       pos -= 2;
       [raw replaceBytesInRange: NSMakeRange(0, pos) withBytes: 0 length: 0];
 
-      out = [NSMutableData dataWithCapacity: len + 1024];
+      out = [NSMutableDataClass dataWithCapacity: len + 1024];
       [response deleteHeaderNamed: @"mime-version"];
       [response deleteHeaderNamed: @"content-length"];
       [response deleteHeaderNamed: @"content-encoding"];
@@ -1420,7 +1464,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	{
 	  [response deleteHeaderNamed: @"content-type"];
 	}
-      str = [NSString stringWithFormat: @"%u", contentLength];
+      str = [NSStringClass stringWithFormat: @"%u", contentLength];
       [response setHeader: @"content-length" value: str parameters: nil];
 
       hdr = [response headerNamed: @"http"];
@@ -1521,7 +1565,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
         userInfo: 0
         repeats: YES];
     }
-  _ticked = [NSDate timeIntervalSinceReferenceDate];
+  _ticked = [NSDateClass timeIntervalSinceReferenceDate];
   _accepting = NO;
   hdl = [userInfo objectForKey: NSFileHandleNotificationFileHandleItem];
   if (hdl == nil)
@@ -1652,7 +1696,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
       else
 	{
 	  [connection setHandle: hdl];
-	  [connection setBuffer: [NSMutableData dataWithCapacity: 1024]];
+	  [connection setBuffer: [NSMutableDataClass dataWithCapacity: 1024]];
 
 	  NSMapInsert(_connections, (void*)hdl, (void*)connection);
 	  [_perHost addObject: [connection address]];
@@ -1716,7 +1760,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   WebServerConnection	*connection;
   GSMimeDocument	*doc;
 
-  _ticked = [NSDate timeIntervalSinceReferenceDate];
+  _ticked = [NSDateClass timeIntervalSinceReferenceDate];
   connection = (WebServerConnection*)NSMapGet(_connections, (void*)hdl);
   NSAssert(connection != nil, NSInternalInconsistencyException);
   parser = [connection parser];
@@ -1852,7 +1896,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	   * Store the actual command string used.
 	   */
 	  [connection setCommand:
-	    [NSString stringWithUTF8String: (const char*)bytes]];
+	    [NSStringClass stringWithUTF8String: (const char*)bytes]];
 
 	  /*
 	   * Remove and store trailing HTTP version extension
@@ -1866,7 +1910,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	    {
 	      bytes[back] = '\0';
 	      end = back + 6;
-	      version = [NSString stringWithUTF8String: (char*)bytes + end];
+	      version = [NSStringClass stringWithUTF8String: (char*)bytes + end];
 	      if ([version floatValue] < 1.1)
 		{
 		  [connection setShouldEnd: YES];	// Not persistent.
@@ -1901,7 +1945,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	      end++;
 	    }
 	  bytes[end++] = '\0';
-	  method = [NSString stringWithUTF8String: (char*)bytes + start];
+	  method = [NSStringClass stringWithUTF8String: (char*)bytes + start];
 
 	  /*
 	   * Extract path string.
@@ -1922,14 +1966,14 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	       * Extract query string.
 	       */
 	      bytes[end++] = '\0';
-	      query = [NSString stringWithUTF8String: (char*)bytes + end];
+	      query = [NSStringClass stringWithUTF8String: (char*)bytes + end];
 
 	    }
 	  else
 	    {
 	      bytes[end] = '\0';
 	    }
-	  path = [NSString stringWithUTF8String: (char*)bytes + start];
+	  path = [NSStringClass stringWithUTF8String: (char*)bytes + start];
 
 	  if ([method isEqualToString: @"GET"] == NO
 	    && [method isEqualToString: @"POST"] == NO)
@@ -2029,7 +2073,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   NSFileHandle		*hdl = [notification object];
   WebServerConnection	*connection;
 
-  _ticked = [NSDate timeIntervalSinceReferenceDate];
+  _ticked = [NSDateClass timeIntervalSinceReferenceDate];
   connection = (WebServerConnection*)NSMapGet(_connections, (void*)hdl);
   NSAssert(connection != nil, NSInternalInconsistencyException);
 
@@ -2115,7 +2159,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
     {
       NSString	*s;
 
-      s = [NSString stringWithFormat: fmt arguments: args];
+      s = [NSStringClass stringWithFormat: fmt arguments: args];
       [_delegate webLog: s for: self];
     }
   va_end(args);
@@ -2176,20 +2220,20 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   /*
    * Provide more information about the process statistics.
    */
-  str = [NSString stringWithFormat: @"%u", NSCountMapTable(_processing)];
+  str = [NSStringClass stringWithFormat: @"%u", NSCountMapTable(_processing)];
   [request setHeader: @"x-count-requests"
 	       value: str
 	  parameters: nil];
-  str = [NSString stringWithFormat: @"%u", NSCountMapTable(_connections)];
+  str = [NSStringClass stringWithFormat: @"%u", NSCountMapTable(_connections)];
   [request setHeader: @"x-count-connections"
 	       value: str
 	  parameters: nil];
-  str = [NSString stringWithFormat: @"%u", [_perHost count]];
+  str = [NSStringClass stringWithFormat: @"%u", [_perHost count]];
   [request setHeader: @"x-count-connected-hosts"
 	       value: str
 	  parameters: nil];
   str = [[connection handle] socketAddress];
-  str = [NSString stringWithFormat: @"%u", [_perHost countForObject: str]];
+  str = [NSStringClass stringWithFormat: @"%u", [_perHost countForObject: str]];
   [request setHeader: @"x-count-host-connections"
 	       value: str
 	  parameters: nil];
@@ -2220,7 +2264,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	}
     }
 
-  [response setContent: [NSData data] type: @"text/plain" name: nil];
+  [response setContent: [NSDataClass data] type: @"text/plain" name: nil];
 
   if ([_quiet containsObject: [connection address]] == NO)
     {
@@ -2239,7 +2283,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 				       response: response
 					    for: self];
 	}
-      _ticked = [NSDate timeIntervalSinceReferenceDate];
+      _ticked = [NSDateClass timeIntervalSinceReferenceDate];
       [connection setTicked: _ticked];
     }
   NS_HANDLER
@@ -2261,7 +2305,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 {
   unsigned		count;
 
-  _ticked = [NSDate timeIntervalSinceReferenceDate];
+  _ticked = [NSDateClass timeIntervalSinceReferenceDate];
 
   count = NSCountMapTable(_connections);
   if (count > 0)
@@ -2271,7 +2315,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
       NSFileHandle	*handle;
       NSMutableArray	*array;
 
-      array = [NSMutableArray arrayWithCapacity: count];
+      array = [NSMutableArrayClass arrayWithCapacity: count];
       enumerator = NSEnumerateMapTable(_connections);
       while (NSNextMapEnumeratorPair(&enumerator,
 	(void **)(&handle), (void**)(&connection)))

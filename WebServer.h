@@ -114,6 +114,7 @@
 #include	<GNUstepBase/GSMime.h>
 
 @class	WebServer;
+@class	NSUserDefaults;
 
 /**
  * This protocol is implemented by a delegate of a WebServer instance
@@ -278,6 +279,7 @@
 {
 @private
   NSNotificationCenter	*_nc;
+  NSUserDefaults	*_defs;
   NSString		*_port;
   BOOL			_accepting;
   BOOL			_verbose;
@@ -303,17 +305,35 @@
   NSTimeInterval	_connectionTimeout;
   NSTimeInterval	_ticked;
   NSCountedSet		*_perHost;
+  void			*_reserved;
 }
 
-/** Same as the -decodeURLEncodedForm:into: instance method.
+/**
+ * Same as the instance method of the same name.
  */
 + (unsigned) decodeURLEncodedForm: (NSData*)data
 			     into: (NSMutableDictionary*)dict;
 
-/** Same as the -encodeURLEncodedForm:into: instance method.
+/**
+ * Same as the instance method of the same name.
  */
 + (unsigned) encodeURLEncodedForm: (NSDictionary*)dict
 			     into: (NSMutableData*)data;
+
+/**
+ * Same as the instance method of the same name.
+ */
++ (NSData*) parameter: (NSString*)name
+		   at: (unsigned)index
+		 from: (NSDictionary*)params;
+
+/**
+ * Same as the instance method of the same name.
+ */
++ (NSString*) parameterString: (NSString*)name
+			   at: (unsigned)index
+			 from: (NSDictionary*)params
+		      charset: (NSString*)charset;
 
 /**
  * This method is called for each incoming request, and checks that the

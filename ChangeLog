@@ -1,3 +1,11 @@
+2009-09-01 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServer.h: Add ivars and new class methods.  Document new
+	pseudo-headers providing connection/host information.
+	* WebServer.m: Add new class methods, cache class pointers for
+	minor optimisation.
+	* GNUmakefile: Bump version number.
+
 2008-04-23 Richard Frith-Macdonald  <rfm@gnu.org>
 
         * WebServer.m: Add ReverseHostLookup user default.
