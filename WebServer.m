@@ -56,8 +56,10 @@ static NSZone	*defaultMallocZone = 0;
   NSTimeInterval	ticked;
   NSTimeInterval	requestStart;
   NSTimeInterval	connectionStart;
+  NSTimeInterval	duration;
+  unsigned		requests;
   BOOL			processing;
-  BOOL			shouldEnd;
+  BOOL			shouldClose;
   BOOL			hasReset;
   BOOL			simple;
 }
@@ -65,6 +67,7 @@ static NSZone	*defaultMallocZone = 0;
 - (NSString*) audit;
 - (NSMutableData*) buffer;
 - (NSTimeInterval) connectionDuration: (NSTimeInterval)now;
+- (NSTimeInterval) duration;	/* Of all requests */
 - (NSFileHandle*) handle;
 - (BOOL) hasReset;
 - (unsigned) identity;
@@ -72,6 +75,7 @@ static NSZone	*defaultMallocZone = 0;
 - (GSMimeParser*) parser;
 - (BOOL) processing;
 - (GSMimeDocument*) request;
+- (unsigned) requests;
 - (NSTimeInterval) requestDuration: (NSTimeInterval)now;
 - (void) reset;
 - (void) setAddress: (NSString*)aString;
@@ -82,13 +86,14 @@ static NSZone	*defaultMallocZone = 0;
 - (void) setHandle: (NSFileHandle*)aHandle;
 - (void) setParser: (GSMimeParser*)aParser;
 - (void) setProcessing: (BOOL)aFlag;
+- (void) setRequestEnd: (NSTimeInterval)when;
 - (void) setRequestStart: (NSTimeInterval)when;
 - (void) setResult: (NSString*)aString;
-- (void) setShouldEnd: (BOOL)aFlag;
+- (void) setShouldClose: (BOOL)aFlag;
 - (void) setSimple: (BOOL)aFlag;
 - (void) setTicked: (NSTimeInterval)when;
 - (void) setUser: (NSString*)aString;
-- (BOOL) shouldEnd;
+- (BOOL) shouldClose;
 - (BOOL) simple;
 - (NSTimeInterval) ticked;
 @end
@@ -217,6 +222,11 @@ static NSZone	*defaultMallocZone = 0;
     [self identity], [self address]];
 }
 
+- (NSTimeInterval) duration
+{
+  return duration;
+}
+
 - (NSFileHandle*) handle
 {
   return handle;
@@ -238,6 +248,8 @@ static NSZone	*defaultMallocZone = 0;
 
   identity = ++connectionIdentity;
   requestStart = 0.0;
+  duration = 0.0;
+  requests = 0;
   return self;
 }
 
@@ -269,6 +281,11 @@ static NSZone	*defaultMallocZone = 0;
       return now - requestStart;
     }
   return 0.0;
+}
+
+- (unsigned) requests
+{
+  return requests;
 }
 
 - (void) reset
@@ -334,6 +351,18 @@ static NSZone	*defaultMallocZone = 0;
   processing = aFlag;
 }
 
+- (void) setRequestEnd: (NSTimeInterval)when
+{
+  NSTimeInterval	ti = when - requestStart;
+
+  if (ti > 0.0)
+    {
+      requestStart = 0.0;
+      duration += ti;
+      requests++;
+    }
+}
+
 - (void) setRequestStart: (NSTimeInterval)when
 {
   requestStart = when;
@@ -344,9 +373,9 @@ static NSZone	*defaultMallocZone = 0;
   ASSIGN(result, aString);
 }
 
-- (void) setShouldEnd: (BOOL)aFlag
+- (void) setShouldClose: (BOOL)aFlag
 {
-  shouldEnd = aFlag;
+  shouldClose = aFlag;
 }
 
 - (void) setSimple: (BOOL)aFlag
@@ -364,9 +393,9 @@ static NSZone	*defaultMallocZone = 0;
   ASSIGN(user, aString);
 }
 
-- (BOOL) shouldEnd
+- (BOOL) shouldClose
 {
-  return shouldEnd;
+  return shouldClose;
 }
 
 - (BOOL) simple
@@ -900,6 +929,8 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   _reverse = [_defs boolForKey: @"ReverseHostLookup"];
   _maxPerHost = 32;
   _maxConnections = 128;
+  _maxConnectionRequests = 100;
+  _maxConnectionDuration = 10.0;
   _maxBodySize = 4*1024*1024;
   _maxRequestSize = 8*1024;
   _substitutionLimit = 4;
@@ -1160,6 +1191,16 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 - (void) setMaxBodySize: (unsigned)max
 {
   _maxBodySize = max;
+}
+
+- (void) setMaxConnectionDuration: (NSTimeInterval)max
+{
+  _maxConnectionDuration = max;
+}
+
+- (void) setMaxConnectionRequests: (unsigned)max
+{
+  _maxConnectionRequests = max;
 }
 
 - (void) setMaxConnections: (unsigned)max
@@ -1499,7 +1540,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	   */
 	  if ([s hasPrefix: @"HTTP/"] == NO)
 	    {
-	      [connection setShouldEnd: YES];
+	      [connection setShouldClose: YES];
 	    }
 	  else if ([[s substringFromIndex: 5] floatValue] < 1.1) 
 	    {
@@ -1507,15 +1548,27 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	      if (s == nil
 	        || ([s caseInsensitiveCompare: @"keep-alive"] != NSOrderedSame))
 		{
-		  [connection setShouldEnd: YES];
+		  [connection setShouldClose: YES];
 		}
 	    }
+	}
+
+      /* We will close this connection if the maximum number of requests
+       * or maximum request duration has been exceeded.
+       */
+      if ([connection requests] >= _maxConnectionRequests)
+	{
+	  [connection setShouldClose: YES];
+	}
+      else if ([connection duration] >= _maxConnectionDuration)
+	{
+	  [connection setShouldClose: YES];
 	}
 
       /* Ensure that we send a connection close if we are about to drop
        * the connection.
        */
-      if ([connection shouldEnd] == YES)
+      if ([connection shouldClose] == YES)
         {
 	  [response setHeader: @"Connection"
 			value: @"close"
@@ -1712,7 +1765,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	       * soon as the response has been written, and we should not
 	       * read anything from the client.
 	       */
-	      [connection setShouldEnd: YES];
+	      [connection setShouldClose: YES];
 	    }
 	  else
 	    {
@@ -1864,7 +1917,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
       if (pos >= _maxRequestSize)
 	{
 	  [self _log: @"Request too long ... rejected"];
-	  [connection setShouldEnd: YES];
+	  [connection setShouldClose: YES];
 	  [connection setResult: @"HTTP/1.0 413 Request data too long"];
 	  [hdl writeInBackgroundAndNotify:
 	    [@"HTTP/1.0 413 Request data too long\r\n\r\n"
@@ -1913,14 +1966,14 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	      version = [NSStringClass stringWithUTF8String: (char*)bytes + end];
 	      if ([version floatValue] < 1.1)
 		{
-		  [connection setShouldEnd: YES];	// Not persistent.
+		  [connection setShouldClose: YES];	// Not persistent.
 		}
 	    }
 	  else
 	    {
 	      back = strlen((const char*)bytes);
 	      [connection setSimple: YES];	// Old style simple request.
-	      [connection setShouldEnd: YES];	// Not persistent.
+	      [connection setShouldClose: YES];	// Not persistent.
 	    }
 
 	  /*
@@ -1978,7 +2031,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	  if ([method isEqualToString: @"GET"] == NO
 	    && [method isEqualToString: @"POST"] == NO)
 	    {
-	      [connection setShouldEnd: YES];	// Not persistent.
+	      [connection setShouldClose: YES];	// Not persistent.
 	      [connection setResult: @"HTTP/1.0 501 Not Implemented"];
 	      [hdl writeInBackgroundAndNotify:
 		[@"HTTP/1.0 501 Not Implemented\r\n\r\n"
@@ -2033,7 +2086,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   if ([connection moreBytes: [d length]] > _maxBodySize)
     {
       [self _log: @"Request body too long ... rejected"];
-      [connection setShouldEnd: YES];	// Not persistent.
+      [connection setShouldClose: YES];	// Not persistent.
       [connection setResult: @"HTTP/1.0 413 Request body too long"];
       [hdl writeInBackgroundAndNotify:
 	[@"HTTP/1.0 413 Request body too long\r\n\r\n"
@@ -2049,7 +2102,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
       else
 	{
 	  [self _log: @"HTTP parse failure - %@", parser];
-          [connection setShouldEnd: YES];	// Not persistent.
+          [connection setShouldClose: YES];	// Not persistent.
           [connection setResult: @"HTTP/1.0 400 Bad Request"];
           [hdl writeInBackgroundAndNotify:
             [@"HTTP/1.0 400 Bad Request\r\n\r\n"
@@ -2077,28 +2130,35 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   connection = (WebServerConnection*)NSMapGet(_connections, (void*)hdl);
   NSAssert(connection != nil, NSInternalInconsistencyException);
 
-  if ([connection shouldEnd] == YES)
+  if ([connection shouldClose] == YES)
     {
       [self _endConnection: connection];
     }
   else
     {
-      if (_durations == YES)
-	{
-          if ([_quiet containsObject: [connection address]] == NO)
-            {
-              NSTimeInterval	t = [connection requestDuration: _ticked];
+      NSTimeInterval	t = [connection requestDuration: _ticked];
 
-              if (t == 0.0)
+      if (t > 0.0)
+	{
+	  [connection setRequestEnd: _ticked];
+	  if (_durations == YES)
+	    {
+	      if ([_quiet containsObject: [connection address]] == NO)
+		{
+		  [self _log: @"%@ end of request (duration %g)",
+		    connection, t];
+		}
+	    }
+	}
+      else
+	{
+	  if (_durations == YES)
+	    {
+	      if ([_quiet containsObject: [connection address]] == NO)
 		{
 		  [self _log: @"%@ reset", connection];
 		}
-              else
-                {
-                  [self _log: @"%@ end of request (duration %g)",
-                    connection, t];
-                }
-            }
+	    }
 	}
       [self _audit: connection];
       [connection reset];
@@ -2116,11 +2176,12 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 
   if ([_quiet containsObject: [connection address]] == NO)
     {
-      if (_durations == YES)
-	{
-	  NSTimeInterval	r = [connection requestDuration: _ticked];
+      NSTimeInterval	r = [connection requestDuration: _ticked];
 
-	  if (r > 0.0)
+      if (r > 0.0)
+	{
+	  [connection setRequestEnd: _ticked];
+	  if (_durations == YES)
 	    {
 	      [self _log: @"%@ end of request (duration %g)", connection, r];
 	    }
@@ -2190,14 +2251,14 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
     {
       if ([con caseInsensitiveCompare: @"keep-alive"] == NSOrderedSame)
 	{
-	  [connection setShouldEnd: NO];	// Persistent (even in HTTP 1.0)
+	  [connection setShouldClose: NO];	// Persistent (even in HTTP 1.0)
 	  [response setHeader: @"Connection"
 		        value: @"Keep-Alive"
 		   parameters: nil];
 	}
       else if ([con caseInsensitiveCompare: @"close"] == NSOrderedSame)
 	{
-	  [connection setShouldEnd: YES];	// Not persistent.
+	  [connection setShouldClose: YES];	// Not persistent.
 	}
     }
 

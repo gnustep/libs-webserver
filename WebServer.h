@@ -293,13 +293,15 @@
   unsigned int		_maxBodySize;
   unsigned int		_maxRequestSize;
   unsigned int		_maxConnections;
+  unsigned int		_maxConnectionRequests;
+  NSTimeInterval	_maxConnectionDuration;
   unsigned int		_maxPerHost;
   id			_delegate;
   NSFileHandle		*_listener;
   NSMapTable		*_connections;
   NSMapTable		*_processing;
-  unsigned		_handled;
-  unsigned		_requests;
+  unsigned int		_handled;
+  unsigned int		_requests;
   NSString		*_root;
   NSTimer		*_ticker;
   NSTimeInterval	_connectionTimeout;
@@ -542,6 +544,22 @@
  * The HTTP failure response for too large a body is 413.
  */
 - (void) setMaxBodySize: (unsigned)max;
+
+/**
+ * Sets the maximum total duration  of the incoming requests handled on an
+ * individual connection.  After this many requests are handled, the
+ * connection is closed (so another client may get a chance to connect).<br />
+ * The default is 10.0 seconds.
+ */
+- (void) setMaxConnectionDuration: (NSTimeInterval)max;
+
+/**
+ * Sets the maximum size number of incoming requests to be handled on an
+ * individual connection.  After this many requests are handled, the
+ * connection is closed (so another client may get a chance to connect).<br />
+ * The default is 100 requests.
+ */
+- (void) setMaxConnectionRequests: (unsigned)max;
 
 /**
  * Sets the maximum number of simultaneous connections with clients.<br />
