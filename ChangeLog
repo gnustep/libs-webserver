@@ -1,3 +1,10 @@
+2009-09-08 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServer.h:
+	* WebServerForms.m:
+	* GNUmakefile:
+	Add new classes for form handling.
+
 2009-09-01 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* WebServer.h: Add ivars and new class methods.  Document new

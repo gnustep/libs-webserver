@@ -723,6 +723,160 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   return valueCount;
 }
 
++ (NSString*) escapeHTML: (NSString*)str
+{
+  unsigned	length = [str length];
+  unsigned	output = 0;
+  unichar	*from;
+  unsigned	i = 0;
+  BOOL		escape = NO;
+
+  if (length == 0)
+    {
+      return str;
+    }
+  from = NSZoneMalloc (NSDefaultMallocZone(), sizeof(unichar) * length);
+  [str getCharacters: from];
+
+  for (i = 0; i < length; i++)
+    {
+      unichar	c = from[i];
+
+      if ((c >= 0x20 && c <= 0xd7ff)
+	|| c == 0x9 || c == 0xd || c == 0xa
+	|| (c >= 0xe000 && c <= 0xfffd))
+	{
+	  switch (c)
+	    {
+	      case '"':
+	      case '\'':
+		output += 6;
+		escape = YES;
+	        break;
+
+	      case '&':
+		output += 5;
+		escape = YES;
+	        break;
+
+	      case '<':
+	      case '>':
+		output += 4;
+		escape = YES;
+	        break;
+
+	      default:
+		/*
+		 * For non-ascii characters, we can use &#nnnn; escapes
+		 */
+		if (c > 127)
+		  {
+		    output += 5;
+		    while (c >= 1000)
+		      {
+			output++;
+			c /= 10;
+		      }
+		    escape = YES;
+		  }
+		output++;
+		break;
+	    }
+	}
+      else
+	{
+	  escape = YES;	// Need to remove bad characters
+	}
+    }
+
+  if (escape == YES)
+    {
+      unichar	*to;
+      unsigned	j = 0;
+
+      to = NSZoneMalloc (NSDefaultMallocZone(), sizeof(unichar) * output);
+
+      for (i = 0; i < length; i++)
+	{
+	  unichar	c = from[i];
+
+	  if ((c >= 0x20 && c <= 0xd7ff)
+	    || c == 0x9 || c == 0xd || c == 0xa
+	    || (c >= 0xe000 && c <= 0xfffd))
+	    {
+	      switch (c)
+		{
+		  case '"':
+		    to[j++] = '&';
+		    to[j++] = 'q';
+		    to[j++] = 'u';
+		    to[j++] = 'o';
+		    to[j++] = 't';
+		    to[j++] = ';';
+		    break;
+
+		  case '\'':
+		    to[j++] = '&';
+		    to[j++] = 'a';
+		    to[j++] = 'p';
+		    to[j++] = 'o';
+		    to[j++] = 's';
+		    to[j++] = ';';
+		    break;
+
+		  case '&':
+		    to[j++] = '&';
+		    to[j++] = 'a';
+		    to[j++] = 'm';
+		    to[j++] = 'p';
+		    to[j++] = ';';
+		    break;
+
+		  case '<':
+		    to[j++] = '&';
+		    to[j++] = 'l';
+		    to[j++] = 't';
+		    to[j++] = ';';
+		    break;
+
+		  case '>':
+		    to[j++] = '&';
+		    to[j++] = 'g';
+		    to[j++] = 't';
+		    to[j++] = ';';
+		    break;
+
+		  default:
+		    if (c > 127)
+		      {
+			char	buf[12];
+			char	*ptr = buf;
+
+			to[j++] = '&';
+			to[j++] = '#';
+			sprintf(buf, "%u", c);
+			while (*ptr != '\0')
+			  {
+			    to[j++] = *ptr++;
+			  }
+			to[j++] = ';';
+		      }
+		    else
+		      {
+			to[j++] = c;
+		      }
+		    break;
+		}
+	    }
+	}
+      str = [[NSString alloc] initWithCharacters: to length: output];
+      NSZoneFree (NSDefaultMallocZone (), to);
+      [str autorelease];
+    }
+  NSZoneFree (NSDefaultMallocZone (), from);
+  return str;
+}
+
 + (NSData*) parameter: (NSString*)name
 		   at: (unsigned)index
 		 from: (NSDictionary*)params
@@ -907,6 +1061,11 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 			     into: (NSMutableData*)data
 {
   return [[self class] encodeURLEncodedForm: dict into: data];
+}
+
+- (NSString*) escapeHTML: (NSString*)str
+{
+  return [[self class] escapeHTML: str];
 }
 
 - (NSString*) description
