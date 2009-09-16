@@ -51,6 +51,7 @@ static NSZone	*defaultMallocZone = 0;
   NSFileHandle		*handle;
   GSMimeParser		*parser;
   NSMutableData		*buffer;
+  NSData		*excess;
   unsigned		byteCount;
   unsigned		identity;
   NSTimeInterval	ticked;
@@ -68,6 +69,7 @@ static NSZone	*defaultMallocZone = 0;
 - (NSMutableData*) buffer;
 - (NSTimeInterval) connectionDuration: (NSTimeInterval)now;
 - (NSTimeInterval) duration;	/* Of all requests */
+- (NSData*) excess;
 - (NSFileHandle*) handle;
 - (BOOL) hasReset;
 - (unsigned) identity;
@@ -83,6 +85,7 @@ static NSZone	*defaultMallocZone = 0;
 - (void) setBuffer: (NSMutableData*)aBuffer;
 - (void) setCommand: (NSString*)aString;
 - (void) setConnectionStart: (NSTimeInterval)when;
+- (void) setExcess: (NSData*)d;
 - (void) setHandle: (NSFileHandle*)aHandle;
 - (void) setParser: (GSMimeParser*)aParser;
 - (void) setProcessing: (BOOL)aFlag;
@@ -206,6 +209,7 @@ static NSZone	*defaultMallocZone = 0;
 - (void) dealloc
 {
   [handle closeFile];
+  DESTROY(excess);
   DESTROY(address);
   DESTROY(buffer);
   DESTROY(handle);
@@ -225,6 +229,11 @@ static NSZone	*defaultMallocZone = 0;
 - (NSTimeInterval) duration
 {
   return duration;
+}
+
+- (NSData*) excess
+{
+  return excess;
 }
 
 - (NSFileHandle*) handle
@@ -336,6 +345,11 @@ static NSZone	*defaultMallocZone = 0;
   connectionStart = when;
 }
 
+- (void) setExcess: (NSData*)d
+{
+  ASSIGNCOPY(excess, d);
+}
+
 - (void) setHandle: (NSFileHandle*)aHandle
 {
   ASSIGN(handle, aHandle);
@@ -414,6 +428,7 @@ static NSZone	*defaultMallocZone = 0;
 - (void) _audit: (WebServerConnection*)connection;
 - (void) _completedWithResponse: (GSMimeDocument*)response;
 - (void) _didConnect: (NSNotification*)notification;
+- (void) _didData: (NSData*)d for: (WebServerConnection*)connection;
 - (void) _didRead: (NSNotification*)notification;
 - (void) _didWrite: (NSNotification*)notification;
 - (void) _endConnection: (WebServerConnection*)connection;
@@ -1117,9 +1132,9 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   CREATE_AUTORELEASE_POOL(arp);
   NSString	*path = (_root == nil) ? (id)@"" : (id)_root;
   NSString	*ext = [aPath pathExtension];
+  id		data = nil;
   NSString	*type;
   NSString	*str;
-  id		data;
   NSFileManager	*mgr;
   BOOL		string = NO;
   BOOL		result = YES;
@@ -1758,8 +1773,27 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 		 name: NSFileHandleReadCompletionNotification
 	       object: [connection handle]];
   [[connection handle] writeInBackgroundAndNotify: result];
-
+  [connection retain];
   NSMapRemove(_processing, (void*)response);
+
+  /* If this connection is not closing and excess data has been read,
+   * we may continue dealing with incoming data before the write
+   * has completed.
+   */
+  if ([connection shouldClose] == YES)
+    {
+      [connection setExcess: nil];
+    }
+  else
+    {
+      NSData	*more = [connection excess];
+
+      if (more != nil)
+	{
+          [self _didData: more for: connection];
+	}
+    }
+  [connection release];
 }
 
 - (void) _didConnect: (NSNotification*)notification
@@ -1959,71 +1993,18 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
     }
 }
 
-- (void) _didRead: (NSNotification*)notification
+- (void) _didData: (NSData*)d for: (WebServerConnection*)connection
 {
-  NSDictionary		*dict = [notification userInfo];
-  NSFileHandle		*hdl = [notification object];
-  NSData		*d;
   id			parser;
   NSString		*method = @"";
   NSString		*query = @"";
   NSString		*path = @"";
   NSString		*version = @"";
-  WebServerConnection	*connection;
   GSMimeDocument	*doc;
-
-  _ticked = [NSDateClass timeIntervalSinceReferenceDate];
-  connection = (WebServerConnection*)NSMapGet(_connections, (void*)hdl);
-  NSAssert(connection != nil, NSInternalInconsistencyException);
-  parser = [connection parser];
-
-  d = [dict objectForKey: NSFileHandleNotificationDataItem];
-
-  if ([d length] == 0)
-    {
-      if (parser == nil)
-	{
-	  NSMutableData	*buffer = [connection buffer];
-
-	  if ([buffer length] == 0)
-	    {
-	      /*
-	       * Don't log if we have already reset after handling
-	       * a request.
-	       * Don't log this in quiet mode as it could just be a
-	       * test connection that we are ignoring.
-	       */
-	      if ([connection hasReset] == NO
-		&& [_quiet containsObject: [connection address]] == NO)
-		{
-		  [self _log: @"%@ read end-of-file in empty request",
-		    connection];
-		}
-	    }
-	  else
-	    {
-	      [self _log: @"%@ read end-of-file in partial request - %@",
-		connection, buffer];
-	    }
-	}
-      else
-	{
-	  [self _log: @"%@ read end-of-file in incomplete request - %@",
-	    connection, [parser mimeDocument]];
-	}
-      [self _endConnection: connection];
-      return;
-    }
-
-  if (_verbose == YES
-    && [_quiet containsObject: [connection address]] == NO)
-    {
-      [self _log: @"Data read on %@ ... %@", connection, d];
-    }
 
   // Mark connection as having had I/O ... not idle.
   [connection setTicked: _ticked];
-
+  parser = [connection parser];
   if (parser == nil)
     {
       unsigned char	*bytes;
@@ -2078,7 +2059,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	  [self _log: @"Request too long ... rejected"];
 	  [connection setShouldClose: YES];
 	  [connection setResult: @"HTTP/1.0 413 Request data too long"];
-	  [hdl writeInBackgroundAndNotify:
+	  [[connection handle] writeInBackgroundAndNotify:
 	    [@"HTTP/1.0 413 Request data too long\r\n\r\n"
 	    dataUsingEncoding: NSASCIIStringEncoding]];
 	  return;
@@ -2086,7 +2067,9 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 
       if (pos == length)
 	{
-	  [hdl readInBackgroundAndNotify];	// Needs more data.
+	  /* Needs more data.
+	   */
+	  [[connection handle] readInBackgroundAndNotify];
 	  return;
 	}
       else
@@ -2122,7 +2105,8 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	    {
 	      bytes[back] = '\0';
 	      end = back + 6;
-	      version = [NSStringClass stringWithUTF8String: (char*)bytes + end];
+	      version
+		= [NSStringClass stringWithUTF8String: (char*)bytes + end];
 	      if ([version floatValue] < 1.1)
 		{
 		  [connection setShouldClose: YES];	// Not persistent.
@@ -2192,7 +2176,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	    {
 	      [connection setShouldClose: YES];	// Not persistent.
 	      [connection setResult: @"HTTP/1.0 501 Not Implemented"];
-	      [hdl writeInBackgroundAndNotify:
+	      [[connection handle] writeInBackgroundAndNotify:
 		[@"HTTP/1.0 501 Not Implemented\r\n\r\n"
 		dataUsingEncoding: NSASCIIStringEncoding]];
 	      return;
@@ -2210,6 +2194,12 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 
 	  parser = [GSMimeParser new];
 	  [parser setIsHttp];
+	  if ([method isEqualToString: @"POST"] == NO)
+	    {
+	      /* If it's not a POST, we don't need a body.
+	       */
+	      [parser setHeadersOnly];
+	    }
 	  [parser setDefaultCharset: @"utf-8"];
 
 	  doc = [parser mimeDocument];
@@ -2232,7 +2222,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 
 	  if (pos >= length)
 	    {
-	      [hdl readInBackgroundAndNotify];	// Needs more data.
+	      [[connection handle] readInBackgroundAndNotify];	// Needs more data.
 	      return;
 	    }
 	  // Fall through to parse remaining data with mime parser
@@ -2247,7 +2237,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
       [self _log: @"Request body too long ... rejected"];
       [connection setShouldClose: YES];	// Not persistent.
       [connection setResult: @"HTTP/1.0 413 Request body too long"];
-      [hdl writeInBackgroundAndNotify:
+      [[connection handle] writeInBackgroundAndNotify:
 	[@"HTTP/1.0 413 Request body too long\r\n\r\n"
 	dataUsingEncoding: NSASCIIStringEncoding]];
       return;
@@ -2263,7 +2253,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	  [self _log: @"HTTP parse failure - %@", parser];
           [connection setShouldClose: YES];	// Not persistent.
           [connection setResult: @"HTTP/1.0 400 Bad Request"];
-          [hdl writeInBackgroundAndNotify:
+          [[connection handle] writeInBackgroundAndNotify:
             [@"HTTP/1.0 400 Bad Request\r\n\r\n"
             dataUsingEncoding: NSASCIIStringEncoding]];
 	  return;
@@ -2276,8 +2266,68 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
     }
   else
     {
-      [hdl readInBackgroundAndNotify];
+      [[connection handle] readInBackgroundAndNotify];
     }
+}
+
+- (void) _didRead: (NSNotification*)notification
+{
+  NSDictionary		*dict = [notification userInfo];
+  NSFileHandle		*hdl = [notification object];
+  NSData		*d;
+  id			parser;
+  WebServerConnection	*connection;
+
+  _ticked = [NSDateClass timeIntervalSinceReferenceDate];
+  connection = (WebServerConnection*)NSMapGet(_connections, (void*)hdl);
+  NSAssert(connection != nil, NSInternalInconsistencyException);
+  parser = [connection parser];
+
+  d = [dict objectForKey: NSFileHandleNotificationDataItem];
+
+  if ([d length] == 0)
+    {
+      if (parser == nil)
+	{
+	  NSMutableData	*buffer = [connection buffer];
+
+	  if ([buffer length] == 0)
+	    {
+	      /*
+	       * Don't log if we have already reset after handling
+	       * a request.
+	       * Don't log this in quiet mode as it could just be a
+	       * test connection that we are ignoring.
+	       */
+	      if ([connection hasReset] == NO
+		&& [_quiet containsObject: [connection address]] == NO)
+		{
+		  [self _log: @"%@ read end-of-file in empty request",
+		    connection];
+		}
+	    }
+	  else
+	    {
+	      [self _log: @"%@ read end-of-file in partial request - %@",
+		connection, buffer];
+	    }
+	}
+      else
+	{
+	  [self _log: @"%@ read end-of-file in incomplete request - %@",
+	    connection, [parser mimeDocument]];
+	}
+      [self _endConnection: connection];
+      return;
+    }
+
+  if (_verbose == YES
+    && [_quiet containsObject: [connection address]] == NO)
+    {
+      [self _log: @"Data read on %@ ... %@", connection, d];
+    }
+
+  [self _didData: d for: connection];
 }
 
 - (void) _didWrite: (NSNotification*)notification
@@ -2394,6 +2444,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   BOOL			processed = YES;
 
   response = [GSMimeDocument new];
+  [connection setExcess: [[connection parser] excess]];
   NSMapInsert(_processing, (void*)response, (void*)connection);
   RELEASE(response);
   [connection setProcessing: YES];

@@ -366,39 +366,48 @@
 - (void) output: (NSMutableDictionary*)map for: (WebServerForm*)form
 {
   NSMutableString	*f;
-  NSString		*k;
   NSString		*v;
-  unsigned		c;
-  unsigned		i;
+  NSUInteger		c;
+  NSUInteger		i;
+
+  f = [[NSMutableString alloc] initWithFormat:
+    @"<select name=\"%@\">\n", _name];
 
   v = _value;
   if ([v length] == 0)
     {
       v = nil;
-      k = _prefill;
-    }
-  else
-    {
-      NSUInteger	index = [_vals indexOfObject: _value];
-
-      if (index == NSNotFound)
-	{
-	  k = nil;
-	}
-      else
-	{
-	  k = [_keys objectAtIndex: index]; 
-	}
     }
 
-  f = [[NSMutableString alloc] initWithFormat:
-    @"<select name=\"%@\">\n", _name];
-
-  if (v == nil && k != nil)
+  if ([_prefill length] > 0)
     {
-      [f appendFormat:
-	@"<option selected=\"selected\" value=\"\">%@</option>\n",
-        [WebServer escapeHTML: k]];
+      i = [_keys indexOfObject: _prefill];
+      if (i == NSNotFound)
+	{
+	  /* No value matching the prefill text ... 
+	   * Generate a menu option for the prefill text with an empty value.
+	   */
+	  if (v == nil)
+	    {
+	      /* No value set ... so use prefill as selected item.
+	       */
+	      [f appendFormat:
+	        @"<option selected=\"selected\" value=\"\">%@</option>\n",
+	        [WebServer escapeHTML: _prefill]];
+	    }
+	  else
+	    {
+	      [f appendFormat:
+	        @"<option value=\"\">%@</option>\n",
+	        [WebServer escapeHTML: _prefill]];
+	    }
+	}
+      else if (v == nil)
+	{
+	  /* Default selected value is determined by prefill text.
+	   */
+	  v = [_vals objectAtIndex: i]; 
+	}
     }
 
   c = [_keys count];
