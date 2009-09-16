@@ -4,6 +4,7 @@
 	at a time (ie sending a second request before we have sent the reponse
 	to the first one).
 	* WebServerForms.m: Fix bug setting prefill value for menu.
+	Support field size and multiple select.
 
 2009-09-08 Richard Frith-Macdonald  <rfm@gnu.org>
 

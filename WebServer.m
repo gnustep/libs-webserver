@@ -52,13 +52,13 @@ static NSZone	*defaultMallocZone = 0;
   GSMimeParser		*parser;
   NSMutableData		*buffer;
   NSData		*excess;
-  unsigned		byteCount;
-  unsigned		identity;
+  NSUInteger		byteCount;
+  NSUInteger		identity;
   NSTimeInterval	ticked;
   NSTimeInterval	requestStart;
   NSTimeInterval	connectionStart;
   NSTimeInterval	duration;
-  unsigned		requests;
+  NSUInteger		requests;
   BOOL			processing;
   BOOL			shouldClose;
   BOOL			hasReset;
@@ -72,12 +72,12 @@ static NSZone	*defaultMallocZone = 0;
 - (NSData*) excess;
 - (NSFileHandle*) handle;
 - (BOOL) hasReset;
-- (unsigned) identity;
-- (unsigned) moreBytes: (unsigned)count;
+- (NSUInteger) identity;
+- (NSUInteger) moreBytes: (NSUInteger)count;
 - (GSMimeParser*) parser;
 - (BOOL) processing;
 - (GSMimeDocument*) request;
-- (unsigned) requests;
+- (NSUInteger) requests;
 - (NSTimeInterval) requestDuration: (NSTimeInterval)now;
 - (void) reset;
 - (void) setAddress: (NSString*)aString;
@@ -246,14 +246,14 @@ static NSZone	*defaultMallocZone = 0;
   return hasReset;
 }
 
-- (unsigned) identity
+- (NSUInteger) identity
 {
   return identity;
 }
 
 - (id) init
 {
-  static unsigned	connectionIdentity = 0;
+  static NSUInteger	connectionIdentity = 0;
 
   identity = ++connectionIdentity;
   requestStart = 0.0;
@@ -262,7 +262,7 @@ static NSZone	*defaultMallocZone = 0;
   return self;
 }
 
-- (unsigned) moreBytes: (unsigned)count
+- (NSUInteger) moreBytes: (NSUInteger)count
 {
   byteCount += count;
   return byteCount;
@@ -292,7 +292,7 @@ static NSZone	*defaultMallocZone = 0;
   return 0.0;
 }
 
-- (unsigned) requests
+- (NSUInteger) requests
 {
   return requests;
 }
@@ -457,15 +457,15 @@ static NSZone	*defaultMallocZone = 0;
     }
 }
 
-static unsigned
-unescapeData(const unsigned char* bytes, unsigned length, unsigned char *buf)
+static NSUInteger
+unescapeData(const uint8_t *bytes, NSUInteger length, uint8_t *buf)
 {
-  unsigned int	to = 0;
-  unsigned int	from = 0;
+  NSUInteger	to = 0;
+  NSUInteger	from = 0;
 
   while (from < length)
     {
-      unsigned char	c = bytes[from++];
+      uint8_t	c = bytes[from++];
 
       if (c == '+')
 	{
@@ -473,7 +473,7 @@ unescapeData(const unsigned char* bytes, unsigned length, unsigned char *buf)
 	}
       else if (c == '%' && from < length - 1)
 	{
-	  unsigned char	tmp;
+	  uint8_t	tmp;
 
 	  c = 0;
 	  tmp = bytes[from++];
@@ -517,22 +517,22 @@ unescapeData(const unsigned char* bytes, unsigned length, unsigned char *buf)
   return to;
 }
 
-+ (unsigned) decodeURLEncodedForm: (NSData*)data
++ (NSUInteger) decodeURLEncodedForm: (NSData*)data
 			     into: (NSMutableDictionary*)dict
 {
-  const unsigned char	*bytes = (const unsigned char*)[data bytes];
-  unsigned		length = [data length];
-  unsigned		pos = 0;
-  unsigned		fields = 0;
+  const uint8_t		*bytes = (const uint8_t	*)[data bytes];
+  NSUInteger		length = [data length];
+  NSUInteger		pos = 0;
+  NSUInteger		fields = 0;
 
   while (pos < length)
     {
-      unsigned int	keyStart = pos;
-      unsigned int	keyEnd;
-      unsigned int	valStart;
-      unsigned int	valEnd;
-      unsigned char	*buf;
-      unsigned int	buflen;
+      NSUInteger	keyStart = pos;
+      NSUInteger	keyEnd;
+      NSUInteger	valStart;
+      NSUInteger	valEnd;
+      uint8_t		*buf;
+      NSUInteger	buflen;
       BOOL		escape = NO;
       NSData		*d;
       NSString		*k;
@@ -614,19 +614,19 @@ unescapeData(const unsigned char* bytes, unsigned length, unsigned char *buf)
 }
 
 static NSMutableData*
-escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
+escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 {
-  unsigned char	*dst;
-  unsigned int	spos = 0;
-  unsigned int	dpos = [d length];
+  uint8_t	*dst;
+  NSUInteger	spos = 0;
+  NSUInteger	dpos = [d length];
 
   [d setLength: dpos + 3 * length];
-  dst = (unsigned char*)[d mutableBytes];
+  dst = (uint8_t *)[d mutableBytes];
   while (spos < length)
     {
-      unsigned char	c = bytes[spos++];
-      unsigned int	hi;
-      unsigned int	lo;
+      uint8_t		c = bytes[spos++];
+      NSUInteger	hi;
+      NSUInteger	lo;
 
       switch (c)
 	{
@@ -674,13 +674,13 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   return d;
 }
 
-+ (unsigned) encodeURLEncodedForm: (NSDictionary*)dict
++ (NSUInteger) encodeURLEncodedForm: (NSDictionary*)dict
 			     into: (NSMutableData*)data
 {
   CREATE_AUTORELEASE_POOL(arp);
   NSEnumerator		*keyEnumerator;
   id			key;
-  unsigned		valueCount = 0;
+  NSUInteger		valueCount = 0;
   NSMutableData		*md = [NSMutableDataClass dataWithCapacity: 100];
 
   keyEnumerator = [dict keyEnumerator];
@@ -740,10 +740,10 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 
 + (NSString*) escapeHTML: (NSString*)str
 {
-  unsigned	length = [str length];
-  unsigned	output = 0;
+  NSUInteger	length = [str length];
+  NSUInteger	output = 0;
   unichar	*from;
-  unsigned	i = 0;
+  NSUInteger	i = 0;
   BOOL		escape = NO;
 
   if (length == 0)
@@ -807,7 +807,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   if (escape == YES)
     {
       unichar	*to;
-      unsigned	j = 0;
+      NSUInteger	j = 0;
 
       to = NSZoneMalloc (NSDefaultMallocZone(), sizeof(unichar) * output);
 
@@ -893,7 +893,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 }
 
 + (NSData*) parameter: (NSString*)name
-		   at: (unsigned)index
+		   at: (NSUInteger)index
 		 from: (NSDictionary*)params
 {
   NSArray	*a = [params objectForKey: name];
@@ -920,7 +920,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 }
 
 + (NSString*) parameterString: (NSString*)name
-			   at: (unsigned)index
+			   at: (NSUInteger)index
 			 from: (NSDictionary*)params
 		      charset: (NSString*)charset
 {
@@ -1066,13 +1066,13 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   [super dealloc];
 }
 
-- (unsigned) decodeURLEncodedForm: (NSData*)data
+- (NSUInteger) decodeURLEncodedForm: (NSData*)data
 			     into: (NSMutableDictionary*)dict
 {
   return [[self class] decodeURLEncodedForm: data into: dict];
 }
 
-- (unsigned) encodeURLEncodedForm: (NSDictionary*)dict
+- (NSUInteger) encodeURLEncodedForm: (NSDictionary*)dict
 			     into: (NSMutableData*)data
 {
   return [[self class] encodeURLEncodedForm: dict into: data];
@@ -1277,8 +1277,8 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   else if ([str isEqualToString: @"multipart/form-data"] == YES)
     {
       NSArray	*contents = [request content];
-      unsigned	count = [contents count];
-      unsigned	i;
+      NSUInteger	count = [contents count];
+      NSUInteger	i;
 
       for (i = 0; i < count; i++)
 	{
@@ -1311,7 +1311,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 }
 
 - (NSData*) parameter: (NSString*)name
-		   at: (unsigned)index
+		   at: (NSUInteger)index
 		 from: (NSDictionary*)params
 {
   return [[self class] parameter: name at: index from: params];
@@ -1323,14 +1323,14 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 }
 
 - (NSString*) parameterString: (NSString*)name
-			   at: (unsigned)index
+			   at: (NSUInteger)index
 			 from: (NSDictionary*)params
 {
   return [self parameterString: name at: index from: params charset: nil];
 }
 
 - (NSString*) parameterString: (NSString*)name
-			   at: (unsigned)index
+			   at: (NSUInteger)index
 			 from: (NSDictionary*)params
 		      charset: (NSString*)charset
 {
@@ -1362,7 +1362,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   _durations = aFlag;
 }
 
-- (void) setMaxBodySize: (unsigned)max
+- (void) setMaxBodySize: (NSUInteger)max
 {
   _maxBodySize = max;
 }
@@ -1372,17 +1372,17 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   _maxConnectionDuration = max;
 }
 
-- (void) setMaxConnectionRequests: (unsigned)max
+- (void) setMaxConnectionRequests: (NSUInteger)max
 {
   _maxConnectionRequests = max;
 }
 
-- (void) setMaxConnections: (unsigned)max
+- (void) setMaxConnections: (NSUInteger)max
 {
   _maxConnections = max;
 }
 
-- (void) setMaxConnectionsPerHost: (unsigned)max
+- (void) setMaxConnectionsPerHost: (NSUInteger)max
 {
   _maxPerHost = max;
 }
@@ -1392,7 +1392,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   _reject = (reject == YES) ? 1 : 0;
 }
 
-- (void) setMaxRequestSize: (unsigned)max
+- (void) setMaxRequestSize: (NSUInteger)max
 {
   _maxRequestSize = max;
 }
@@ -1476,7 +1476,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   _connectionTimeout = aDelay;
 }
 
-- (void) setSubstitutionLimit: (unsigned)depth
+- (void) setSubstitutionLimit: (NSUInteger)depth
 {
   _substitutionLimit = depth;
 }
@@ -1493,10 +1493,10 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 - (BOOL) substituteFrom: (NSString*)aTemplate
                   using: (NSDictionary*)map
 		   into: (NSMutableString*)result
-		  depth: (unsigned)depth
+		  depth: (NSUInteger)depth
 {
-  unsigned	length;
-  unsigned	pos = 0;
+  NSUInteger	length;
+  NSUInteger	pos = 0;
   NSRange	r;
 
   if (depth > _substitutionLimit)
@@ -1512,7 +1512,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 			 range: r];
   while (r.length > 0)
     {
-      unsigned	start = r.location;
+      NSUInteger	start = r.location;
 
       if (start > pos)
 	{
@@ -1526,7 +1526,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 			     range: r];
       if (r.length > 0)
 	{
-	  unsigned	end = NSMaxRange(r);
+	  NSUInteger	end = NSMaxRange(r);
 	  NSString	*subFrom;
 	  NSString	*subTo;
 
@@ -1647,10 +1647,10 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
     {
       NSMutableData	*out;
       NSMutableData	*raw;
-      unsigned char	*buf;
-      unsigned int	len;
-      unsigned int	pos;
-      unsigned int	contentLength;
+      uint8_t		*buf;
+      NSUInteger	len;
+      NSUInteger	pos;
+      NSUInteger	contentLength;
       NSEnumerator	*enumerator;
       GSMimeHeader	*hdr;
       NSString		*str;
@@ -2007,9 +2007,9 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
   parser = [connection parser];
   if (parser == nil)
     {
-      unsigned char	*bytes;
-      unsigned int	length;
-      unsigned int	pos;
+      uint8_t		*bytes;
+      NSUInteger	length;
+      NSUInteger	pos;
       NSMutableData	*buffer;
 
       /*
@@ -2074,9 +2074,9 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 	}
       else
 	{
-	  unsigned	back = pos;
-	  unsigned	start = 0;
-	  unsigned	end;
+	  NSUInteger	back = pos;
+	  NSUInteger	start = 0;
+	  NSUInteger	end;
 
 	  /*
 	   * Trim trailing whitespace from request line.
@@ -2574,7 +2574,7 @@ escapeData(const unsigned char* bytes, unsigned length, NSMutableData *d)
 
 - (void) _timeout: (NSTimer*)timer
 {
-  unsigned		count;
+  NSUInteger		count;
 
   _ticked = [NSDateClass timeIntervalSinceReferenceDate];
 

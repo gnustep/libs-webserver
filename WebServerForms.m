@@ -63,7 +63,8 @@
   if ([keys count] != [values count])
     {
       [NSException raise: NSInvalidArgumentException
-		  format: @"counts of keys and values do not match"];
+		  format: @"[%@-%@] counts of keys and values do not match",
+	NSStringFromClass([self class]), NSStringFromSelector(_cmd)];
     }
   f = [[WebServerFieldMenu alloc] initWithName: name
 				          keys: keys
@@ -172,6 +173,11 @@
 
 @implementation	WebServerField: NSObject
 
+- (NSUInteger) columns
+{
+  return _cols;
+}
+
 - (void) dealloc
 {
   [_prefill release];
@@ -187,7 +193,7 @@
 
 - (id) initWithName: (NSString*)name
 {
-  unsigned	count = [name length];
+  NSUInteger	count = [name length];
   unichar	c;
 
   if (count == 0)
@@ -240,9 +246,18 @@
 	  v = @"";
 	}
     }
-  f = [[NSString alloc] initWithFormat:
-    @"<input type=\"text\" name=\"%@\" value=\"%@\" />",
-    _name, [WebServer escapeHTML: v]];
+  if (_cols == 0)
+    {
+      f = [[NSString alloc] initWithFormat:
+        @"<input type=\"text\" name=\"%@\" value=\"%@\" />",
+        _name, [WebServer escapeHTML: v]];
+    }
+  else
+    {
+      f = [[NSString alloc] initWithFormat:
+        @"<input size=\"%u\" type=\"text\" name=\"%@\" value=\"%@\" />",
+        _cols, _name, [WebServer escapeHTML: v]];
+    }
   [map setObject: f forKey: _name];
   [f release];
 }
@@ -252,9 +267,19 @@
   return _prefill;
 }
 
+- (NSUInteger) rows
+{
+  return _rows;
+}
+
 - (void) setMayBeEmpty: (BOOL)flag
 {
   _mayBeEmpty = flag;
+}
+
+- (void) setColumns: (NSUInteger)cols
+{
+  _cols = cols;
 }
 
 - (void) setPrefill: (id)value
@@ -263,6 +288,11 @@
 
   [_prefill release];
   _prefill = tmp;
+}
+
+- (void) setRows: (NSUInteger)rows
+{
+  _rows = rows;
 }
 
 - (void) setValue: (id)value
@@ -285,7 +315,7 @@
 {
   if (_mayBeEmpty == NO && _value == nil)
     {
-      return @"empty";
+      return _(@"empty");
     }
   return nil;
 }
@@ -308,9 +338,110 @@
 	       keys: (NSArray*)keys
 	     values: (NSArray*)values
 {
-  unsigned	c = [keys count];
-  unsigned	i;
+  if ((self = [super initWithName: name]) != nil)
+    {
+      [self setKeys: keys andValues: values];
+    }
+  return self;
+}
+
+- (BOOL) mayBeMultiple
+{
+  return _multiple;
+}
+
+- (void) output: (NSMutableDictionary*)map for: (WebServerForm*)form
+{
+  NSMutableString	*f;
+  id			v;
+  NSUInteger		c;
+  NSUInteger		i;
+  NSString		*mult;
+
+  mult = (_multiple ? @" multiple=\"multiple\" " : @"");
+
+  if (_rows == 0)
+    {
+      f = [[NSMutableString alloc] initWithFormat:
+        @"<select %@ name=\"%@\">\n", mult, _name];
+    }
+  else
+    {
+      f = [[NSMutableString alloc] initWithFormat:
+        @"<select %@ size=\"%u\" name=\"%@\">\n", mult, _rows, _name];
+    }
+
+  v = _value;
+  if ([_prefill length] > 0)
+    {
+      i = [_keys indexOfObject: _prefill];
+      if (i == NSNotFound)
+	{
+	  /* No value matching the prefill text ... 
+	   * Generate a menu option for the prefill text with an empty value.
+	   */
+	  if (v == nil)
+	    {
+	      /* No value set ... so use prefill as selected item.
+	       */
+	      [f appendFormat:
+	        @"<option selected=\"selected\" value=\"\">%@</option>\n",
+	        [WebServer escapeHTML: _prefill]];
+	    }
+	  else
+	    {
+	      [f appendFormat:
+	        @"<option value=\"\">%@</option>\n",
+	        [WebServer escapeHTML: _prefill]];
+	    }
+	}
+      else if (v == nil)
+	{
+	  /* Default selected value is determined by prefill text.
+	   */
+	  v = [_vals objectAtIndex: i]; 
+	}
+    }
+
+  /* make sure we are working with an array of selected values.
+   */
+  if ([v isKindOfClass: [NSString class]])
+    {
+      v = [NSArray arrayWithObject: v];
+    }
+
+  c = [_keys count];
+  for (i = 0; i < c; i++)
+    {
+      NSString	*val = [_vals objectAtIndex: i];
+      NSString	*key = [_keys objectAtIndex: i];
+
+      if (v != nil && [v containsObject: val])
+	{
+	  [f appendFormat:
+	    @"<option selected=\"selected\" value=\"%@\">%@</option>\n",
+	    [WebServer escapeHTML: val],
+	    [WebServer escapeHTML: key]];
+	}
+      else
+	{
+	  [f appendFormat:
+	    @"<option value=\"%@\">%@</option>\n",
+	    [WebServer escapeHTML: val],
+	    [WebServer escapeHTML: key]];
+	}
+    }
+  [f appendString: @"</select>"];
+  [map setObject: f forKey: _name];
+  [f release];
+}
+
+- (void) setKeys: (NSArray*)keys andValues: (NSArray*)values
+{
+  NSUInteger	c = [keys count];
+  NSUInteger	i;
   NSSet		*s;
+  id		o;
 
   if (c == 0)
     {
@@ -355,93 +486,115 @@
 	NSStringFromClass([self class]), NSStringFromSelector(_cmd)];
     }
 
-  if ((self = [super initWithName: name]) != nil)
-    {
-      _keys = [keys copy];
-      _vals = [values copy];
-    }
-  return self;
+  o = [keys copy];
+  [_keys release];
+  _keys = o;
+  o = [values copy];
+  [_vals release];
+  _vals = o;
 }
 
-- (void) output: (NSMutableDictionary*)map for: (WebServerForm*)form
+- (void) setMayBeMultiple: (BOOL)flag
 {
-  NSMutableString	*f;
-  NSString		*v;
-  NSUInteger		c;
-  NSUInteger		i;
-
-  f = [[NSMutableString alloc] initWithFormat:
-    @"<select name=\"%@\">\n", _name];
-
-  v = _value;
-  if ([v length] == 0)
+  if (_multiple != flag)
     {
-      v = nil;
-    }
-
-  if ([_prefill length] > 0)
-    {
-      i = [_keys indexOfObject: _prefill];
-      if (i == NSNotFound)
+      _multiple = flag;
+      if (YES == _multiple)
 	{
-	  /* No value matching the prefill text ... 
-	   * Generate a menu option for the prefill text with an empty value.
-	   */
-	  if (v == nil)
+	  if (_value != nil)
 	    {
-	      /* No value set ... so use prefill as selected item.
-	       */
-	      [f appendFormat:
-	        @"<option selected=\"selected\" value=\"\">%@</option>\n",
-	        [WebServer escapeHTML: _prefill]];
-	    }
-	  else
-	    {
-	      [f appendFormat:
-	        @"<option value=\"\">%@</option>\n",
-	        [WebServer escapeHTML: _prefill]];
-	    }
-	}
-      else if (v == nil)
-	{
-	  /* Default selected value is determined by prefill text.
-	   */
-	  v = [_vals objectAtIndex: i]; 
-	}
-    }
+	      id	old = _value;
 
-  c = [_keys count];
-  for (i = 0; i < c; i++)
-    {
-      NSString	*val = [_vals objectAtIndex: i];
-      NSString	*key = [_keys objectAtIndex: i];
-
-      if (v != nil &&  [v isEqualToString: val])
-	{
-	  [f appendFormat:
-	    @"<option selected=\"selected\" value=\"%@\">%@</option>\n",
-	    [WebServer escapeHTML: val],
-	    [WebServer escapeHTML: key]];
+	      _value = [[NSArray alloc] initWithObjects: &old count: 1];
+	      [old release];
+	    } 
 	}
       else
 	{
-	  [f appendFormat:
-	    @"<option value=\"%@\">%@</option>\n",
-	    [WebServer escapeHTML: val],
-	    [WebServer escapeHTML: key]];
+	  if ([_value count] > 0)
+	    {
+	      id	old = _value;
+
+	      _value = [[old objectAtIndex: 0] copy];
+	      [old release];
+	    } 
 	}
     }
-  [f appendString: @"</select>"];
-  [map setObject: f forKey: _name];
-  [f release];
+}
+
+- (void) setValue: (id)value
+{
+  if (YES == _multiple)
+    {
+      NSUInteger	count;
+      NSUInteger	index;
+      NSMutableArray	*array;
+
+      if (value != nil && NO == [value isKindOfClass: [NSArray class]])
+	{ 
+	  [NSException raise: NSInvalidArgumentException
+		      format: @"[%@-%@] value is not an array",
+	    NSStringFromClass([self class]), NSStringFromSelector(_cmd)];
+	}
+      index = count = [value count];
+      array = [[value mutableCopy] autorelease];
+      while (index-- > 0)
+	{
+	  id	v = [array objectAtIndex: index];
+
+	  if (NO == [v isKindOfClass: [NSString class]])
+	    {
+	      [NSException raise: NSInvalidArgumentException
+			  format: @"[%@-%@] value item %u is not a string",
+		NSStringFromClass([self class]), NSStringFromSelector(_cmd),
+		index];
+	    }
+	  v = [v stringByTrimmingSpaces];
+	  if ([_vals containsObject: v] == NO)
+	    {
+	      [array removeObjectAtIndex: index];
+	    }
+	  else
+	    {
+	      [array replaceObjectAtIndex: index withObject: v];
+	    }
+	}
+      if ([array count] == 0)
+	{
+	  value = nil;
+	}
+      else
+	{
+	  value = array;
+	}
+    }
+  else
+    {
+      if (value != nil && NO == [value isKindOfClass: [NSString class]])
+	{ 
+	  [NSException raise: NSInvalidArgumentException
+		      format: @"[%@-%@] value is not a string",
+	    NSStringFromClass([self class]), NSStringFromSelector(_cmd)];
+	}
+      value = [value stringByTrimmingSpaces];
+      if ([value length] == 0)
+	{
+	  value = nil;
+	}
+      if ([_vals containsObject: value] == NO)
+	{
+	  value = nil;
+	}
+    }
+  [super setValue: value];
 }
 
 - (void) sortUsingSelector: (SEL)aSelector
 {
   NSArray		*nk = [_keys sortedArrayUsingSelector: aSelector];
   NSMutableArray	*nv;
-  unsigned		c;
-  unsigned		i;
+  NSUInteger		c;
+  NSUInteger		i;
 
   nk = [_keys sortedArrayUsingSelector: aSelector];
   c = [nk count];
@@ -464,11 +617,24 @@
 {
   NSString	*v;
 
-  v = [WebServer parameterString: _name at: 0 from: params charset: nil];
-  [self setValue: v];
-  if ([_vals containsObject: [self value]] == NO)
+  if (YES == _multiple)
     {
-      [self setValue: nil];
+      NSMutableArray	*a = [NSMutableArray array];
+      int		i = 0;
+
+      while ((v = [WebServer parameterString: _name
+					  at: i++
+				        from: params
+				     charset: nil]) != nil)
+	{
+	  [a addObject: v];
+	}
+      [self setValue: a];
+    }
+  else
+    {
+      v = [WebServer parameterString: _name at: 0 from: params charset: nil];
+      [self setValue: v];
     }
 }
 

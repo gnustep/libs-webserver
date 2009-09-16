@@ -288,23 +288,23 @@
   BOOL			_verbose;
   BOOL			_durations;
   BOOL                  _reverse;
-  unsigned char		_reject;
+  uint8_t		_reject;
   NSDictionary		*_sslConfig;
   NSArray		*_quiet;
   NSArray		*_hosts;
-  unsigned int		_substitutionLimit;
-  unsigned int		_maxBodySize;
-  unsigned int		_maxRequestSize;
-  unsigned int		_maxConnections;
-  unsigned int		_maxConnectionRequests;
+  NSUInteger		_substitutionLimit;
+  NSUInteger		_maxBodySize;
+  NSUInteger		_maxRequestSize;
+  NSUInteger		_maxConnections;
+  NSUInteger		_maxConnectionRequests;
   NSTimeInterval	_maxConnectionDuration;
-  unsigned int		_maxPerHost;
+  NSUInteger		_maxPerHost;
   id			_delegate;
   NSFileHandle		*_listener;
   NSMapTable		*_connections;
   NSMapTable		*_processing;
-  unsigned int		_handled;
-  unsigned int		_requests;
+  NSUInteger		_handled;
+  NSUInteger		_requests;
   NSString		*_root;
   NSTimer		*_ticker;
   NSTimeInterval	_connectionTimeout;
@@ -316,14 +316,14 @@
 /**
  * Same as the instance method of the same name.
  */
-+ (unsigned) decodeURLEncodedForm: (NSData*)data
-			     into: (NSMutableDictionary*)dict;
++ (NSUInteger) decodeURLEncodedForm: (NSData*)data
+			       into: (NSMutableDictionary*)dict;
 
 /**
  * Same as the instance method of the same name.
  */
-+ (unsigned) encodeURLEncodedForm: (NSDictionary*)dict
-			     into: (NSMutableData*)data;
++ (NSUInteger) encodeURLEncodedForm: (NSDictionary*)dict
+			       into: (NSMutableData*)data;
 
 
 /**
@@ -335,14 +335,14 @@
  * Same as the instance method of the same name.
  */
 + (NSData*) parameter: (NSString*)name
-		   at: (unsigned)index
+		   at: (NSUInteger)index
 		 from: (NSDictionary*)params;
 
 /**
  * Same as the instance method of the same name.
  */
 + (NSString*) parameterString: (NSString*)name
-			   at: (unsigned)index
+			   at: (NSUInteger)index
 			 from: (NSDictionary*)params
 		      charset: (NSString*)charset;
 
@@ -409,8 +409,8 @@
  * GSMimeDocument methods.<br />
  * This method returns the number of fields actually decoded.
  */         
-- (unsigned) decodeURLEncodedForm: (NSData*)data
-			     into: (NSMutableDictionary*)dict;
+- (NSUInteger) decodeURLEncodedForm: (NSData*)data
+			       into: (NSMutableDictionary*)dict;
 
 /**         
  * Encode an application/x-www-form-urlencoded form and store its
@@ -424,8 +424,8 @@
  * utf-8 encoding.<br />
  * This method returns the number of values actually encoded.
  */         
-- (unsigned) encodeURLEncodedForm: (NSDictionary*)dict
-			     into: (NSMutableData*)data;
+- (NSUInteger) encodeURLEncodedForm: (NSDictionary*)dict
+			       into: (NSMutableData*)data;
 
 /** Escapes special characters in str for use in an HTML page.<br />
  * This converts &amp; to &amp;amp; for instance, and replaces
@@ -462,7 +462,7 @@
  * too large for the number of items which exist, this returns nil.
  */
 - (NSData*) parameter: (NSString*)name
-		   at: (unsigned)index
+		   at: (NSUInteger)index
 		 from: (NSDictionary*)params;
 
 /**
@@ -475,7 +475,7 @@
  * UTF-8 encoding is used for string conversion.
  */
 - (NSString*) parameterString: (NSString*)name
-			   at: (unsigned)index
+			   at: (NSUInteger)index
 			 from: (NSDictionary*)params;
 /**
  * Calls -parameter:at:from: and, if the result is non-nil
@@ -483,7 +483,7 @@
  * characterset, (if charset is nil, UTF-8 is used).
  */
 - (NSString*) parameterString: (NSString*)name
-			   at: (unsigned)index
+			   at: (NSUInteger)index
 			 from: (NSDictionary*)params
 		      charset: (NSString*)charset;
 /**
@@ -558,7 +558,7 @@
  * The default is 4M bytes.<br />
  * The HTTP failure response for too large a body is 413.
  */
-- (void) setMaxBodySize: (unsigned)max;
+- (void) setMaxBodySize: (NSUInteger)max;
 
 /**
  * Sets the maximum total duration  of the incoming requests handled on an
@@ -574,7 +574,7 @@
  * connection is closed (so another client may get a chance to connect).<br />
  * The default is 100 requests.
  */
-- (void) setMaxConnectionRequests: (unsigned)max;
+- (void) setMaxConnectionRequests: (NSUInteger)max;
 
 /**
  * Sets the maximum number of simultaneous connections with clients.<br />
@@ -583,7 +583,7 @@
  * If this limit is reached, the behavior of the software depends upon
  * the value set by the -setMaxConnectionsReject: method.
  */
-- (void) setMaxConnections: (unsigned)max;
+- (void) setMaxConnections: (NSUInteger)max;
 
 /**
  * Sets the maximum number of simultaneous connections with a particular
@@ -595,7 +595,7 @@
  * cannot be reached.<br />
  * The HTTP failure response for too many connections from a host is 503.
  */
-- (void) setMaxConnectionsPerHost: (unsigned)max;
+- (void) setMaxConnectionsPerHost: (NSUInteger)max;
 
 /**
  * <p>This setting (default value NO) determines the behavior of the software
@@ -626,7 +626,7 @@
  * The default is 8K bytes.<br />
  * The HTTP failure response for too large a request is 413.
  */
-- (void) setMaxRequestSize: (unsigned)max;
+- (void) setMaxRequestSize: (NSUInteger)max;
 
 /**
  * Sets the port and security information for the receiver ... without
@@ -657,7 +657,7 @@
  * Sets the maximum recursion depth allowed for substitutions into
  * templates.  This defaults to 4.
  */
-- (void) setSubstitutionLimit: (unsigned)depth;
+- (void) setSubstitutionLimit: (NSUInteger)depth;
 
 /**
  * Set root path for loading template files from.<br />
@@ -695,7 +695,7 @@
 - (BOOL) substituteFrom: (NSString*)aTemplate
 		  using: (NSDictionary*)map
 		   into: (NSMutableString*)result
-		  depth: (unsigned)depth;
+		  depth: (NSUInteger)depth;
 
 @end
 
@@ -890,7 +890,15 @@
   id		_value;
   id		_prefill;
   BOOL		_mayBeEmpty;
+  uint16_t	_cols;
+  uint16_t	_rows;
 }
+
+/** Return the number of columns set using the -setColumns: method or
+ * zero if no value has been set.
+ */
+- (NSUInteger) columns;
+
 /** <init />
  * Initialises the receiver with the specified name which must be a valid
  * field name (alphanumeric string plus a few characters).
@@ -916,6 +924,16 @@
  */
 - (id) prefill;
 
+/** Return the number of rows set using the -setRows: method or
+ * zero if no value has been set.
+ */
+- (NSUInteger) rows;
+
+/** Set an advisory display width for the field.<br />
+ * The default value of zero means that the field is unlimited.
+ */
+- (void) setColumns: (NSUInteger)cols;
+
 /** Sets a flag to indicate whether the field value can be considered
  * valid if it is empty (or has not been filled in yet).  This is used
  * by the -validate method.
@@ -926,6 +944,11 @@
  * before the user has entered anything.
  */
 - (void) setPrefill: (id)value;
+
+/** Set an advisory display height for the field.<br />
+ * The default value of ero means that the field is unlimited.
+ */
+- (void) setRows: (NSUInteger)rows;
 
 /** Sets the value for this field.  You do not usually call this method
  * directly as the -takeValueFrom: method populates the field value from
@@ -954,6 +977,7 @@
 {
   NSArray	*_keys;
   NSArray	*_vals;
+  BOOL		_multiple;
 }
 /** The options supported by this field are listed as keys (the text
  * that the user sees in their web browser) and values (the text
@@ -964,6 +988,22 @@
 - (id) initWithName: (NSString*)name
 	       keys: (NSArray*)keys
 	     values: (NSArray*)values;
+
+/** Returns YES if this field allows multiple values (in which case the
+ * -value method returns an array of those values).
+ */
+- (BOOL) mayBeMultiple;
+
+/** Used to change the set of keys and values in this field.<br />
+ * The arguments are subject to the same constraints as when initialising
+ * the receiver.
+ */
+- (void) setKeys: (NSArray*)keys andValues: (NSArray*)values;
+
+/** Controls whether the field supports multiple selection of values.<br />
+ * The default setting is NO.
+ */
+- (void) setMayBeMultiple: (BOOL)flag;
 
 /** Orders the menu appearance in the browser on the basis of the keys
  * it was initialised with.
