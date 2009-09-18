@@ -55,6 +55,7 @@ static NSZone	*defaultMallocZone = 0;
   NSUInteger		byteCount;
   NSUInteger		identity;
   NSTimeInterval	ticked;
+  NSTimeInterval	extended;
   NSTimeInterval	requestStart;
   NSTimeInterval	connectionStart;
   NSTimeInterval	duration;
@@ -70,6 +71,8 @@ static NSZone	*defaultMallocZone = 0;
 - (NSTimeInterval) connectionDuration: (NSTimeInterval)now;
 - (NSTimeInterval) duration;	/* Of all requests */
 - (NSData*) excess;
+- (void) extend: (NSTimeInterval)when;
+- (NSTimeInterval) extended;
 - (NSFileHandle*) handle;
 - (BOOL) hasReset;
 - (NSUInteger) identity;
@@ -234,6 +237,23 @@ static NSZone	*defaultMallocZone = 0;
 - (NSData*) excess
 {
   return excess;
+}
+
+- (void) extend: (NSTimeInterval)i
+{
+  if (i > 0.0)
+    {
+      if (extended == 0.0)
+	{
+	  extended = ticked;
+	}
+      extended += i;
+    }
+}
+
+- (NSTimeInterval) extended
+{
+  return extended == 0.0 ? ticked : extended;
 }
 
 - (NSFileHandle*) handle
@@ -2581,20 +2601,30 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   count = NSCountMapTable(_connections);
   if (count > 0)
     {
-      NSMapEnumerator	enumerator;
+      NSMapEnumerator		enumerator;
       WebServerConnection	*connection;
-      NSFileHandle	*handle;
-      NSMutableArray	*array;
+      NSFileHandle		*handle;
+      NSMutableArray		*array;
 
       array = [NSMutableArrayClass arrayWithCapacity: count];
       enumerator = NSEnumerateMapTable(_connections);
       while (NSNextMapEnumeratorPair(&enumerator,
 	(void **)(&handle), (void**)(&connection)))
 	{
-	  if (_ticked - [connection ticked] > _connectionTimeout
-	    && [connection processing] == NO)
+	  NSTimeInterval	age = _ticked - [connection ticked];
+
+	  if (age > _connectionTimeout)
 	    {
-	      [array addObject: connection];
+	      if ([connection processing] == NO)
+		{
+		  [array addObject: connection];
+		}
+	      else if (_ticked - [connection extended] > _connectionTimeout)
+		{
+		  [connection extend: 300.0];
+		  [self _alert: @"%@ abort after %g seconds to process %@",
+		    connection, age, [connection request]];
+		}
 	    }
 	}
       NSEndMapTableEnumeration(&enumerator);
