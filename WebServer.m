@@ -1019,6 +1019,50 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   return AUTORELEASE(s);
 }
 
++ (BOOL) redirectRequest: (GSMimeDocument*)request
+		response: (GSMimeDocument*)response
+		      to: (NSURL*)destination
+{
+  NSString	*s = [destination absoluteString];
+  NSString	*type = @"text/html";
+  NSString	*body;
+
+  [response setHeader: @"Location" value: s parameters: nil];
+  [response setHeader: @"http"
+		value: @"HTTP/1.1 302 Found"
+	   parameters: nil];
+
+  body = [NSString stringWithFormat: @"<a href=\"%@\">continue</a>",
+    [self escapeHTML: s]];
+  s = [[request headerNamed: @"accept"] value];
+  if ([s length] > 0)
+    {
+      NSEnumerator      *e;
+
+      /* Enumerate through all the supported types.
+       */
+      e = [[s componentsSeparatedByString: @","] objectEnumerator];
+      while ((s = [e nextObject]) != nil)
+        {
+          /* Separate the type from any parameters.
+           */
+          s = [[[s componentsSeparatedByString: @";"] objectAtIndex: 0]
+            stringByTrimmingSpaces];
+          if ([s isEqualToString: @"text/html"] == YES
+            || [s isEqualToString: @"text/xhtml"] == YES
+            || [s isEqualToString: @"application/xhtml+xml"] == YES
+            || [s isEqualToString: @"application/vnd.wap.xhtml+xml"] == YES
+            || [s isEqualToString: @"text/vnd.wap.wml"] == YES)
+            {
+              type = s;
+	      break;
+            }
+        }
+    }
+  [response setContent: body type: type];
+  return YES;
+}
+
 - (BOOL) accessRequest: (GSMimeDocument*)request
 	      response: (GSMimeDocument*)response
 {

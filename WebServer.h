@@ -361,6 +361,15 @@
 			 from: (NSDictionary*)params
 		      charset: (NSString*)charset;
 
+/** Convenience method to set up a temporary redirect to the specified URL
+ * using the supplied response data.  The method returns YES so that it is
+ * reasonable to pass its return value back directly as the return value
+ * for a call to the -processRequest:response:for: method. 
+ */
++ (BOOL) redirectRequest: (GSMimeDocument*)request
+		response: (GSMimeDocument*)response
+		      to: (NSURL*)destination;
+
 /**
  * This method is called for each incoming request, and checks that the
  * requested resource is accessible (basic user/password access control).<br />

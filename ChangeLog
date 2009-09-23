@@ -1,5 +1,10 @@
 2009-09-16 Richard Frith-Macdonald  <rfm@gnu.org>
 
+	* WebServer.m: Add convenience methods to build new URLs with query
+	string information and to redirect to a new URL.
+
+2009-09-16 Richard Frith-Macdonald  <rfm@gnu.org>
+
 	* WebServer.m: Attempt to handle client sending more than one request
 	at a time (ie sending a second request before we have sent the reponse
 	to the first one).
