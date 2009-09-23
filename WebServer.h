@@ -332,6 +332,21 @@
 + (NSString*) escapeHTML: (NSString*)str;
 
 /**
+ * Returns a new URL formed by putting the newPath in the oldURL and
+ * appending a query string containing the fields specified in the
+ * fields argument (optionally extended/overridden by any other fields 
+ * defined as key/value pairs in the nil terminated list of additional
+ * arguments.<br />
+ * If the oldURL is nil, then the new URL will be a relative URL
+ * containing just the path and query string.<br />
+ * If newPath is an absolute path, it replaces the path from oldURL,
+ * otherwise it replaces the last path component from uldURL.
+ */
++ (NSURL*) linkPath: (NSString*)newPath
+	   relative: (NSURL*)oldURL
+	      query: (NSDictionary*)fields, ...;
+
+/**
  * Same as the instance method of the same name.
  */
 + (NSData*) parameter: (NSString*)name

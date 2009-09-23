@@ -695,7 +695,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 }
 
 + (NSUInteger) encodeURLEncodedForm: (NSDictionary*)dict
-			     into: (NSMutableData*)data
+			       into: (NSMutableData*)data
 {
   CREATE_AUTORELEASE_POOL(arp);
   NSEnumerator		*keyEnumerator;
@@ -912,6 +912,60 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   return str;
 }
 
++ (NSURL*) linkPath: (NSString*)newPath
+	   relative: (NSURL*)oldURL
+	      query: (NSDictionary*)fields, ...
+{
+  va_list		ap;
+  NSMutableDictionary	*m;
+  id			key;
+  id			val;
+  NSRange		r;
+
+  m = [fields mutableCopy];
+  va_start (ap, fields);
+  while ((key = va_arg(ap, id)) != nil && (val = va_arg(ap, id)) != nil)
+    {
+      if (m == nil)
+	{
+	  m = [[NSMutableDictionary alloc] initWithCapacity: 2];
+	}
+      [m setObject: val forKey: key];
+    }
+  va_end (ap);
+
+  /* The new path must NOT contain a query string.
+   */
+  r = [newPath rangeOfString: @"?"];
+  if (r.length > 0)
+    {
+      newPath = [newPath substringToIndex: r.location];
+    }
+
+  if ([m count] > 0)
+    {
+      NSMutableData	*data;
+
+      data = [[newPath dataUsingEncoding: NSUTF8StringEncoding] mutableCopy];
+      [data appendBytes: "?" length: 1];
+      [self encodeURLEncodedForm: m into: data];
+      newPath = [NSString alloc];
+      newPath = [newPath initWithData: data encoding: NSUTF8StringEncoding];
+      [newPath autorelease];
+      [data release];
+    }
+  [m release];
+
+  if (oldURL == nil)
+    {
+      return [NSURL URLWithString: newPath];
+    }
+  else
+    {
+      return [NSURL URLWithString: newPath relativeToURL: oldURL];
+    }
+}
+
 + (NSData*) parameter: (NSString*)name
 		   at: (NSUInteger)index
 		 from: (NSDictionary*)params
@@ -1093,7 +1147,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 }
 
 - (NSUInteger) encodeURLEncodedForm: (NSDictionary*)dict
-			     into: (NSMutableData*)data
+			       into: (NSMutableData*)data
 {
   return [[self class] encodeURLEncodedForm: dict into: data];
 }
