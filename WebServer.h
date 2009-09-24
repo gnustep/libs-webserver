@@ -138,6 +138,10 @@
  *   <term>x-http-query</term>
  *   <desc>The query string from the HTTP request or an empty string
  *     if there was no query.</desc>
+ *   <term>x-http-scheme</term>
+ *   <desc>Returns the URL scheme used (http or https) to access the server.
+ *     This is https if the request arrived on an ancrypted connection or if
+ *     the server is configured as being behind a secure proxy.</desc>
  *   <term>x-http-version</term>
  *   <desc>The version from the HTTP request.</desc>
  *   <term>x-local-address</term>
@@ -288,6 +292,7 @@
   BOOL			_verbose;
   BOOL			_durations;
   BOOL                  _reverse;
+  BOOL			_secureProxy;
   uint8_t		_reject;
   NSDictionary		*_sslConfig;
   NSArray		*_quiet;
@@ -312,6 +317,10 @@
   NSCountedSet		*_perHost;
   void			*_reserved;
 }
+
+/** Returns the base URL used by the remote client to send the request.
+ */
++ (NSURL*) baseURLForRequest: (GSMimeDocument*)request;
 
 /**
  * Same as the instance method of the same name.
@@ -676,6 +685,12 @@
  * all current connections are closed.
  */
 - (BOOL) setPort: (NSString*)aPort secure: (NSDictionary*)secure;
+
+/** Configures a flag to say whether the receiver is running behind a
+ * secure proxy and all connections are to be considered as having come
+ * in via https.
+ */
+- (void) setSecureProxy: (BOOL)aFlag;
 
 /**
  * Sets the maximum recursion depth allowed for substitutions into

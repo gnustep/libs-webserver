@@ -537,6 +537,39 @@ unescapeData(const uint8_t *bytes, NSUInteger length, uint8_t *buf)
   return to;
 }
 
++ (NSURL*) baseURLForRequest: (GSMimeDocument*)request
+{
+  NSString	*scheme = [[request headerNamed: @"x-http-scheme"] value];
+  NSString	*host = [[request headerNamed: @"host"] value];
+  NSString	*path = [[request headerNamed: @"x-http-path"] value];
+  NSString	*query = [[request headerNamed: @"x-http-query"] value];
+  NSString	*str;
+  NSURL		*url;
+
+  /* An HTTP/1.1 request MUST contain the host header, but older requests
+   * may not ... in which case we have to use our local IP address and port.
+   */
+  if ([host length] == 0)
+    {
+      host = [NSString stringWithFormat: @"%@:%@",
+	[[request headerNamed: @"x-local-address"] value],
+	[[request headerNamed: @"x-local-port"] value]];
+    }
+
+  if ([query length] > 0)
+    {
+      str = [NSString stringWithFormat: @"%@://%@%@?%@",
+	scheme, host, path, query];
+    }
+  else
+    {
+      str = [NSString stringWithFormat: @"%@//%@%@", scheme, host, path];
+    }
+
+  url = [NSURL URLWithString: str];
+  return url;
+}
+
 + (NSUInteger) decodeURLEncodedForm: (NSData*)data
 			     into: (NSMutableDictionary*)dict
 {
@@ -1589,6 +1622,11 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   ASSIGN(_root, aPath);
 }
 
+- (void) setSecureProxy: (BOOL)aFlag
+{
+  _secureProxy = aFlag;
+}
+
 - (void) setConnectionTimeout: (NSTimeInterval)aDelay
 {
   _connectionTimeout = aDelay;
@@ -2331,6 +2369,9 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	  [doc setHeader: @"x-http-query"
 		   value: query
 	      parameters: nil];
+	  [doc setHeader: @"x-http-scheme"
+		   value: ((_secureProxy||[self isSecure]) ? @"https" : @"http")
+	      parameters: nil];
 	  [doc setHeader: @"x-http-version"
 		   value: version
 	      parameters: nil];
@@ -2340,7 +2381,8 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
 	  if (pos >= length)
 	    {
-	      [[connection handle] readInBackgroundAndNotify];	// Needs more data.
+	      // Needs more data.
+	      [[connection handle] readInBackgroundAndNotify];
 	      return;
 	    }
 	  // Fall through to parse remaining data with mime parser

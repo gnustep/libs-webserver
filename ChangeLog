@@ -1,3 +1,8 @@
+2009-09-24 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServer.m: Add convenience methods to build the base URL of the
+	current request ... the URL that was used to connect to the server.
+
 2009-09-16 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* WebServer.m: Add convenience methods to build new URLs with query
