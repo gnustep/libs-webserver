@@ -26,6 +26,8 @@
 #include <Foundation/Foundation.h>
 #include "WebServer.h"
 
+static id null = nil;
+
 @implementation	WebServerForm
 - (void) dealloc
 {
@@ -49,6 +51,21 @@
   WebServerField	*f;
 
   f = [[WebServerField alloc] initWithName: name];
+  [_fields setObject: f forKey: [f name]];
+  [f release];
+  return f;
+}
+
+- (WebServerFieldHidden*) fieldNamed: (NSString*)name
+			      hidden: (NSString*)value
+{
+  WebServerFieldHidden	*f;
+
+  f = [[WebServerFieldHidden alloc] initWithName: name];
+  if (value != nil)
+    {
+      [f setPrefill: value];
+    }
   [_fields setObject: f forKey: [f name]];
   [f release];
   return f;
@@ -91,6 +108,21 @@
     }
   f = [self fieldNamed: name menuKeys: keys values: vals];
   [f setPrefill: prefill];
+  return f;
+}
+
+- (WebServerFieldPassword*) fieldNamed: (NSString*)name
+			      password: (NSString*)value
+{
+  WebServerFieldPassword	*f;
+
+  f = [[WebServerFieldPassword alloc] initWithName: name];
+  if (value != nil)
+    {
+      [f setPrefill: value];
+    }
+  [_fields setObject: f forKey: [f name]];
+  [f release];
   return f;
 }
 
@@ -172,6 +204,11 @@
 @end
 
 @implementation	WebServerField: NSObject
+
++ (void) initialize
+{
+  if (null == nil) null = [[NSNull null] retain];
+}
 
 - (NSUInteger) columns
 {
@@ -284,8 +321,10 @@
 
 - (void) setPrefill: (id)value
 {
-  id	tmp = [value copy];
+  id	tmp;
 
+  if (value == null) value = nil;
+  tmp = [value copy];
   [_prefill release];
   _prefill = tmp;
 }
@@ -297,8 +336,10 @@
 
 - (void) setValue: (id)value
 {
-  id	tmp = [value copy];
+  id	tmp;
 
+  if (value == null) value = nil;
+  tmp = [value copy];
   [_value release];
   _value = tmp;
 }
@@ -323,6 +364,28 @@
 - (id) value
 {
   return _value;
+}
+@end
+
+@implementation	WebServerFieldHidden
+- (void) output: (NSMutableDictionary*)map for: (WebServerForm*)form
+{
+  NSString	*f;
+  NSString	*v = _value;
+
+  if (v == nil)
+    {
+      v = _prefill;
+      if (v == nil)
+	{
+	  v = @"";
+	}
+    }
+  f = [[NSString alloc] initWithFormat:
+    @"<input type=\"hidden\" name=\"%@\" value=\"%@\" />",
+    _name, [WebServer escapeHTML: v]];
+  [map setObject: f forKey: _name];
+  [f release];
 }
 @end
 
@@ -524,6 +587,7 @@
 
 - (void) setValue: (id)value
 {
+  if (value == null) value = nil;
   if (YES == _multiple)
     {
       NSUInteger	count;
@@ -638,5 +702,27 @@
     }
 }
 
+@end
+
+@implementation	WebServerFieldPassword
+- (void) output: (NSMutableDictionary*)map for: (WebServerForm*)form
+{
+  NSString	*f;
+  NSString	*v = _value;
+
+  if (v == nil)
+    {
+      v = _prefill;
+      if (v == nil)
+	{
+	  v = @"";
+	}
+    }
+  f = [[NSString alloc] initWithFormat:
+    @"<input type=\"password\" name=\"%@\" value=\"%@\" />",
+    _name, [WebServer escapeHTML: v]];
+  [map setObject: f forKey: _name];
+  [f release];
+}
 @end
 

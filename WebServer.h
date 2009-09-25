@@ -115,6 +115,8 @@
 
 @class	WebServer;
 @class	WebServerField;
+@class	WebServerFieldHidden;
+@class	WebServerFieldPassword;
 @class	WebServerFieldMenu;
 @class	WebServerForm;
 @class	NSUserDefaults;
@@ -373,11 +375,14 @@
 /** Convenience method to set up a temporary redirect to the specified URL
  * using the supplied response data.  The method returns YES so that it is
  * reasonable to pass its return value back directly as the return value
- * for a call to the -processRequest:response:for: method. 
+ * for a call to the -processRequest:response:for: method.<br />
+ * If destination is an NSURL, the redirection is done to the specified
+ * location, otherwise arguments description is taken as a local path to
+ * be used with the base URL of the request.
  */
 + (BOOL) redirectRequest: (GSMimeDocument*)request
 		response: (GSMimeDocument*)response
-		      to: (NSURL*)destination;
+		      to: (id)destination;
 
 /**
  * This method is called for each incoming request, and checks that the
@@ -880,6 +885,13 @@
  */
 - (WebServerField*) fieldNamed: (NSString*)name;
 
+/** Creates a new field with the specified name and adds it to the form.<br />
+ * Replaces any existing field with the same name.<br />
+ * The result is a hidden field withe the supplied prefilled value.
+ */
+- (WebServerFieldHidden*) fieldNamed: (NSString*)name
+			      hidden: (NSString*)value;
+
 /** Creates a new field with the specified name and adds it to the form.
  * Replaces any existing field with the same name.
  */
@@ -892,6 +904,13 @@
  */
 - (WebServerFieldMenu*) fieldNamed: (NSString*)name
 			 menuYesNo: (NSString*)prefill;
+
+/** Creates a new field with the specified name and adds it to the form.<br />
+ * Replaces any existing field with the same name.<br />
+ * The result is a password field withe the supplied prefilled value.
+ */
+- (WebServerFieldPassword*) fieldNamed: (NSString*)name
+			      password: (NSString*)value;
 
 /** Return the names of the fields on the form.
  */
@@ -1009,6 +1028,11 @@
 - (id) value;
 @end
 
+/** This class provides a form field for hidden data
+ */
+@interface	WebServerFieldHidden : WebServerField
+@end
+
 /** This class extends [WebServerForm] to provide a form field
  * as a menu for which a user can select from a fixed list of options.
  */
@@ -1048,6 +1072,11 @@
  * it was initialised with.
  */
 - (void) sortUsingSelector: (SEL)aSelector;
+@end
+
+/** This class provides a form field for password data
+ */
+@interface	WebServerFieldPassword : WebServerField
 @end
 
 #endif

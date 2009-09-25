@@ -563,7 +563,7 @@ unescapeData(const uint8_t *bytes, NSUInteger length, uint8_t *buf)
     }
   else
     {
-      str = [NSString stringWithFormat: @"%@//%@%@", scheme, host, path];
+      str = [NSString stringWithFormat: @"%@://%@%@", scheme, host, path];
     }
 
   url = [NSURL URLWithString: str];
@@ -1054,17 +1054,32 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
 + (BOOL) redirectRequest: (GSMimeDocument*)request
 		response: (GSMimeDocument*)response
-		      to: (NSURL*)destination
+		      to: (id)destination
 {
-  NSString	*s = [destination absoluteString];
-  NSString	*type = @"text/html";
+  NSString	*s;
+  NSString	*type;
   NSString	*body;
+
+  /* If the destination is not an NSURL, take it as a string defining a
+   * relative URL from the request base URL.
+   */
+  if (NO == [destination isKindOfClass: [NSURL class]])
+    {
+      s = [destination description];
+      destination = [self baseURLForRequest: request];
+      if (s != nil)
+	{
+	  destination = [NSURL URLWithString: s relativeToURL: destination];
+	}
+    }
+  s = [destination absoluteString];
 
   [response setHeader: @"Location" value: s parameters: nil];
   [response setHeader: @"http"
 		value: @"HTTP/1.1 302 Found"
 	   parameters: nil];
 
+  type = @"text/html";
   body = [NSString stringWithFormat: @"<a href=\"%@\">continue</a>",
     [self escapeHTML: s]];
   s = [[request headerNamed: @"accept"] value];
