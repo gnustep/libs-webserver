@@ -100,7 +100,7 @@ static id null = nil;
 
   if (vals == nil)
     {
-      vals = [[NSArray alloc] initWithObjects: @"Yes", @"No", nil];
+      vals = [[NSArray alloc] initWithObjects: @"Y", @"N", nil];
     }
   if (keys == nil)
     {
@@ -437,11 +437,12 @@ static id null = nil;
   v = _value;
   if ([_prefill length] > 0)
     {
-      i = [_keys indexOfObject: _prefill];
+      i = [_vals indexOfObject: _prefill];
       if (i == NSNotFound)
 	{
 	  /* No value matching the prefill text ... 
-	   * Generate a menu option for the prefill text with an empty value.
+	   * Generate a menu option with the prefill text as key
+	   * and with an empty value.
 	   */
 	  if (v == nil)
 	    {
@@ -460,7 +461,7 @@ static id null = nil;
 	}
       else if (v == nil)
 	{
-	  /* Default selected value is determined by prefill text.
+	  /* Default selected value is equal to prefill text.
 	   */
 	  v = [_vals objectAtIndex: i]; 
 	}

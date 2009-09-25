@@ -899,8 +899,10 @@
 			  menuKeys: (NSArray*)keys
 			    values: (NSArray*)values;
 
-/** Creates a new field with the specified name and adds it to the form.
- * Replaces any existing field with the same name.
+/** Creates a new field with the specified name and adds it to the form.<br />
+ * Replaces any existing field with the same name.<br />
+ * The result is a menu whose keys are 'Yes' and 'No' (or equivalents in the
+ * current language) and whose values are always 'Y' and 'N'.
  */
 - (WebServerFieldMenu*) fieldNamed: (NSString*)name
 			 menuYesNo: (NSString*)prefill;
@@ -1067,6 +1069,14 @@
  * The default setting is NO.
  */
 - (void) setMayBeMultiple: (BOOL)flag;
+
+/** Sets the value to be used to pre-fill the empty field on the form
+ * before the user has entered anything.  This is <em>NOT</em> necessarily
+ * the text seen by the user (the user sees the menu keys), but in the
+ * case where the value does not match any of the menu values, it is used
+ * as the key for a dummy value indicating no selection.
+ */
+- (void) setPrefill: (id)value;
 
 /** Orders the menu appearance in the browser on the basis of the keys
  * it was initialised with.
