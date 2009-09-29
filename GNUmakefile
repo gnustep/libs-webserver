@@ -27,9 +27,21 @@ DOCUMENT_NAME=WebServer
 
 WebServer_INTERFACE_VERSION=1.3
 
-WebServer_OBJC_FILES += WebServer.m WebServerBundles.m WebServerForms.m
-WebServer_HEADER_FILES += WebServer.h
-WebServer_AGSDOC_FILES += WebServer.h
+WebServer_OBJC_FILES +=\
+	WebServer.m\
+	WebServerBundles.m\
+	WebServerForm.m\
+	WebServerField.m
+
+WebServer_HEADER_FILES +=\
+	WebServer.h\
+	WebServerBundles.h\
+	WebServerForm.h
+
+WebServer_AGSDOC_FILES +=\
+	WebServer.h\
+	WebServerBundles.h\
+	WebServerForm.h
 
 # Optional Java wrappers for the library
 JAVA_WRAPPER_NAME = WebServer

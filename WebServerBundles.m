@@ -24,6 +24,7 @@
    */ 
 #include	<Foundation/Foundation.h>
 #include	"WebServer.h"
+#include	"WebServerBundles.h"
 
 @implementation WebServerBundles
 - (void) dealloc
