@@ -29,21 +29,18 @@
 #import "WebServerForm.h"
 
 @implementation	WebServerForm
+
 - (void) dealloc
 {
+  [_name release];
   [_fields release];
+  [_URL release];
   [super dealloc];
 }
 
 - (WebServerField*) existingField: (NSString*)name
 {
   return [_fields objectForKey: name];
-}
-
-- (id) init
-{
-  _fields = [NSMutableDictionary new];
-  return self;
 }
 
 - (WebServerField*) fieldNamed: (NSString*)name
@@ -131,15 +128,88 @@
   return [_fields allKeys];
 }
 
+- (id) init
+{
+  return [self initWithName: @""];
+}
+
+- (id) initWithName: (NSString*)name
+{
+  const char	*ptr = [name UTF8String];
+
+  /* Break on bad character ...
+   */
+  if (ptr && *ptr)
+    {
+      if (*ptr == '_' || isalpha(*ptr))
+	{
+	  ptr++;
+	  while (*ptr != '\0')
+	    {
+	      if (*ptr == '_' || isalnum(*ptr))
+		{
+		  ptr++;
+		}
+	      else
+		{
+		  break;
+		}
+	    }
+	}
+    }
+
+  if (ptr != 0 && *ptr == '\0')
+    {
+      _name = [name copy];
+      _fields = [NSMutableDictionary new];
+    }
+  else
+    {
+      [self release];
+      self = nil;
+    }
+  return self;
+}
+
+- (NSString*) name
+{
+  return _name;
+}
+
 - (void) output: (NSMutableDictionary*)map
+{
+  [self output: map for: self];
+}
+
+- (void) output: (NSMutableDictionary*)map for: (WebServerForm*)form
 {
   NSEnumerator		*enumerator = [_fields objectEnumerator];
   WebServerField	*f;
-  
+
+  if (_URL != nil)
+    {
+      NSString	*key;
+      NSString	*val;
+
+      key = [@"Form" stringByAppendingString: [self name]];
+      val = [NSString stringWithFormat:
+	@"<form action=\"%@\" method=\"%@\">",
+	[WebServer escapeHTML: [_URL absoluteString]],
+	(_get ? @"GET" : @"POST")];
+      [map setObject: val forKey: [key stringByAppendingString: @"Start"]];
+      [map setObject: @"</form>" forKey: [key stringByAppendingString: @"End"]];
+    }
+
   while ((f = [enumerator nextObject]) != nil)
     {
       [f output: map for: self];
     }
+}
+
+- (void) setURL: (NSURL*)URL get: (BOOL)get
+{
+  ASSIGNCOPY(_URL, URL);
+  _get = get;
 }
 
 - (void) takeValuesFrom: (NSDictionary*)params
@@ -151,6 +221,11 @@
     {
       [f takeValueFrom: params];
     }
+}
+
+- (NSURL*) URL
+{
+  return _URL;
 }
 
 - (NSString*) validate

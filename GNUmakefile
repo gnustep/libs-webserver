@@ -31,17 +31,21 @@ WebServer_OBJC_FILES +=\
 	WebServer.m\
 	WebServerBundles.m\
 	WebServerForm.m\
-	WebServerField.m
+	WebServerField.m\
+	WebServerTable.m\
+
 
 WebServer_HEADER_FILES +=\
 	WebServer.h\
 	WebServerBundles.h\
-	WebServerForm.h
+	WebServerForm.h\
+	WebServerTable.h\
 
 WebServer_AGSDOC_FILES +=\
 	WebServer.h\
 	WebServerBundles.h\
-	WebServerForm.h
+	WebServerForm.h\
+	WebServerTable.h\
 
 # Optional Java wrappers for the library
 JAVA_WRAPPER_NAME = WebServer

@@ -34,14 +34,61 @@
 @class	WebServerFieldHidden;
 @class	WebServerFieldPassword;
 @class	WebServerFieldMenu;
+@class	WebServerForm;
 
+/** This is a basic field definition, a semi-abstract class upon which
+ * elements of an HTML page are based.
+ */
+@interface	WebServerItem: NSObject
+{
+  NSString	*_name;
+  id		_value;
+}
+
+/** <init />
+ * Initialises the receiver with the specified name which must be a valid
+ * field name (alphanumeric string plus a few characters).
+ */
+- (id) initWithName: (NSString*)name;
+
+/** Returns the name with which the receiver was initialised.
+ */
+- (NSString*) name;
+
+/** Sets a value in the map which is the text of the HTML input field needed
+ * to provide data for the receiver.  The map may then be used to substitute
+ * into an HTML template.
+ */
+- (void) output: (NSMutableDictionary*)map for: (WebServerForm*)form;
+
+/** Sets the value for this field.  You do not usually call this method
+ * directly as the -takeValueFrom: method populates the field value from
+ * data provided by a browser.
+ */
+- (void) setValue: (id)value;
+
+/** Gets the value for this field from a dictionary containing form
+ * field contents submitted by a browser etc.
+ */
+- (void) takeValueFrom: (NSDictionary*)params;
+
+/** Returns nil on success, a problem description on failure.
+ */
+- (NSString*) validate;
+
+/** Returns the value set for this field.
+ */
+- (id) value;
+@end
 
 /** This class provides a framework for handling incoming form data
  * and substituting form fields into n html template being output
  * in a response.
  */
-@interface	WebServerForm: NSObject
+@interface	WebServerForm: WebServerItem
 {
+  NSURL			*_URL;
+  BOOL			_get;
   NSMutableDictionary	*_fields;
 }
 
@@ -88,14 +135,34 @@
  */
 - (NSArray*) fieldNames;
 
-/** Places values from the form fields in the map dictionary.
+/** Initialise a new instance using ther specified name.
+ */
+- (id) initWithName: (NSString*)name;
+
+/** Return the name of this form as set when the form was initialised.
+ */
+- (NSString*) name;
+
+/** Places values from the form fields in the map dictionary.<br />
+ * If the -setURL:get: method has been called, this method also adds
+ * form start and end markup keyed on 'FormXStart' and 'FormXEnd'
+ * where 'X' is the name of the form (which defaults to an empty string).<br />
+ * Implemented as a call to -output:for: with self as the second argument.
  */
 - (void) output: (NSMutableDictionary*)map;
+
+/** Sets the URL for the form action and whether it should be a POST or GET.
+ */
+- (void) setURL: (NSURL*)URL get: (BOOL)get;
 
 /** Takes values from the parameters dictionary and sets them into the
  * fields in the form.
  */
 - (void) takeValuesFrom: (NSDictionary*)params;
+
+/** Return the URL set by the -setURL:get: method.
+ */
+- (NSURL*) URL;
 
 /** Validate all fields and return the result.
  */
@@ -114,10 +181,8 @@
 /** This is a basic field definition, usable for a simple text field
  * in an html form.
  */
-@interface	WebServerField: NSObject
+@interface	WebServerField : WebServerItem
 {
-  NSString	*_name;
-  id		_value;
   id		_prefill;
   BOOL		_mayBeEmpty;
   uint16_t	_cols;
@@ -129,26 +194,10 @@
  */
 - (NSUInteger) columns;
 
-/** <init />
- * Initialises the receiver with the specified name which must be a valid
- * field name (alphanumeric string plus a few characters).
- */
-- (id) initWithName: (NSString*)name;
-
 /** Returns the value previously set by the -setMayBeEmpty: method,
  * or NO if that method was not called.
  */
 - (BOOL) mayBeEmpty;
-
-/** Returns the name with which the receiver was initialised.
- */
-- (NSString*) name;
-
-/** Sets a value in the map which is the text of the HTML input field needed
- * to provide data for the receiver.  The map may then be used to substitute
- * into an HTML template.
- */
-- (void) output: (NSMutableDictionary*)map for: (WebServerForm*)form;
 
 /** Returns the value set by an earlier call to the -setPrefill: method.
  */
@@ -180,24 +229,6 @@
  */
 - (void) setRows: (NSUInteger)rows;
 
-/** Sets the value for this field.  You do not usually call this method
- * directly as the -takeValueFrom: method populates the field value from
- * data provided by a browser.
- */
-- (void) setValue: (id)value;
-
-/** Gets the value for this field from a dictionary containing form
- * field contents submitted by a browser etc.
- */
-- (void) takeValueFrom: (NSDictionary*)params;
-
-/** Returns nil on success, a problem description on failure.
- */
-- (NSString*) validate;
-
-/** Returns the value set for this field.
- */
-- (id) value;
 @end
 
 /** This class provides a form field for hidden data
@@ -205,8 +236,15 @@
 @interface	WebServerFieldHidden : WebServerField
 @end
 
-/** This class extends [WebServerForm] to provide a form field
+/** <p>This class extends [WebServerForm] to provide a form field
  * as a menu for which a user can select from a fixed list of options.
+ * </p>
+ * <p>The -setPrefill: method of this class sets the value to be used
+ * to pre-select a menu item.  This is <em>NOT</em> necessarily
+ * the text seen by the user (the user sees the menu keys), but in the
+ * case where the value does not match any of the menu values, it is used
+ * as the key for a dummy value indicating no selection.
+ * </p>
  */
 @interface	WebServerFieldMenu : WebServerField
 {
@@ -239,14 +277,6 @@
  * The default setting is NO.
  */
 - (void) setMayBeMultiple: (BOOL)flag;
-
-/** Sets the value to be used to pre-fill the empty field on the form
- * before the user has entered anything.  This is <em>NOT</em> necessarily
- * the text seen by the user (the user sees the menu keys), but in the
- * case where the value does not match any of the menu values, it is used
- * as the key for a dummy value indicating no selection.
- */
-- (void) setPrefill: (id)value;
 
 /** Orders the menu appearance in the browser on the basis of the keys
  * it was initialised with.

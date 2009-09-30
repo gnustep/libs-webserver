@@ -30,21 +30,15 @@
 
 static id null = nil;
 
-@implementation	WebServerField: NSObject
+@implementation	WebServerItem
 
 + (void) initialize
 {
   if (null == nil) null = [[NSNull null] retain];
 }
 
-- (NSUInteger) columns
-{
-  return _cols;
-}
-
 - (void) dealloc
 {
-  [_prefill release];
   [_value release];
   [_name release];
   [super dealloc];
@@ -87,14 +81,57 @@ static id null = nil;
   return self;
 }
 
-- (BOOL) mayBeEmpty
-{
-  return _mayBeEmpty;
-}
-
 - (NSString*) name
 {
   return _name;
+}
+
+- (void) output: (NSMutableDictionary*)map for: (WebServerForm*)form
+{
+}
+
+- (void) setValue: (id)value
+{
+  id	tmp;
+
+  if (value == null) value = nil;
+  tmp = [value copy];
+  [_value release];
+  _value = tmp;
+}
+
+- (void) takeValueFrom: (NSDictionary*)params
+{
+}
+
+- (NSString*) validate
+{
+  return nil;
+}
+
+- (id) value
+{
+  return _value;
+}
+@end
+
+
+@implementation	WebServerField
+
+- (NSUInteger) columns
+{
+  return _cols;
+}
+
+- (void) dealloc
+{
+  [_prefill release];
+  [super dealloc];
+}
+
+- (BOOL) mayBeEmpty
+{
+  return _mayBeEmpty;
 }
 
 - (void) output: (NSMutableDictionary*)map for: (WebServerForm*)form
@@ -188,13 +225,10 @@ static id null = nil;
   return nil;
 }
 
-- (id) value
-{
-  return _value;
-}
 @end
 
 @implementation	WebServerFieldHidden
+
 - (void) output: (NSMutableDictionary*)map for: (WebServerForm*)form
 {
   NSString	*f;
