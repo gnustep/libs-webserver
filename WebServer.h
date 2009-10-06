@@ -108,10 +108,12 @@
 
 @class	WebServer;
 @class	NSArray;
+@class	NSCountedSet;
 @class	NSDictionary;
 @class	NSFileHandle;
 @class	NSMapTable;
 @class	NSNotification;
+@class	NSNotificationCenter;
 @class	NSSet;
 @class	NSString;
 @class	NSTimer;
