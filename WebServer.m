@@ -64,6 +64,7 @@ static NSZone	*defaultMallocZone = 0;
   BOOL			shouldClose;
   BOOL			hasReset;
   BOOL			simple;
+  BOOL			ssl;
 }
 - (NSString*) address;
 - (NSString*) audit;
@@ -101,6 +102,7 @@ static NSZone	*defaultMallocZone = 0;
 - (void) setUser: (NSString*)aString;
 - (BOOL) shouldClose;
 - (BOOL) simple;
+- (BOOL) ssl;
 - (NSTimeInterval) ticked;
 @end
 
@@ -437,9 +439,28 @@ static NSZone	*defaultMallocZone = 0;
   return simple;
 }
 
+- (BOOL) ssl
+{
+  BOOL	r;
+
+  ssl = YES;			// Avoid timeouts during handshake
+  r = [handle sslAccept];
+  ssl = NO;
+  if (r == YES)			// Reset timer of last I/O
+    {
+      [self setTicked: [NSDateClass timeIntervalSinceReferenceDate]];
+    }
+  return r;
+}
+
 - (NSTimeInterval) ticked
 {
-  return ticked;
+  /* If we are doing an SSL handshake, we add 30 seconds to the timestamp
+   * to allow for the fact that the handshake may take up to 30 seconds
+   * itsself.  This prevents the connection from being removed during
+   * a slow handshake.
+   */
+  return ticked + (YES == ssl ? 30.0 : 0.0);
 }
 @end
 
@@ -2087,19 +2108,6 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	    dataUsingEncoding: NSASCIIStringEncoding]];
 	  refusal = YES;
 	}
-      else if (_sslConfig != nil && [hdl sslAccept] == NO)
-	{
-	  /*
-	   * Don't log this in quiet mode as it could just be a
-	   * test connection that we are ignoring.
-	   */
-	  if ([_quiet containsObject: a] == NO)
-	    {
-	      [self _log: @"SSL accept fail on new connection (%@).", a];
-	    }
-	  [hdl closeFile];
-	  hdl = nil;
-	}
 
       [connection setAddress: a == nil ? (id)@"unknown" : (id)a];
       [connection setTicked: _ticked];
@@ -2113,49 +2121,86 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       else
 	{
 	  [connection setHandle: hdl];
-	  [connection setBuffer: [NSMutableDataClass dataWithCapacity: 1024]];
-
 	  NSMapInsert(_connections, (void*)hdl, (void*)connection);
 	  [_perHost addObject: [connection address]];
 	  RELEASE(connection);
-	  [_nc addObserver: self
-		  selector: @selector(_didWrite:)
-		      name: GSFileHandleWriteCompletionNotification
-		    object: hdl];
-	  if (refusal == YES)
+
+	  if (_sslConfig != nil)
 	    {
-	      /*
-	       * We are simply refusing a connection, so we should end as
-	       * soon as the response has been written, and we should not
-	       * read anything from the client.
+	      /* Initiate a new accept *before* performing SSL handshake so
+	       * that we can accept more connections during a slow handshake.
 	       */
-	      [connection setShouldClose: YES];
+	      if (_accepting == NO && (_maxConnections == 0
+		|| NSCountMapTable(_connections) < (_maxConnections + _reject)))
+		{
+		  [_listener acceptConnectionInBackgroundAndNotify];
+		  _accepting = YES;
+		}
+
+	      /* Tell the connection to perform SSL handshake.
+	       */
+	      if ([connection ssl] == NO)
+		{
+		  /* Don't log this in quiet mode as it could just be a
+		   * test connection that we are ignoring.
+		   */
+		  if ([_quiet containsObject: a] == NO)
+		    {
+		      [self _log: @"SSL accept fail on connection (%@).", a];
+		    }
+	          [self _endConnection: connection];
+		  connection = nil;
+		  hdl = nil;
+		}
 	    }
-	  else
+	  
+	  if (hdl != nil)
 	    {
-	      /*
-	       * We have accepted the connection ... so we need to set up
-	       * to read the incoming request and parse/handle it.
-	       */
 	      [_nc addObserver: self
-		      selector: @selector(_didRead:)
-			  name: NSFileHandleReadCompletionNotification
+		      selector: @selector(_didWrite:)
+			  name: GSFileHandleWriteCompletionNotification
 			object: hdl];
-	      [hdl readInBackgroundAndNotify];
-	    }
-	  if (_verbose == YES && [_quiet containsObject: a] == NO)
-	    {
-              if (h == nil)
-                {
-                  [self _log: @"%@ connect", connection];
-                }
-              else
-                {
-                  [self _log: @"%@ connect from %@", connection, [h name]];
-                }
+	      if (refusal == YES)
+		{
+		  /*
+		   * We are simply refusing a connection, so we should end as
+		   * soon as the response has been written, and we should not
+		   * read anything from the client.
+		   */
+		  [connection setShouldClose: YES];
+		}
+	      else
+		{
+		  /*
+		   * We have accepted the connection ... so we need to set up
+		   * to read the incoming request and parse/handle it.
+		   */
+		  [connection setBuffer:
+		    [NSMutableDataClass dataWithCapacity: 1024]];
+		  [_nc addObserver: self
+			  selector: @selector(_didRead:)
+			      name: NSFileHandleReadCompletionNotification
+			    object: hdl];
+		  [hdl readInBackgroundAndNotify];
+		}
+	      if (_verbose == YES && [_quiet containsObject: a] == NO)
+		{
+		  if (h == nil)
+		    {
+		      [self _log: @"%@ connect", connection];
+		    }
+		  else
+		    {
+		      [self _log: @"%@ connect from %@", connection, [h name]];
+		    }
+		}
 	    }
 	}
     }
+
+  /* Ensure we always have an 'accept' in progress unless we are already
+   * handling the maximum number of connections.
+   */
   if (_accepting == NO && (_maxConnections == 0
     || NSCountMapTable(_connections) < (_maxConnections + _reject)))
     {
