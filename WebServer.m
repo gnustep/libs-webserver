@@ -2379,7 +2379,16 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	       */
 	      bytes[end++] = '\0';
 	      query = [NSStringClass stringWithUTF8String: (char*)bytes + end];
-
+	      if (query == nil)
+		{
+		  [self _log: @"Request query string not valid UTF8"];
+		  [connection setShouldClose: YES];	// Not persistent.
+		  [connection setResult: @"HTTP/1.0 413 Query string not UTF8"];
+		  [[connection handle] writeInBackgroundAndNotify:
+		    [@"HTTP/1.0 413 Query string not UTF8\r\n\r\n"
+		    dataUsingEncoding: NSASCIIStringEncoding]];
+		  return;
+		}
 	    }
 	  else
 	    {
