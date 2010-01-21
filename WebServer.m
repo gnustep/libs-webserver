@@ -2830,9 +2830,16 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 		}
 	      else if (_ticked - [connection extended] > _connectionTimeout)
 		{
-		  [connection extend: 300.0];
-		  [self _alert: @"%@ abort after %g seconds to process %@",
-		    connection, age, [connection request]];
+		  if ([connection extended] == [connection ticked])
+		    {
+		      [connection extend: 300.0];
+		    }
+		  else
+		    {
+		      [self _alert: @"%@ abort after %g seconds to process %@",
+		        connection, age, [connection request]];
+		      [array addObject: connection];
+		    }
 		}
 	    }
 	}
