@@ -104,6 +104,11 @@ static NSZone	*defaultMallocZone = 0;
 - (BOOL) simple;
 - (BOOL) ssl;
 - (NSTimeInterval) ticked;
+
+/* For internal use only ... must not be used while connection is
+ * stored in the global map.
+ */
+- (void) _close;
 @end
 
 @implementation	WebServerConnection
@@ -462,6 +467,15 @@ static NSZone	*defaultMallocZone = 0;
    */
   return ticked + (YES == ssl ? 30.0 : 0.0);
 }
+
+- (void) _close
+{
+  NSFileHandle	*h = handle;
+
+  handle = nil;
+  [h closeFile];
+}
+
 @end
 
 @interface	WebServer (Private)
@@ -2612,6 +2626,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 {
   NSFileHandle	*hdl = [connection handle];
 
+  [connection retain];
   if ([_quiet containsObject: [connection address]] == NO)
     {
       NSTimeInterval	r = [connection requestDuration: _ticked];
@@ -2641,7 +2656,8 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	       object: hdl];
   [_perHost removeObject: [connection address]];
   NSMapRemove(_connections, (void*)hdl);
-  self = nil;
+  [connection _close];
+  [connection release];
   if (_accepting == NO && (_maxConnections == 0
     || NSCountMapTable(_connections) < (_maxConnections + _reject)))
     {
