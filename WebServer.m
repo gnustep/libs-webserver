@@ -2123,7 +2123,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	  [connection setHandle: hdl];
 	  NSMapInsert(_connections, (void*)hdl, (void*)connection);
 	  [_perHost addObject: [connection address]];
-	  RELEASE(connection);
+	  AUTORELEASE(connection);	// Don't release too soon.
 
 	  if (_sslConfig != nil)
 	    {
@@ -2641,6 +2641,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	       object: hdl];
   [_perHost removeObject: [connection address]];
   NSMapRemove(_connections, (void*)hdl);
+  self = nil;
   if (_accepting == NO && (_maxConnections == 0
     || NSCountMapTable(_connections) < (_maxConnections + _reject)))
     {
