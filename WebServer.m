@@ -1998,6 +1998,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	{
 	  [more retain];
 	  [connection setExcess: nil];
+	  [connection reset];
           [self _didData: more for: connection];
 	  [more release];
 	}
