@@ -219,10 +219,10 @@ static NSZone	*defaultMallocZone = 0;
 - (void) dealloc
 {
   [handle closeFile];
+  DESTROY(handle);
   DESTROY(excess);
   DESTROY(address);
   DESTROY(buffer);
-  DESTROY(handle);
   DESTROY(parser);
   DESTROY(command);
   DESTROY(agent);
@@ -474,6 +474,7 @@ static NSZone	*defaultMallocZone = 0;
 
   handle = nil;
   [h closeFile];
+  [h release];
 }
 
 @end
