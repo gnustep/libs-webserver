@@ -1,7 +1,23 @@
+2010-04-07 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServer.m: Fix descriptor leak caused by 11th march change.
+
+2010-03-13 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServer.m: Avoid hang if client sends excess data at end of
+	request (bug in handling clients streaming multiple requests
+	without waiting for responses).
+
+2010-03-11 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServer.m: Close handle immediately on end of connection to
+	avoid running out of descriptors if hit by huge numbers of
+	simultaneous requests.
+
 2009-12-09 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* WebServer.m: Workaround for denial of service issues with HTTPS.
-	An attacher could connect in and stop responding during the SSL
+	An attacker could connect in and stop responding during the SSL
 	handshake.  Because the handshake in gnustep-base has a 30 second
 	timeout, this could have two nasty conserquences.
 	Firstly the minor issue, if the connection idle timer was short

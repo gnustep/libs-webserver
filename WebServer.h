@@ -1,5 +1,5 @@
 /** 
-   Copyright (C) 2004-2009 Free Software Foundation, Inc.
+   Copyright (C) 2004-2010 Free Software Foundation, Inc.
    
    Written by:  Richard Frith-Macdonald <rfm@gnu.org>
    Date:	June 2004
@@ -188,8 +188,9 @@
  * If the method returns YES, the WebServer instance sends the response to
  * the client process which made the request.<br />
  * If the method returns NO, the WebServer instance assumes that the
- * delegate is processing the request in another thread (perhaps it will
- * take a long time to process) and takes no action until the delegate
+ * delegate is processing the request asynchronously, either in another
+ * thread or with completion being triggered by an asynchronous I/O event.
+ * The server takes no action respond to the request until the delegate
  * calls [WebServer-completedWithResponse:] to let it know that processing
  * is complete and the response should at last be sent out. 
  */
@@ -556,11 +557,14 @@
  * the -setRoot: method.<br />
  * Substitutes values into the template from map using the
  * -substituteFrom:using:into:depth: method.<br />
- * Returns NO if them template could not be read or if any substitution
+ * Returns NO if the template could not be read or if any substitution
  * failed.  In this case no value is set in the response.<br />
  * If the response is actually text of another type, or you want another
  * characterset used, you can change the content type header in the
- * request after you call this method.
+ * request after you call this method.<br />
+ * Note that, although the map is nominally an NSDictionary instance, it
+ * can in fact be any object which responds to the -objectForKey: message
+ * by returning a string or nil.
  */
 - (BOOL) produceResponse: (GSMimeDocument*)aResponse
 	    fromTemplate: (NSString*)aPath
@@ -729,7 +733,8 @@
  * is done unless the mapped value <em>starts</em> with an SGML comment.<br />
  * While the map is nominally a dictionary, in fact it may be any
  * object which responds to the objectForKey: method by returning
- * an NSString or nil.<br />
+ * an NSString or nil, you can therefore use it to dynamically replace
+ * tokens within a template page in an intelligent manner.<br />
  * The method returns YES on success, NO on failure (depth too great).<br />
  * You don't normally need to use this method directly ... call the
  * -produceResponse:fromTemplate:using: method instead.
