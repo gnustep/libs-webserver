@@ -1874,7 +1874,6 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   NSData		*result;
 
   connection = (WebServerConnection*)NSMapGet(_processing, (void*)response);
-NSLog(@"Completion2 %p, %@", response, connection);
   _ticked = [NSDateClass timeIntervalSinceReferenceDate];
   [connection setTicked: _ticked];
   [connection setProcessing: NO];
