@@ -36,10 +36,50 @@ static	Class	NSMutableDictionaryClass = Nil;
 static	Class	NSMutableStringClass = Nil;
 static	Class	NSStringClass = Nil;
 static	Class	GSMimeDocumentClass = Nil;
+static	Class	WebServerResponseClass = Nil;
 static NSZone	*defaultMallocZone = 0;
 
 #define	Alloc(X)	[(X) allocWithZone: defaultMallocZone]
 
+/* We need to ensure that our map table holds response information safely
+ * and efficiently ... so we use a subclass where we control -hash and
+ * -isEqual: to ensure that each object is unique and quick.
+ */
+@interface	WebServerResponse : GSMimeDocument
+{
+  NSUInteger	webServerReference;
+}
+@end
+
+@implementation	WebServerResponse
+
+
++ (void) initialize
+{
+  WebServerResponseClass = [WebServerResponse class];
+}
+
+- (NSUInteger) hash
+{
+  return webServerReference;
+}
+
+- (id) init
+{
+  static NSUInteger	counter = 0;
+
+  if ((self = [super init]) != nil)
+    {
+      webServerReference = ++counter;
+    }
+  return self;
+}
+
+- (BOOL) isEqual: (id)other
+{
+  return (other == self) ? YES : NO;
+}
+@end
 
 @interface	WebServerConnection : NSObject
 {
@@ -510,6 +550,7 @@ static NSZone	*defaultMallocZone = 0;
       NSMutableDictionaryClass = [NSMutableDictionary class];
       NSMutableStringClass = [NSMutableString class];
       GSMimeDocumentClass = [GSMimeDocument class];
+      WebServerResponseClass = [WebServerResponse class];
     }
 }
 
@@ -1833,6 +1874,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   NSData		*result;
 
   connection = (WebServerConnection*)NSMapGet(_processing, (void*)response);
+NSLog(@"Completion2 %p, %@", response, connection);
   _ticked = [NSDateClass timeIntervalSinceReferenceDate];
   [connection setTicked: _ticked];
   [connection setProcessing: NO];
@@ -2689,12 +2731,12 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 - (void) _process: (WebServerConnection*)connection
 {
   GSMimeDocument	*request;
-  GSMimeDocument	*response;
+  WebServerResponse	*response;
   NSString		*str;
   NSString		*con;
   BOOL			processed = YES;
 
-  response = [GSMimeDocument new];
+  response = [WebServerResponseClass new];
   [connection setExcess: [[connection parser] excess]];
   NSMapInsert(_processing, (void*)response, (void*)connection);
   RELEASE(response);
