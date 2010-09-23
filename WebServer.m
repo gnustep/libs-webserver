@@ -775,7 +775,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     }
 }
 
-- (void) completedWithResponse: (WebServerResponse*)response
+- (void) completedWithResponse: (GSMimeDocument*)response
 {
   static NSArray	*modes = nil;
   WebServerConnection	*connection;
@@ -787,7 +787,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       objs[0] = NSDefaultRunLoopMode;
       modes = [Alloc(NSArrayClass) initWithObjects: objs count: 1];
     }
-  connection = [response webServerConnection];
+  connection = [(WebServerResponse*)response webServerConnection];
   [_lock lock];
   _processingCount--;
   [_lock unlock];
@@ -833,10 +833,11 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   [_lock lock];
   result = [NSStringClass stringWithFormat:
     @"%@ on %@(%@), %u of %u connections active,"
-    @" %u ended, %u requests, listening: %@",
+    @" %u ended, %u requests, listening: %@\nThread pool %@",
     [super description], _port, ([self isSecure] ? @"https" : @"http"),
     [_connections count],
-    _maxConnections, _handled, _requests, _accepting == YES ? @"yes" : @"no"];
+    _maxConnections, _handled, _requests, _accepting == YES ? @"yes" : @"no",
+    _pool];
   [_lock unlock];
   return result;
 }
@@ -1590,10 +1591,23 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     }
 }
 
-- (void) _endConnection: (WebServerConnection*)connection count: (BOOL)count
+- (void) _endConnect: (WebServerConnection*)connection
 {
+  /* The connection must actually be closed in the same thread that
+   * it uses for I/O or we will leave a reference to it in the
+   * runloop.
+   */
+  [self performSelector: @selector(_removeConnection:)
+	       onThread: _ioThread
+	     withObject: connection
+	  waitUntilDone: NO];
+}
+
+- (void) _removeConnection: (WebServerConnection*)connection
+{
+  [connection retain];
   [_lock lock];
-  if (YES == count)
+  if (NO == [connection quiet])
     {
       [self _audit: connection];
       _handled++;
@@ -1601,6 +1615,8 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   [_perHost removeObject: [connection address]];
   [_connections removeObject: connection];
   [_lock unlock];
+  [connection end];
+  [connection release];
   [self _listen];
 }
 
@@ -1611,13 +1627,17 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     || [_connections count] < (_maxConnections + _reject)))
     {
       _accepting = YES;
+      [_lock unlock];
       [_listener performSelector:
 	@selector(acceptConnectionInBackgroundAndNotify)
 	onThread: _ioThread
 	withObject: nil
 	waitUntilDone: NO];
     }
-  [_lock unlock];
+  else
+    {
+      [_lock unlock];
+    }
 }
 
 - (void) _log: (NSString*)fmt, ...
@@ -1659,14 +1679,35 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   NSString		*con;
   BOOL			processed = YES;
 
+  request = [connection request];
   response = [connection response];
   [connection setExcess: [[connection parser] excess]];
+
+  /*
+   * Provide information and update the shared process statistics.
+   */
   [_lock lock];
   _processingCount++;
+  str = [NSStringClass stringWithFormat: @"%u", _processingCount];
+  [request setHeader: @"x-count-requests"
+	       value: str
+	  parameters: nil];
+  str = [NSStringClass stringWithFormat: @"%u", [_connections count]];
+  [request setHeader: @"x-count-connections"
+	       value: str
+	  parameters: nil];
+  str = [NSStringClass stringWithFormat: @"%u", [_perHost count]];
+  [request setHeader: @"x-count-connected-hosts"
+	       value: str
+	  parameters: nil];
+  str = [[connection handle] socketAddress];
+  str = [NSStringClass stringWithFormat: @"%u", [_perHost countForObject: str]];
+  [request setHeader: @"x-count-host-connections"
+	       value: str
+	  parameters: nil];
   [_lock unlock];
-  [connection setProcessing: YES];
 
-  request = [connection request];
+  [connection setProcessing: YES];
   [connection setAgent: [[request headerNamed: @"user-agent"] value]];
 
   /*
@@ -1704,30 +1745,6 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   [request setHeader: @"x-remote-port"
 	       value: [[connection handle] socketService]
 	  parameters: nil];
-
-  /*
-   * Provide more information about the process statistics.
-   */
-  [_lock lock];
-  str = [NSStringClass stringWithFormat: @"%u", _processingCount];
-  [request setHeader: @"x-count-requests"
-	       value: str
-	  parameters: nil];
-  str = [NSStringClass stringWithFormat: @"%u", [_connections count]];
-  [request setHeader: @"x-count-connections"
-	       value: str
-	  parameters: nil];
-  str = [NSStringClass stringWithFormat: @"%u", [_perHost count]];
-  [request setHeader: @"x-count-connected-hosts"
-	       value: str
-	  parameters: nil];
-  str = [[connection handle] socketAddress];
-  str = [NSStringClass stringWithFormat: @"%u", [_perHost countForObject: str]];
-  [request setHeader: @"x-count-host-connections"
-	       value: str
-	  parameters: nil];
-  [_lock unlock];
-
 
   str = [[request headerNamed: @"authorization"] value];
   if ([str length] > 6 && [[str substringToIndex: 6] caseInsensitiveCompare:

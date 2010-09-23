@@ -34,6 +34,16 @@ static Class WebServerResponseClass = Nil;
 
 @implementation	WebServerResponse
 
+- (id) copy
+{
+  return [self copyWithZone: NSDefaultMallocZone()];
+}
+
+- (id) copyWithZone: (NSZone*)z
+{
+  return [self retain];
+}
+
 - (NSUInteger) hash
 {
   return ((NSUInteger)self)>>2;
@@ -197,10 +207,20 @@ static Class WebServerResponseClass = Nil;
 {
   NSFileHandle	*h;
 
-  [self retain];
   [ticker invalidate];
   ticker = nil;
-  [server _endConnection: self count: NO == quiet ? YES : NO];
+
+  [nc removeObserver: self
+		name: NSFileHandleReadCompletionNotification
+	      object: handle];
+  [nc removeObserver: self
+		name: GSFileHandleWriteCompletionNotification
+	      object: handle];
+  h = handle;
+  handle = nil;
+  [h closeFile];
+  [h release];
+
   ticked = [NSDateClass timeIntervalSinceReferenceDate];
   if (NO == quiet)
     {
@@ -222,17 +242,6 @@ static Class WebServerResponseClass = Nil;
 	}
       [server _audit: self];
     }
-  [nc removeObserver: self
-		name: NSFileHandleReadCompletionNotification
-	      object: handle];
-  [nc removeObserver: self
-		name: GSFileHandleWriteCompletionNotification
-	      object: handle];
-  h = handle;
-  handle = nil;
-  [h closeFile];
-  [h release];
-  [self release];
 }
 
 - (BOOL) ended
@@ -324,6 +333,11 @@ static Class WebServerResponseClass = Nil;
 - (BOOL) processing
 {
   return processing;
+}
+
+- (BOOL) quiet
+{
+  return quiet;
 }
 
 - (GSMimeDocument*) request
@@ -698,7 +712,7 @@ static Class WebServerResponseClass = Nil;
 	    {
 	      [server _log: @"SSL accept fail on (%@).", address];
 	    }
-	  [self end];
+	  [server _endConnect: self];
 	}
     }
 
@@ -789,7 +803,7 @@ static Class WebServerResponseClass = Nil;
 	{
 	  [server _log: @"Connection timed out - %@", self];
 	}
-      [self end];
+      [server _endConnect: self];
     }
 }
 
@@ -1125,7 +1139,7 @@ static Class WebServerResponseClass = Nil;
 	  [server _log: @"%@ read end-of-file in incomplete request - %@",
 	    self, [parser mimeDocument]];
 	}
-      [self end];
+      [server _endConnect: self];
       return;
     }
 
@@ -1142,7 +1156,7 @@ static Class WebServerResponseClass = Nil;
   NSAssert([notification object] == handle, NSInternalInconsistencyException);
   if ([self shouldClose] == YES)
     {
-      [self end];
+      [server _endConnect: self];
     }
   else
     {

@@ -428,7 +428,7 @@
  * the client process.
  * </p>
  */
-- (void) completedWithResponse: (WebServerResponse*)response;
+- (void) completedWithResponse: (GSMimeDocument*)response;
 
 /**         
  * Decode an application/x-www-form-urlencoded form and store its

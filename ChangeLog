@@ -1,5 +1,12 @@
 2010-09-23 Richard Frith-Macdonald  <rfm@gnu.org>
 
+	* webserver/WebServerConnection.m
+	* webserver/WebServer.m
+	* webserver/Internal.h
+	Cleanup a little, fix bugs in thread code.
+
+2010-09-23 Richard Frith-Macdonald  <rfm@gnu.org>
+
 	* Internal.h:
 	* WebServer.h:
 	* WebServer.m:

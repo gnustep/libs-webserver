@@ -128,6 +128,7 @@
 - (NSUInteger) moreBytes: (NSUInteger)count;
 - (GSMimeParser*) parser;
 - (BOOL) processing;
+- (BOOL) quiet;
 - (GSMimeDocument*) request;
 - (NSTimeInterval) requestDuration: (NSTimeInterval)now;
 - (void) reset;
@@ -160,11 +161,12 @@
 - (void) _alert: (NSString*)fmt, ...;
 - (void) _audit: (WebServerConnection*)connection;
 - (void) _didConnect: (NSNotification*)notification;
-- (void) _endConnection: (WebServerConnection*)connection count: (BOOL)count;
+- (void) _endConnect: (WebServerConnection*)connection;
 - (void) _listen;
 - (void) _log: (NSString*)fmt, ...;
 - (void) _process1: (WebServerConnection*)connection;
 - (void) _process2: (WebServerConnection*)connection;
+- (void) _removeConnection: (WebServerConnection*)connection;
 - (void) _runConnection: (WebServerConnection*)connection;
 - (void) _threadReadFrom: (NSFileHandle*)handle;
 - (void) _threadWrite: (NSData*)data to: (NSFileHandle*)handle;
