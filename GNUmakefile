@@ -38,6 +38,7 @@ WebServer_INTERFACE_VERSION=1.3
 
 WebServer_OBJC_FILES +=\
 	WebServer.m\
+	WebServerConnection.m\
 	WebServerBundles.m\
 	WebServerForm.m\
 	WebServerField.m\
@@ -71,8 +72,11 @@ endif
 
 ifeq ($(APPLE),1)
 ADDITIONAL_OBJC_LIBS += -lgnustep-baseadd
-WebServer_LIBRARIES_DEPEND_UPON = -lgnustep-baseadd
+WebServer_LIBRARIES_DEPEND_UPON += -lgnustep-baseadd
 endif
+
+ADDITIONAL_OBJC_LIBS += -lPerformance
+WebServer_LIBRARIES_DEPEND_UPON += -lPerformance
 
 WebServer_HEADER_FILES_INSTALL_DIR = WebServer
 

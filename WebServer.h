@@ -106,17 +106,22 @@
 #include	<Foundation/NSObject.h>
 #include	<GNUstepBase/GSMime.h>
 
+@class	GSThreadPool;
 @class	WebServer;
+@class	WebServerConfig;
+@class	WebServerResponse;
 @class	NSArray;
 @class	NSCountedSet;
 @class	NSDictionary;
 @class	NSFileHandle;
-@class	NSMapTable;
+@class	NSLock;
+@class	NSMutableSet;
 @class	NSNotification;
 @class	NSNotificationCenter;
 @class	NSSet;
 @class	NSString;
 @class	NSTimer;
+@class	NSThread;
 @class	NSUserDefaults;
 
 /**
@@ -174,8 +179,8 @@
  *     sent this request at the point when this request started (includes the
  *     connection that this request arrived on).</desc>
  * </deflist>
- * On completion, the method must modify response to contain the data
- * and headers to be sent out.<br />
+ * On completion, the method must modify response (an instance of a subclass
+ * of GSMimeDocument) to contain the data and headers to be sent out.<br />
  * The 'content-length' header need not be set in the response as it will
  * be overridden anyway.<br />
  * The special 'HTTP' header will be used as the response/status line.
@@ -278,9 +283,7 @@
  * <p>To shut down the WebServer, you should call -setPort:secure: with
  * nil arguments.  This will stop the server listening for incoming
  * connections and wait for any existing connections to be closed
- * (or to time out), after which the timer used to check connection
- * timeouts will be stopped, releasing the WebServer instance (which
- * may cause it to be deallocated if you haven't retained it).
+ * (or to time out).
  * </p>
  */
 @interface	WebServer : NSObject
@@ -289,31 +292,27 @@
   NSNotificationCenter	*_nc;
   NSUserDefaults	*_defs;
   NSString		*_port;
-  BOOL			_accepting;
-  BOOL			_verbose;
-  BOOL			_durations;
-  BOOL                  _reverse;
-  BOOL			_secureProxy;
-  uint8_t		_reject;
-  NSDictionary		*_sslConfig;
+  NSLock		*_lock;
+  NSThread		*_ioThread;
+  NSTimer		*_ioTimer;
+  GSThreadPool		*_pool;
+  WebServerConfig	*_conf;
   NSArray		*_quiet;
   NSArray		*_hosts;
+  NSDictionary		*_sslConfig;
+  BOOL			_accepting;
+  BOOL			_threadProcessing;
+  uint8_t		_reject;
   NSUInteger		_substitutionLimit;
-  NSUInteger		_maxBodySize;
-  NSUInteger		_maxRequestSize;
   NSUInteger		_maxConnections;
-  NSUInteger		_maxConnectionRequests;
-  NSTimeInterval	_maxConnectionDuration;
   NSUInteger		_maxPerHost;
   id			_delegate;
   NSFileHandle		*_listener;
-  NSMapTable		*_connections;
-  NSMapTable		*_processing;
+  NSMutableSet		*_connections;
+  NSUInteger		_processingCount;
   NSUInteger		_handled;
   NSUInteger		_requests;
   NSString		*_root;
-  NSTimer		*_ticker;
-  NSTimeInterval	_connectionTimeout;
   NSTimeInterval	_ticked;
   NSCountedSet		*_perHost;
   void			*_reserved;
@@ -429,7 +428,7 @@
  * the client process.
  * </p>
  */
-- (void) completedWithResponse: (GSMimeDocument*)response;
+- (void) completedWithResponse: (WebServerResponse*)response;
 
 /**         
  * Decode an application/x-www-form-urlencoded form and store its
@@ -693,6 +692,12 @@
  */
 - (BOOL) setPort: (NSString*)aPort secure: (NSDictionary*)secure;
 
+/**
+ * Set root path for loading template files from.<br />
+ * Templates may only be loaded from within this directory.
+ */
+- (void) setRoot: (NSString*)aPath;
+
 /** Configures a flag to say whether the receiver is running behind a
  * secure proxy and all connections are to be considered as having come
  * in via https.
@@ -706,10 +711,28 @@
 - (void) setSubstitutionLimit: (NSUInteger)depth;
 
 /**
- * Set root path for loading template files from.<br />
- * Templates may only be loaded from within this directory.
+ * Sets the size of the thread pool used by the receiver for handling
+ * parsing of incoming request, generation of outgoing responses, and
+ * (optionally) processing of requests.<br />
+ * This defaults to zero (no use of threads).<br />
+ * If any threading is enabled, the receiver may also allocate extra
+ * threads to perform I/O or may leave that to the run loop of the
+ * main thread.<br />
+ * NB. Since each thread typically uses two file descriptors to handle any
+ * inter-thread message dispatch, enabling threading will use at least two
+ * extra file descriptors per thread ... this may easily cause you
+ * to go beyound the per-process limit imposed by the operating system and
+ * you may wish to configure a smaller connection limit or tune the O/S to
+ * allow more descriptors.
  */
-- (void) setRoot: (NSString*)aPath;
+- (void) setThreads: (NSUInteger)threads;
+
+/** If threading is enabled by the -setThreads: method, this setting
+ * determines whether processing of a completed incoming request by
+ * the delegate is done using a thread from the thread pool, or by
+ * the main thread (the default).
+ */
+- (void) setThreadProcessing: (BOOL)aFlag;
 
 /**
  * Sets a flag to determine whether verbose logging is to be performed.<br />

@@ -1,3 +1,12 @@
+2010-09-23 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* Internal.h:
+	* WebServer.h:
+	* WebServer.m:
+	* WebServerConnection.m:
+	* GNUmakefile:
+	Initial work on restructuring to support multiple threads.
+
 2010-09-17 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* WebServer.m: Modify response handling to deal with changes to
