@@ -315,6 +315,9 @@
   NSString		*_root;
   NSTimeInterval	_ticked;
   NSCountedSet		*_perHost;
+  id			_xCountRequests;
+  id			_xCountConnections;
+  id			_xCountConnectedHosts;
   void			*_reserved;
 }
 
@@ -735,6 +738,13 @@
 - (void) setThreadProcessing: (BOOL)aFlag;
 
 /**
+ * Stores additional user information with a request.<br />
+ * This information may be retrieved later using the -userInfoForRequest:
+ * method.
+ */
+- (void) setUserInfo: (NSObject*)info forRequest: (GSMimeDocument*)request;
+
+/**
  * Sets a flag to determine whether verbose logging is to be performed.<br />
  * If this is YES then all incoming requests and their responses will
  * be logged using the [(WebServerDelegate)-webLog:for:] method.<br />
@@ -766,6 +776,12 @@
 		  using: (NSDictionary*)map
 		   into: (NSMutableString*)result
 		  depth: (NSUInteger)depth;
+
+/**
+ * Retrieves additional user information (previously set using the
+ * -setUserInfo:forRequest: method) from a request.
+ */
+- (NSObject*) userInfoForRequest: (GSMimeDocument*)request;
 
 @end
 

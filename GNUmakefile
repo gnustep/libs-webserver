@@ -42,6 +42,7 @@ WebServer_OBJC_FILES +=\
 	WebServerBundles.m\
 	WebServerForm.m\
 	WebServerField.m\
+	WebServerHeader.m\
 	WebServerTable.m\
 
 

@@ -1,3 +1,14 @@
+2010-09-26 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServerConnection.m:
+	* GNUmakefile:
+	* WebServer.h:
+	* WebServer.m:
+	* Internal.h:
+	* WebServerHeader.m:
+	Minor optimisation and restructuring to avoid unnecessary creation of
+	some special headers.
+
 2010-09-23 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* webserver/WebServerConnection.m

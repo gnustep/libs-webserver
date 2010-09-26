@@ -66,7 +66,6 @@ static Class WebServerResponseClass = Nil;
 @end
 
 
-
 @implementation	WebServerConnection
 
 + (void) initialize

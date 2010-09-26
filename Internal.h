@@ -39,6 +39,7 @@
 @class	WebServer;
 @class	WebServerConfig;
 @class	WebServerConnection;
+@class	WebServerRequest;
 @class	WebServerResponse;
 
 /* This class is used to hold configuration information needed by a single
@@ -73,6 +74,25 @@
 }
 - (void) setWebServerConnection: (WebServerConnection*)c;
 - (WebServerConnection*) webServerConnection;
+@end
+
+typedef	enum {
+  WSHCountRequests,
+  WSHCountConnections,
+  WSHCountConnectedHosts,
+  WSHExtra
+} WSHType;
+
+/* Special header used to store information in a request.
+ */
+@interface	WebServerHeader : GSMimeHeader
+{
+  WSHType	wshType;
+  NSObject	*wshObject;
+}
+- (id) initWithType: (WSHType)t andObject: (NSObject*)o;
+- (void) setWebServerExtra: (NSObject*)data;
+- (id) webServerExtra;
 @end
 
 
@@ -170,5 +190,8 @@
 - (void) _runConnection: (WebServerConnection*)connection;
 - (void) _threadReadFrom: (NSFileHandle*)handle;
 - (void) _threadWrite: (NSData*)data to: (NSFileHandle*)handle;
+- (NSString*) _xCountRequests;
+- (NSString*) _xCountConnections;
+- (NSString*) _xCountConnectedHosts;
 @end
 

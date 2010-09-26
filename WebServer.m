@@ -40,6 +40,7 @@ static	Class	NSMutableDictionaryClass = Nil;
 static	Class	NSMutableStringClass = Nil;
 static	Class	NSStringClass = Nil;
 static	Class	GSMimeDocumentClass = Nil;
+static	Class	WebServerHeaderClass = Nil;
 static NSZone	*defaultMallocZone = 0;
 
 #define	Alloc(X)	[(X) allocWithZone: defaultMallocZone]
@@ -61,6 +62,7 @@ static NSZone	*defaultMallocZone = 0;
       NSMutableDictionaryClass = [NSMutableDictionary class];
       NSMutableStringClass = [NSMutableString class];
       GSMimeDocumentClass = [GSMimeDocument class];
+      WebServerHeaderClass = [WebServerHeader class];
     }
 }
 
@@ -806,6 +808,9 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   DESTROY(_perHost);
   DESTROY(_lock);
   DESTROY(_connections);
+  DESTROY(_xCountRequests);
+  DESTROY(_xCountConnections);
+  DESTROY(_xCountConnectedHosts);
   [super dealloc];
 }
 
@@ -864,6 +869,13 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   _connections = [NSMutableSet new];
   _perHost = [NSCountedSet new];
   _ioThread = [NSThread mainThread];
+  _xCountRequests = [[WebServerHeader alloc]
+    initWithType: WSHCountRequests andObject: self];
+  _xCountConnections = [[WebServerHeader alloc]
+    initWithType: WSHCountConnections andObject: self];
+  _xCountConnectedHosts = [[WebServerHeader alloc]
+    initWithType: WSHCountConnectedHosts andObject: self];
+
   return self;
 }
 
@@ -1301,7 +1313,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
 - (void) _ioThread
 {
-  _ioThread = [NSThread currentThread]; _ioThread = [NSThread currentThread];
+  _ioThread = [NSThread currentThread];
   _ioTimer = [NSTimer scheduledTimerWithTimeInterval: 10000000.0
     target: self
     selector: @selector(timeout:)
@@ -1336,6 +1348,19 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 - (void) setThreadProcessing: (BOOL)aFlag
 {
   _threadProcessing = aFlag;
+}
+
+- (void) setUserInfo: (NSObject*)info forRequest: (GSMimeDocument*)request
+{
+  WebServerHeader	*h;
+
+  h = [WebServerHeaderClass alloc];
+  h = [h initWithName: @"mime-version"
+		    value: @"1.0"
+	       parameters: nil];
+  [h setWebServerExtra: info];
+  [request addHeader: h];
+  [h release];
 }
 
 - (void) setVerbose: (BOOL)aFlag
@@ -1446,6 +1471,18 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     }
   return YES;
 }
+
+- (NSObject*) userInfoForRequest: (GSMimeDocument*)request
+{
+  id	o = [request headerNamed: @"mime-version"];
+
+  if (object_getClass(o) == WebServerHeaderClass)
+    {
+      return [o webServerExtra];
+    }
+  return nil;
+}
+
 @end
 
 @implementation	WebServer (Private)
@@ -1657,27 +1694,16 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
 - (void) _process1: (WebServerConnection*)connection
 {
-  if (YES == _threadProcessing)
-    {
-      [_pool scheduleSelector: @selector(_process2:)
-		   onReceiver: self
-		   withObject: connection];
-    }
-  else
-    {
-      [self performSelectorOnMainThread: @selector(_process2:)
-			     withObject: connection
-			  waitUntilDone: NO];
-    }
-}
-
-- (void) _process2: (WebServerConnection*)connection
-{
+  NSFileHandle		*h;
   GSMimeDocument	*request;
   WebServerResponse	*response;
   NSString		*str;
   NSString		*con;
   BOOL			processed = YES;
+
+  [_lock lock];
+  _processingCount++;
+  [_lock unlock];
 
   request = [connection request];
   response = [connection response];
@@ -1686,26 +1712,15 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   /*
    * Provide information and update the shared process statistics.
    */
-  [_lock lock];
-  _processingCount++;
-  str = [NSStringClass stringWithFormat: @"%u", _processingCount];
-  [request setHeader: @"x-count-requests"
-	       value: str
-	  parameters: nil];
-  str = [NSStringClass stringWithFormat: @"%u", [_connections count]];
-  [request setHeader: @"x-count-connections"
-	       value: str
-	  parameters: nil];
-  str = [NSStringClass stringWithFormat: @"%u", [_perHost count]];
-  [request setHeader: @"x-count-connected-hosts"
-	       value: str
-	  parameters: nil];
-  str = [[connection handle] socketAddress];
+  [request addHeader: _xCountRequests];
+  [request addHeader: _xCountConnections];
+  [request addHeader: _xCountConnectedHosts];
+  h = [connection handle];
+  str = [h socketAddress];
   str = [NSStringClass stringWithFormat: @"%u", [_perHost countForObject: str]];
   [request setHeader: @"x-count-host-connections"
 	       value: str
 	  parameters: nil];
-  [_lock unlock];
 
   [connection setProcessing: YES];
   [connection setAgent: [[request headerNamed: @"user-agent"] value]];
@@ -1734,16 +1749,16 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
    * Provide more information about the connection.
    */
   [request setHeader: @"x-local-address"
-	       value: [[connection handle] socketLocalAddress]
+	       value: [h socketLocalAddress]
 	  parameters: nil];
   [request setHeader: @"x-local-port"
-	       value: [[connection handle] socketLocalService]
+	       value: [h socketLocalService]
 	  parameters: nil];
   [request setHeader: @"x-remote-address"
-	       value: [[connection handle] socketAddress]
+	       value: [h socketAddress]
 	  parameters: nil];
   [request setHeader: @"x-remote-port"
-	       value: [[connection handle] socketService]
+	       value: [h socketService]
 	  parameters: nil];
 
   str = [[request headerNamed: @"authorization"] value];
@@ -1775,12 +1790,38 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
   if ([_quiet containsObject: [connection address]] == NO)
     {
+      [_lock lock];
       _requests++;
+      [_lock unlock];
       if (YES == _conf->verbose)
 	{
 	  [self _log: @"Request %@ - %@", connection, request];
 	}
     }
+
+  if (YES == _threadProcessing)
+    {
+      [_pool scheduleSelector: @selector(_process2:)
+		   onReceiver: self
+		   withObject: connection];
+    }
+  else
+    {
+      [self performSelectorOnMainThread: @selector(_process2:)
+			     withObject: connection
+			  waitUntilDone: NO];
+    }
+}
+
+- (void) _process2: (WebServerConnection*)connection
+{
+  GSMimeDocument	*request;
+  WebServerResponse	*response;
+  BOOL			processed = YES;
+
+  request = [connection request];
+  response = [connection response];
+
   NS_DURING
     {
       [connection setTicked: _ticked];
@@ -1843,6 +1884,36 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
                  onThread: _ioThread
                withObject: data
             waitUntilDone: NO];
+}
+
+- (NSString*) _xCountRequests
+{
+  NSString	*str;
+
+  [_lock lock];
+  str = [NSStringClass stringWithFormat: @"%u", _processingCount];
+  [_lock unlock];
+  return str;
+}
+
+- (NSString*) _xCountConnections
+{
+  NSString	*str;
+
+  [_lock lock];
+  str = [NSStringClass stringWithFormat: @"%u", [_connections count]];
+  [_lock unlock];
+  return str;
+}
+
+- (NSString*) _xCountConnectedHosts
+{
+  NSString	*str;
+
+  [_lock lock];
+  str = [NSStringClass stringWithFormat: @"%u", [_perHost count]];
+  [_lock unlock];
+  return str;
 }
 
 @end
