@@ -779,34 +779,38 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
 - (void) completedWithResponse: (GSMimeDocument*)response
 {
-  static NSArray	*modes = nil;
   WebServerConnection	*connection;
 
-  if (modes == nil)
-    {
-      id	objs[1];
-
-      objs[0] = NSDefaultRunLoopMode;
-      modes = [Alloc(NSArrayClass) initWithObjects: objs count: 1];
-    }
   connection = [(WebServerResponse*)response webServerConnection];
-  [_lock lock];
-  _processingCount--;
-  [_lock unlock];
-  [_pool scheduleSelector: @selector(respond)
-	       onReceiver: connection
-	       withObject: nil];
+  if (YES == _doPostProcess)
+    {
+      [_pool scheduleSelector: @selector(_process4:)
+		   onReceiver: self
+		   withObject: connection];
+    }
+  else
+    {
+      [_lock lock];
+      _processingCount--;
+      [_lock unlock];
+      [_pool scheduleSelector: @selector(respond)
+		   onReceiver: connection
+		   withObject: nil];
+    }
 }
 
 - (void) dealloc
 {
   [self setPort: nil secure: nil];
+  [self setIOThreads: 0 andPool: 0];
   DESTROY(_nc);
   DESTROY(_defs);
   DESTROY(_root);
   DESTROY(_conf);
   DESTROY(_perHost);
   DESTROY(_lock);
+  DESTROY(_ioMain);
+  DESTROY(_ioThreads);
   DESTROY(_connections);
   DESTROY(_xCountRequests);
   DESTROY(_xCountConnections);
@@ -850,6 +854,8 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 - (id) init
 {
   _nc = [[NSNotificationCenter defaultCenter] retain];
+  _ioMain = [IOThread new];
+  _ioMain->thread = [NSThread mainThread];
   _lock =  [NSLock new];
   _pool = [GSThreadPool new];
   [_pool setThreads: 0];
@@ -868,7 +874,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   _substitutionLimit = 4;
   _connections = [NSMutableSet new];
   _perHost = [NSCountedSet new];
-  _ioThread = [NSThread mainThread];
+  _ioThreads = [NSMutableArray new];
   _xCountRequests = [[WebServerHeader alloc]
     initWithType: WSHCountRequests andObject: self];
   _xCountConnections = [[WebServerHeader alloc]
@@ -1118,6 +1124,12 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 - (void) setDelegate: (id)anObject
 {
   _delegate = anObject;
+  _doProcess = [_delegate respondsToSelector:
+    @selector(processRequest:response:for:)];
+  _doPreProcess = [_delegate respondsToSelector:
+    @selector(preProcessRequest:response:for:)];
+  _doPostProcess = [_delegate respondsToSelector:
+    @selector(postProcessRequest:response:for:)];
 }
 
 - (void) setDurationLogging: (BOOL)aFlag
@@ -1311,43 +1323,48 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   _substitutionLimit = depth;
 }
 
-- (void) _ioThread
+- (void) setIOThreads: (NSUInteger)threads andPool: (NSInteger)poolSize
 {
-  _ioThread = [NSThread currentThread];
-  _ioTimer = [NSTimer scheduledTimerWithTimeInterval: 10000000.0
-    target: self
-    selector: @selector(timeout:)
-    userInfo: 0
-    repeats: NO];
-  [[NSRunLoop currentRunLoop] run];
-}
-
-- (void) setThreads: (NSUInteger)threads
-{
-  if (threads != [_pool maxThreads])
+  if (threads > 16)
     {
-      if (threads > 0)
+      threads = 16;
+    }
+  if (poolSize > 32)
+    {
+      poolSize = 32;
+    }
+  [_lock lock];
+  if (poolSize != [_pool maxThreads])
+    {
+      if (poolSize > 0)
 	{
 	  [_pool setOperations: _maxConnections];
-          [NSThread detachNewThreadSelector: @selector(_ioThread)  
-				   toTarget: self
-				 withObject: nil];
 	}
       else
 	{
 	  [_pool setOperations: 0];
-	  [_ioTimer invalidate];
-	  _ioTimer = nil;
-	  [_ioThread release];
-	  _ioThread = [NSThread mainThread];
 	}
-      [_pool setThreads: threads];
-    }
-}
+      [_pool setThreads: poolSize];
 
-- (void) setThreadProcessing: (BOOL)aFlag
-{
-  _threadProcessing = aFlag;
+      while ([_ioThreads count] > threads)
+	{
+	  IOThread	*t = [_ioThreads lastObject];
+
+	  [t->timer invalidate];
+	  [_ioThreads removeObjectIdenticalTo: t];
+	}
+      while ([_ioThreads count] < threads)
+	{
+	  IOThread	*t = [IOThread new];
+
+          [NSThread detachNewThreadSelector: @selector(run)  
+				   toTarget: t
+				 withObject: nil];
+	  [_ioThreads addObject: t];
+	  [t release];
+	}
+    }
+  [_lock unlock];
 }
 
 - (void) setUserInfo: (NSObject*)info forRequest: (GSMimeDocument*)request
@@ -1542,6 +1559,9 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       NSString			*refusal;
       BOOL			quiet;
       BOOL			ssl;
+      IOThread			*ioThread = nil;
+      NSUInteger		counter;
+      NSUInteger		ioConns = NSNotFound;
 
       [_lock lock];
       if (nil == _sslConfig)
@@ -1602,8 +1622,27 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	}
       quiet = [_quiet containsObject: address];
 
+      /* Find the I/O thread handling the fewest connections and use that.
+       */
+      counter = [_ioThreads count];
+      while (counter-- > 0)
+	{
+	  IOThread	*tmp = [_ioThreads objectAtIndex: counter];
+
+	  if (tmp->connections < ioConns)
+	    {
+	      ioThread = tmp;
+	      ioConns = ioThread->connections;
+	    }
+	}
+      if (nil == ioThread)
+	{
+	  ioThread = _ioMain;
+	}
+
       connection = [WebServerConnection alloc]; 
       connection = [connection initWithHandle: hdl
+				     onThread: ioThread
 					  for: self
 				      address: address
 				       config: _conf
@@ -1616,6 +1655,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       [_connections addObject: connection];
       [connection release];	// Retained in _connections map
       [_perHost addObject: address];
+      ioThread->connections++;
       [_lock unlock];
 
       /* Ensure we always have an 'accept' in progress unless we are already
@@ -1635,7 +1675,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
    * runloop.
    */
   [self performSelector: @selector(_removeConnection:)
-	       onThread: _ioThread
+	       onThread: [connection ioThread]->thread
 	     withObject: connection
 	  waitUntilDone: NO];
 }
@@ -1644,6 +1684,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 {
   [connection retain];
   [_lock lock];
+  [connection ioThread]->connections--;
   if (NO == [connection quiet])
     {
       [self _audit: connection];
@@ -1665,9 +1706,8 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     {
       _accepting = YES;
       [_lock unlock];
-      [_listener performSelector:
+      [_listener performSelectorOnMainThread:
 	@selector(acceptConnectionInBackgroundAndNotify)
-	onThread: _ioThread
 	withObject: nil
 	waitUntilDone: NO];
     }
@@ -1699,7 +1739,6 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   WebServerResponse	*response;
   NSString		*str;
   NSString		*con;
-  BOOL			processed = YES;
 
   [_lock lock];
   _processingCount++;
@@ -1799,20 +1838,30 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	}
     }
 
-  if (YES == _threadProcessing)
+  if (YES == _doPreProcess)
     {
       [_pool scheduleSelector: @selector(_process2:)
 		   onReceiver: self
 		   withObject: connection];
     }
-  else
+  else if (YES == _doProcess)
     {
-      [self performSelectorOnMainThread: @selector(_process2:)
+      [self performSelectorOnMainThread: @selector(_process3:)
 			     withObject: connection
 			  waitUntilDone: NO];
     }
+  else
+    {
+      NSLog(@"No delegate to process or pre-process request");
+      [response setHeader: @"http"
+		    value: @"HTTP/1.0 500 Internal Server Error"
+	       parameters: nil];
+      [self completedWithResponse: response];
+    }
 }
 
+/* Perform any pre-processing.
+ */
 - (void) _process2: (WebServerConnection*)connection
 {
   GSMimeDocument	*request;
@@ -1827,10 +1876,63 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       [connection setTicked: _ticked];
       if ([self accessRequest: request response: response] == YES)
 	{
-	  processed = [_delegate processRequest: request
-				       response: response
-					    for: self];
+	  processed = [_delegate preProcessRequest: request
+				          response: response
+					       for: self];
 	}
+      _ticked = [NSDateClass timeIntervalSinceReferenceDate];
+      [connection setTicked: _ticked];
+    }
+  NS_HANDLER
+    {
+      [self _alert: @"Exception %@, processing %@", localException, request];
+      [response setHeader: @"http"
+		    value: @"HTTP/1.0 500 Internal Server Error"
+	       parameters: nil];
+    }
+  NS_ENDHANDLER
+
+  if (processed == YES)
+    {
+      /* Request was completed at the pre-processing stage ... don't process
+       */
+      [self completedWithResponse: response];
+    }
+  else if (YES == _doProcess)
+    {
+      /* OK ... now process in main thread.
+       */
+      [self performSelectorOnMainThread: @selector(_process3:)
+			     withObject: connection
+			  waitUntilDone: NO];
+    }
+  else
+    {
+      NSLog(@"No delegate to process request");
+      [response setHeader: @"http"
+		    value: @"HTTP/1.0 500 Internal Server Error"
+	       parameters: nil];
+      [self completedWithResponse: response];
+    }
+}
+
+/* Perform main processing.
+ */
+- (void) _process3: (WebServerConnection*)connection
+{
+  GSMimeDocument	*request;
+  WebServerResponse	*response;
+  BOOL			processed = YES;
+
+  request = [connection request];
+  response = [connection response];
+
+  NS_DURING
+    {
+      [connection setTicked: _ticked];
+      processed = [_delegate processRequest: request
+				   response: response
+					for: self];
       _ticked = [NSDateClass timeIntervalSinceReferenceDate];
       [connection setTicked: _ticked];
     }
@@ -1847,6 +1949,46 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     {
       [self completedWithResponse: response];
     }
+  else
+    {
+      // Delegate will complete processing later.
+    }
+}
+
+/* Perform post processing.
+ */
+- (void) _process4: (WebServerConnection*)connection
+{
+  GSMimeDocument	*request;
+  WebServerResponse	*response;
+
+  request = [connection request];
+  response = [connection response];
+
+  NS_DURING
+    {
+      [connection setTicked: _ticked];
+      [_delegate postProcessRequest: request
+		           response: response
+			        for: self];
+      _ticked = [NSDateClass timeIntervalSinceReferenceDate];
+      [connection setTicked: _ticked];
+    }
+  NS_HANDLER
+    {
+      [self _alert: @"Exception %@, processing %@", localException, request];
+      [response setHeader: @"http"
+		    value: @"HTTP/1.0 500 Internal Server Error"
+	       parameters: nil];
+    }
+  NS_ENDHANDLER
+
+  [_lock lock];
+  _processingCount--;
+  [_lock unlock];
+  [_pool scheduleSelector: @selector(respond)
+	       onReceiver: connection
+	       withObject: nil];
 }
 
 - (void) _runConnection: (WebServerConnection*)connection
@@ -1868,22 +2010,6 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	}
     }
   [pool release];
-}
-
-- (void) _threadReadFrom: (NSFileHandle*)handle
-{
-  [handle performSelector: @selector(readInBackgroundAndNotify)
-                 onThread: _ioThread
-               withObject: nil
-            waitUntilDone: NO];
-}
-
-- (void) _threadWrite: (NSData*)data to: (NSFileHandle*)handle
-{
-  [handle performSelector: @selector(writeInBackgroundAndNotify:)
-                 onThread: _ioThread
-               withObject: data
-            waitUntilDone: NO];
 }
 
 - (NSString*) _xCountRequests
@@ -1922,6 +2048,34 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 - (id) copyWithZone: (NSZone*)z
 {
   return NSCopyObject(self, 0, z);
+}
+@end
+
+@implementation	IOThread
+
+- (void) dealloc
+{
+  [thread release];
+  [super dealloc];
+}
+
+- (void) run
+{
+  thread = [NSThread currentThread];
+  /* We need a timer so that the run loop will run forever (or at least
+   * until the timer is invalidated).
+   */
+  timer = [NSTimer scheduledTimerWithTimeInterval: 100000000000.0
+					   target: self
+					 selector: @selector(timeout:)
+					 userInfo: 0
+					  repeats: NO];
+  [[NSRunLoop currentRunLoop] run];
+}
+
+- (void) timeout: (NSTimer*)t
+{
+  return;
 }
 @end
 

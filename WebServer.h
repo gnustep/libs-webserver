@@ -70,7 +70,7 @@
       single operation and similarly writing out a response of up to the
       operating system's network buffer size.<br />
       As long as requests and responses are within those limits, it can be
-      assumed that low processing of a request in the 
+      assumed that slow processing of a request in the 
       [(WebServerDelegate)-processRequest:response:for:] method will have
       little impact on efficiency as the WebServer read request and write
       responses as rapidly as the delegates processing can handle them.<br />
@@ -94,6 +94,26 @@
       [(WebServerDelegate)-processRequest:response:for:] method before
       handing control to another thread.
     </p>
+    <p>If the simple threading outlined above is not sufficient for your
+      appplication, a more agressive threading scheme is available.<br />
+      You may call the -setIOThreads:andPool: method to ask the WebServer
+      instance to use threading internally itsself.  In this case the
+      low-level I/O operations will be shared across the specified number
+      of I/O threads instead of occurring in the main thread (makes sense
+      if you need to handle a very large number of simultaneous connections).
+      In addition, the parsing of the incoming HTTP request and the generation
+      of the raw data of the outgoing response are performed usign threads
+      from the thread pool, so that the I/O threads can concentrate on the
+      low level communications.
+    </p>
+    <p>With the use of a thread pool, you muse be aware that the 
+      [(WebServerDelegate)-preProcessRequest:response:for:] method will be
+      executed by a thread from the pool rather than by the main thread.<br />
+      This may be useful if you wish to split the processing into part
+      which is thread-safe, and part which uses complex interacting data
+      structures which are hard to make safe (done in the main processing
+      method).
+    </p>
   </section>
 </chapter>
 
@@ -107,6 +127,7 @@
 #include	<GNUstepBase/GSMime.h>
 
 @class	GSThreadPool;
+@class	IOThread;
 @class	WebServer;
 @class	WebServerConfig;
 @class	WebServerResponse;
@@ -130,6 +151,7 @@
  * at the server.
  */
 @protocol	WebServerDelegate
+
 /**
  * Process the HTTP request whose headers and data are provided in
  * a GSMimeDocument.<br />
@@ -197,7 +219,8 @@
  * thread or with completion being triggered by an asynchronous I/O event.
  * The server takes no action respond to the request until the delegate
  * calls [WebServer-completedWithResponse:] to let it know that processing
- * is complete and the response should at last be sent out. 
+ * is complete and the response should at last be sent out.<br />
+ * This method is always called in the main thread of your application.
  */
 - (BOOL) processRequest: (GSMimeDocument*)request
 	       response: (GSMimeDocument*)response
@@ -239,6 +262,47 @@
  * method, no logging is done.
  */
 - (void) webLog: (NSString*)message for: (WebServer*)http;
+@end
+
+
+/** This is an informal protocol documenting optional methods which will
+ * be used if implemented by the delegate.
+ */
+@interface	NSObject(WebServerDelegate)
+
+/**
+ * If your delegate implements this method, it will be called by the
+ * -completedWithResponse: method before the response data is actually
+ * written to the client.<br />
+ * This method may re-write the response, changing the result of the
+ * earlier methods.<br />
+ * You may use the [WebServer-userInfoForRequest:] method to obtain
+ * any information passed from an earlier stage of processing.<br />
+ * NB. if threading is turned on this method may be called from a thread
+ * other than the main one.
+ */
+- (void) postProcessRequest: (GSMimeDocument*)request
+	           response: (GSMimeDocument*)response
+		        for: (WebServer*)http;
+
+/**
+ * If your delegate implements this method, it will be called before the
+ * [(WebServerDelegate)-processRequest:response:for:] method and with the
+ * same parameters.<br />
+ * If this method returns YES, then it is assumed to have completed the
+ * processing of the request and the main
+ * [(WebServerDelegate)-processRequest:response:for:]
+ * method is not called.  Otherwise processing continues as normal.<br />
+ * You may use the [WebServer-setUserInfo:forRequest:] method to pass
+ * information to the [(WebServerDelegate)-processRequest:response:for:]
+ * and/or -postProcessRequest:response:for: methods.<br />
+ * NB. This method is called <em>before</em> any HTTP basic authentication
+ * is done, and may (if threading is turned on) be called from a thread
+ * other than the main one.
+ */
+- (BOOL) preProcessRequest: (GSMimeDocument*)request
+	          response: (GSMimeDocument*)response
+		       for: (WebServer*)http;
 @end
 
 /**
@@ -293,15 +357,17 @@
   NSUserDefaults	*_defs;
   NSString		*_port;
   NSLock		*_lock;
-  NSThread		*_ioThread;
-  NSTimer		*_ioTimer;
+  IOThread		*_ioMain;
+  NSMutableArray	*_ioThreads;
   GSThreadPool		*_pool;
   WebServerConfig	*_conf;
   NSArray		*_quiet;
   NSArray		*_hosts;
   NSDictionary		*_sslConfig;
   BOOL			_accepting;
-  BOOL			_threadProcessing;
+  BOOL			_doPostProcess;
+  BOOL			_doPreProcess;
+  BOOL			_doProcess;
   uint8_t		_reject;
   NSUInteger		_substitutionLimit;
   NSUInteger		_maxConnections;
@@ -376,7 +442,8 @@
 /** Convenience method to set up a temporary redirect to the specified URL
  * using the supplied response data.  The method returns YES so that it is
  * reasonable to pass its return value back directly as the return value
- * for a call to the -processRequest:response:for: method.<br />
+ * for a call to the [(WebServerDelegate)-processRequest:response:for:]
+ * method.<br />
  * If destination is an NSURL, the redirection is done to the specified
  * location, otherwise arguments description is taken as a local path to
  * be used with the base URL of the request.
@@ -714,13 +781,11 @@
 - (void) setSubstitutionLimit: (NSUInteger)depth;
 
 /**
- * Sets the size of the thread pool used by the receiver for handling
- * parsing of incoming request, generation of outgoing responses, and
- * (optionally) processing of requests.<br />
- * This defaults to zero (no use of threads).<br />
- * If any threading is enabled, the receiver may also allocate extra
- * threads to perform I/O or may leave that to the run loop of the
- * main thread.<br />
+ * Sets the number of threads used to process basic I/O and the size of
+ * the thread pool used by the receiver for handling parsing of incoming
+ * requests, generation of outgoing responses, and pre/post processing
+ * of requests by the delegate.<br />
+ * This defaults to no use of threads.<br />
  * NB. Since each thread typically uses two file descriptors to handle any
  * inter-thread message dispatch, enabling threading will use at least two
  * extra file descriptors per thread ... this may easily cause you
@@ -728,14 +793,7 @@
  * you may wish to configure a smaller connection limit or tune the O/S to
  * allow more descriptors.
  */
-- (void) setThreads: (NSUInteger)threads;
-
-/** If threading is enabled by the -setThreads: method, this setting
- * determines whether processing of a completed incoming request by
- * the delegate is done using a thread from the thread pool, or by
- * the main thread (the default).
- */
-- (void) setThreadProcessing: (BOOL)aFlag;
+- (void) setIOThreads: (NSUInteger)threads andPool: (NSInteger)poolSize;
 
 /**
  * Stores additional user information with a request.<br />

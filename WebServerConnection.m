@@ -182,6 +182,7 @@ static Class WebServerResponseClass = Nil;
   [ticker invalidate];
   ticker = nil;
   [handle closeFile];
+  DESTROY(ioThread);
   DESTROY(handle);
   DESTROY(excess);
   DESTROY(address);
@@ -285,6 +286,7 @@ static Class WebServerResponseClass = Nil;
 }
 
 - (id) initWithHandle: (NSFileHandle*)hdl
+	     onThread: (IOThread*)t
 		  for: (WebServer*)svr
 	      address: (NSString*)adr
 	       config: (WebServerConfig*)c
@@ -295,6 +297,7 @@ static Class WebServerResponseClass = Nil;
   static NSUInteger	connectionIdentity = 0;
 
   nc = [[NSNotificationCenter defaultCenter] retain];
+  ioThread = [t retain];
   server = svr;
   identity = ++connectionIdentity;
   requestStart = 0.0;
@@ -316,6 +319,11 @@ static Class WebServerResponseClass = Nil;
     }
 
   return self;
+}
+
+- (IOThread*) ioThread
+{
+  return ioThread;
 }
 
 - (NSUInteger) moreBytes: (NSUInteger)count
@@ -524,7 +532,11 @@ static Class WebServerResponseClass = Nil;
   [nc removeObserver: self
 		name: NSFileHandleReadCompletionNotification
 	      object: handle];
-  [server _threadWrite: data to: handle];
+  [handle performSelector: @selector(writeInBackgroundAndNotify:)
+                 onThread: ioThread->thread
+               withObject: data
+            waitUntilDone: NO];
+
 
   /* If this connection is not closing and excess data has been read,
    * we may continue dealing with incoming data before the write
@@ -727,7 +739,10 @@ static Class WebServerResponseClass = Nil;
 	     selector: @selector(_didRead:)
 		 name: NSFileHandleReadCompletionNotification
 	       object: handle];
-      [server _threadReadFrom: handle];
+      [handle performSelector: @selector(readInBackgroundAndNotify)
+		     onThread: ioThread->thread
+		   withObject: nil
+		waitUntilDone: NO];
     }
   else
     {
@@ -749,8 +764,10 @@ static Class WebServerResponseClass = Nil;
 	    }
 	  body = [result stringByAppendingString: @"\r\n\r\n"];
         }
-      [server _threadWrite: [body dataUsingEncoding: NSASCIIStringEncoding]
-			to: handle];
+      [handle performSelector: @selector(writeInBackgroundAndNotify:)
+		     onThread: ioThread->thread
+		   withObject: [body dataUsingEncoding: NSASCIIStringEncoding]
+		waitUntilDone: NO];
     }
 }
 
@@ -867,16 +884,20 @@ static Class WebServerResponseClass = Nil;
        */
       if (pos >= conf->maxRequestSize)
 	{
+	  NSData	*data;
+
 	  [server _log: @"Request too long ... rejected"];
 	  [self setShouldClose: YES];
 	  [self setResult: @"HTTP/1.0 413 Request data too long"];
 	  [nc removeObserver: self
 			name: NSFileHandleReadCompletionNotification
 		      object: handle];
-	  [server _threadWrite: 
-	    [@"HTTP/1.0 413 Request data too long\r\n\r\n"
-	    dataUsingEncoding: NSASCIIStringEncoding]
-	    to: handle];
+	  data = [@"HTTP/1.0 413 Request data too long\r\n\r\n"
+	    dataUsingEncoding: NSASCIIStringEncoding];
+	  [handle performSelector: @selector(writeInBackgroundAndNotify:)
+			 onThread: ioThread->thread
+		       withObject: data
+		    waitUntilDone: NO];
 	  return;
 	}
 
@@ -884,7 +905,10 @@ static Class WebServerResponseClass = Nil;
 	{
 	  /* Needs more data.
 	   */
-	  [server _threadReadFrom: handle];
+	  [handle performSelector: @selector(readInBackgroundAndNotify)
+			 onThread: ioThread->thread
+		       withObject: nil
+		    waitUntilDone: NO];
 	  return;
 	}
       else
@@ -981,13 +1005,18 @@ static Class WebServerResponseClass = Nil;
 	      query = [NSStringClass stringWithUTF8String: (char*)bytes + end];
 	      if (query == nil)
 		{
+		  NSData	*data;
+
 		  [server _log: @"Request query string not valid UTF8"];
 		  [self setShouldClose: YES];	// Not persistent.
 		  [self setResult: @"HTTP/1.0 413 Query string not UTF8"];
-		  [server _threadWrite: 
-		    [@"HTTP/1.0 413 Query string not UTF8\r\n\r\n"
-		    dataUsingEncoding: NSASCIIStringEncoding]
-		    to: handle];
+		  data = [@"HTTP/1.0 413 Query string not UTF8\r\n\r\n"
+		    dataUsingEncoding: NSASCIIStringEncoding];
+		  [handle performSelector:
+		    @selector(writeInBackgroundAndNotify:)
+				 onThread: ioThread->thread
+			       withObject: data
+			    waitUntilDone: NO];
 		  return;
 		}
 	    }
@@ -1000,12 +1029,16 @@ static Class WebServerResponseClass = Nil;
 	  if ([method isEqualToString: @"GET"] == NO
 	    && [method isEqualToString: @"POST"] == NO)
 	    {
+	      NSData	*data;
+
 	      [self setShouldClose: YES];	// Not persistent.
 	      [self setResult: @"HTTP/1.0 501 Not Implemented"];
-	      [server _threadWrite: 
-		[@"HTTP/1.0 501 Not Implemented\r\n\r\n"
-		dataUsingEncoding: NSASCIIStringEncoding]
-		to: handle];
+	      data = [@"HTTP/1.0 501 Not Implemented\r\n\r\n"
+		dataUsingEncoding: NSASCIIStringEncoding];
+	      [handle performSelector: @selector(writeInBackgroundAndNotify:)
+			     onThread: ioThread->thread
+			   withObject: data
+			waitUntilDone: NO];
 	      return;
 	    }
 
@@ -1050,7 +1083,10 @@ static Class WebServerResponseClass = Nil;
 	  if (pos >= length)
 	    {
 	      // Needs more data.
-	      [server _threadReadFrom: handle];
+	      [handle performSelector: @selector(readInBackgroundAndNotify)
+			     onThread: ioThread->thread
+			   withObject: nil
+			waitUntilDone: NO];
 	      return;
 	    }
 	  // Fall through to parse remaining data with mime parser
@@ -1062,13 +1098,17 @@ static Class WebServerResponseClass = Nil;
 
   if ([self moreBytes: [d length]] > conf->maxBodySize)
     {
+      NSData	*data;
+
       [server _log: @"Request body too long ... rejected"];
       [self setShouldClose: YES];	// Not persistent.
       [self setResult: @"HTTP/1.0 413 Request body too long"];
-      [server _threadWrite: 
-	[@"HTTP/1.0 413 Request body too long\r\n\r\n"
-	dataUsingEncoding: NSASCIIStringEncoding]
-	to: handle];
+      data = [@"HTTP/1.0 413 Request body too long\r\n\r\n"
+	dataUsingEncoding: NSASCIIStringEncoding];
+      [handle performSelector: @selector(writeInBackgroundAndNotify:)
+		     onThread: ioThread->thread
+		   withObject: data
+		waitUntilDone: NO];
       return;
     }
   else if ([parser parse: d] == NO)
@@ -1079,13 +1119,17 @@ static Class WebServerResponseClass = Nil;
 	}
       else
 	{
+	  NSData	*data;
+
 	  [server _log: @"HTTP parse failure - %@", parser];
           [self setShouldClose: YES];	// Not persistent.
           [self setResult: @"HTTP/1.0 400 Bad Request"];
-	  [server _threadWrite: 
-            [@"HTTP/1.0 400 Bad Request\r\n\r\n"
-            dataUsingEncoding: NSASCIIStringEncoding]
-	    to: handle];
+          data = [@"HTTP/1.0 400 Bad Request\r\n\r\n"
+            dataUsingEncoding: NSASCIIStringEncoding];
+	  [handle performSelector: @selector(writeInBackgroundAndNotify:)
+			 onThread: ioThread->thread
+		       withObject: data
+		    waitUntilDone: NO];
 	  return;
 	}
     }
@@ -1096,7 +1140,10 @@ static Class WebServerResponseClass = Nil;
     }
   else
     {
-      [server _threadReadFrom: handle];
+      [handle performSelector: @selector(readInBackgroundAndNotify)
+		     onThread: ioThread->thread
+		   withObject: nil
+		waitUntilDone: NO];
     }
 }
 
@@ -1186,7 +1233,10 @@ static Class WebServerResponseClass = Nil;
 	     selector: @selector(_didRead:)
 		 name: NSFileHandleReadCompletionNotification
 	       object: handle];
-      [server _threadReadFrom: handle];	// Want another request.
+      [handle performSelector: @selector(readInBackgroundAndNotify)
+		     onThread: ioThread->thread
+		   withObject: nil
+		waitUntilDone: NO];
     }
 }
 

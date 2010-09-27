@@ -42,6 +42,20 @@
 @class	WebServerRequest;
 @class	WebServerResponse;
 
+/* Class to manage an I/O thread
+ */
+@interface	IOThread : NSObject
+{
+@public
+  NSThread	*thread;
+  NSTimer	*timer;
+  NSUInteger	connections;
+}
+- (void) run;
+- (void) timeout: (NSTimer*)t;
+@end
+
+
 /* This class is used to hold configuration information needed by a single
  * connection ... once set up an instance is never modified so it can be
  * shared between threads.  When configuration is modified, it is replaced
@@ -99,6 +113,7 @@ typedef	enum {
 @interface	WebServerConnection : NSObject
 {
   NSNotificationCenter	*nc;
+  IOThread		*ioThread;
   NSTimer		*ticker;
   WebServer		*server;
   WebServerResponse	*response;
@@ -139,12 +154,14 @@ typedef	enum {
 - (BOOL) hasReset;
 - (NSUInteger) identity;
 - (id) initWithHandle: (NSFileHandle*)hdl
+	     onThread: (IOThread*)t
 		  for: (WebServer*)svr
 	      address: (NSString*)adr
 	       config: (WebServerConfig*)c
 		quiet: (BOOL)q
 		  ssl: (BOOL)s
 	      refusal: (NSString*)r;
+- (IOThread*) ioThread;
 - (NSUInteger) moreBytes: (NSUInteger)count;
 - (GSMimeParser*) parser;
 - (BOOL) processing;
