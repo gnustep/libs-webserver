@@ -1372,10 +1372,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   WebServerHeader	*h;
 
   h = [WebServerHeaderClass alloc];
-  h = [h initWithName: @"mime-version"
-		    value: @"1.0"
-	       parameters: nil];
-  [h setWebServerExtra: info];
+  h = [h initWithType: WSHExtra andObject: info];
   [request addHeader: h];
   [h release];
 }

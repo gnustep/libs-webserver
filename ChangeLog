@@ -1,3 +1,7 @@
+2010-09-28 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServer.m: fix bug setting extra infor for a request
+
 2010-09-27 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* WebServerConnection.m:
