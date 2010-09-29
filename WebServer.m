@@ -779,23 +779,31 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
 - (void) completedWithResponse: (GSMimeDocument*)response
 {
-  WebServerConnection	*connection;
-
-  connection = [(WebServerResponse*)response webServerConnection];
   if (YES == _doPostProcess)
     {
       [_pool scheduleSelector: @selector(_process4:)
 		   onReceiver: self
-		   withObject: connection];
+		   withObject: response];
     }
   else
     {
+      WebServerConnection	*connection;
+
       [_lock lock];
       _processingCount--;
+      connection = [[(WebServerResponse*)response webServerConnection] retain];
       [_lock unlock];
-      [_pool scheduleSelector: @selector(respond)
-		   onReceiver: connection
-		   withObject: nil];
+      if (nil == connection)
+	{
+	  NSLog(@"Late response %@", response);
+	}
+      else
+	{
+	  [_pool scheduleSelector: @selector(respond)
+		       onReceiver: connection
+		       withObject: nil];
+	   [connection release];
+	}
     }
 }
 
@@ -1345,7 +1353,9 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	  [_pool setOperations: 0];
 	}
       [_pool setThreads: poolSize];
-
+    }
+  if (threads != [_ioThreads count])
+    {
       while ([_ioThreads count] > threads)
 	{
 	  IOThread	*t = [_ioThreads lastObject];
@@ -1659,9 +1669,13 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
        * handling the maximum number of connections.
        */
       [self _listen];
-      [_pool scheduleSelector: @selector(start)
-		   onReceiver: connection
-		   withObject: nil];
+
+      /* Start the connection I/O on the correct thread.
+       */
+      [connection performSelector: @selector(start)
+			 onThread: ioThread->thread
+		       withObject: nil
+		    waitUntilDone: NO];
     }
 }
 
@@ -1681,6 +1695,9 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 {
   [connection retain];
   [_lock lock];
+  /* Clear the response so any completion attempt will fail.
+   */
+  [(WebServerResponse*)[connection response] setWebServerConnection: nil];
   [connection ioThread]->connections--;
   if (NO == [connection quiet])
     {
@@ -1954,13 +1971,20 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
 /* Perform post processing.
  */
-- (void) _process4: (WebServerConnection*)connection
+- (void) _process4: (WebServerResponse*)response
 {
   GSMimeDocument	*request;
-  WebServerResponse	*response;
+  WebServerConnection	*connection;
 
+  [_lock lock];
+  connection = [[response webServerConnection] retain];
+  [_lock unlock];
+
+  if (nil == response)
+    {
+      NSLog(@"Late response %@", response);
+    }
   request = [connection request];
-  response = [connection response];
 
   NS_DURING
     {
@@ -1986,27 +2010,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   [_pool scheduleSelector: @selector(respond)
 	       onReceiver: connection
 	       withObject: nil];
-}
-
-- (void) _runConnection: (WebServerConnection*)connection
-{
-  NSAutoreleasePool	*pool = [NSAutoreleasePool new];
-  NSRunLoop		*loop = [NSRunLoop currentRunLoop];
-  NSDate		*when = [NSDate distantFuture];
-
-  [connection start];
-  while (NO == [connection ended])
-    {
-      if (NO == [loop runMode: NSDefaultRunLoopMode beforeDate: when])
-	{
-	  if (NO == [connection ended])
-	    {
-	      NSLog(@"Argh -runMode:beforeDate: returned NO but connection "
-		@"was not ended!");
-	    }
-	}
-    }
-  [pool release];
+  [connection release];
 }
 
 - (NSString*) _xCountRequests

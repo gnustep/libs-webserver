@@ -309,14 +309,6 @@ static Class WebServerResponseClass = Nil;
   quiet = q;
   ssl = s;
   result = [r copy];
-  if (ticker == nil)
-    {
-      ticker = [NSTimer scheduledTimerWithTimeInterval: 0.8
-        target: self
-        selector: @selector(timeout:)
-        userInfo: 0
-        repeats: YES];
-    }
 
   return self;
 }
@@ -679,6 +671,15 @@ static Class WebServerResponseClass = Nil;
 - (void) start
 {
   NSHost	*host;
+
+  if (ticker == nil)
+    {
+      ticker = [NSTimer scheduledTimerWithTimeInterval: 0.8
+        target: self
+        selector: @selector(timeout:)
+        userInfo: 0
+        repeats: YES];
+    }
 
   host = nil;
   if (YES == conf->reverse && nil == result)
