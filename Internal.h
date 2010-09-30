@@ -35,6 +35,7 @@
 #import	<Foundation/NSThread.h>
 #import	<Foundation/NSTimer.h>
 #import	<GNUstepBase/GSMime.h>
+#import	<Performance/GSLinkedList.h>
 
 @class	WebServer;
 @class	WebServerConfig;
@@ -42,14 +43,35 @@
 @class	WebServerRequest;
 @class	WebServerResponse;
 
-/* Class to manage an I/O thread
+/* Class to manage an I/O thread and the connections running on it.
+ *
+ * The -run method of this class is called in the thread used by each
+ * instance, and this method runs a runloop to handle I/O and timeouts.
+ *
+ * Each instance runs a repeating timer which checks the connections
+ * to see if any have timed out (and also keeps the runloop alive when
+ * there are currently no connections performing I/O).
+ *
+ * The connections are held in three linked lists according to their state
+ * (which determines how long the connection can be idle before timing out).
+ *
+ * Whenever an event occurs on a connection, the 'ticker' timestamp for the
+ * connection is updated and the connection is moved to the end of its list,
+ * so the timeout process knows the connections in the list are ordered,
+ * and it doesn't need to check further than the first connection which
+ * has not timed out.
  */
 @interface	IOThread : NSObject
 {
 @public
-  NSThread	*thread;
-  NSTimer	*timer;
-  NSUInteger	connections;
+  WebServer	*server;	// The owner of this thread.
+  NSThread	*thread;	// The actual thread being used.
+  NSLock	*threadLock;	// Protect ivars from changes.
+  NSTimer	*timer;		// Repeated regular timer.
+  NSTimeInterval cTimeout;	// Timeout period for connections.
+  GSLinkedList	*processing;	// Connections processing a request.
+  GSLinkedList	*handshakes;	// Connections performing SSL handshake
+  GSLinkedList	*readwrites;	// Connections performing read or write.
 }
 - (void) run;
 - (void) timeout: (NSTimer*)t;
@@ -72,7 +94,6 @@
   NSUInteger		maxRequestSize;
   NSUInteger		maxConnectionRequests;
   NSTimeInterval	maxConnectionDuration;
-  NSTimeInterval	connectionTimeout;
 }
 @end
 
@@ -110,11 +131,10 @@ typedef	enum {
 @end
 
 
-@interface	WebServerConnection : NSObject
+@interface	WebServerConnection : GSListLink
 {
   NSNotificationCenter	*nc;
   IOThread		*ioThread;
-  NSTimer		*ticker;
   WebServer		*server;
   WebServerResponse	*response;
   WebServerConfig	*conf;
@@ -129,19 +149,18 @@ typedef	enum {
   NSData		*excess;
   NSUInteger		byteCount;
   NSUInteger		identity;
-  NSTimeInterval	ticked;
-  NSTimeInterval	extended;
   NSTimeInterval	requestStart;
   NSTimeInterval	connectionStart;
   NSTimeInterval	duration;
   NSUInteger		requests;
-  BOOL			processing;
   BOOL			shouldClose;
   BOOL			hasReset;
   BOOL			simple;
   BOOL			quiet;		// Suppress log of warning/debug info?
   BOOL			ssl;		// Should perform SSL negotiation?
-  BOOL			handshake;	// Currently in SSL handshake?
+@public
+  NSTimeInterval	ticked;
+  NSTimeInterval	extended;
 }
 - (NSString*) address;
 - (NSString*) audit;
@@ -149,7 +168,6 @@ typedef	enum {
 - (void) end;
 - (BOOL) ended;
 - (NSData*) excess;
-- (void) extend: (NSTimeInterval)when;
 - (NSFileHandle*) handle;
 - (BOOL) hasReset;
 - (NSUInteger) identity;
@@ -182,12 +200,11 @@ typedef	enum {
 - (void) setResult: (NSString*)aString;
 - (void) setShouldClose: (BOOL)aFlag;
 - (void) setSimple: (BOOL)aFlag;
-- (void) setTicked: (NSTimeInterval)when;
+- (void) setTicked: (NSTimeInterval)t;
 - (void) setUser: (NSString*)aString;
 - (BOOL) shouldClose;
 - (void) start;
-- (NSTimeInterval) ticked;
-- (void) timeout: (NSTimer*)t;
+- (BOOL) verbose;
 
 - (void) _didData: (NSData*)d;
 - (void) _didRead: (NSNotification*)notification;
@@ -199,6 +216,7 @@ typedef	enum {
 - (void) _audit: (WebServerConnection*)connection;
 - (void) _didConnect: (NSNotification*)notification;
 - (void) _endConnect: (WebServerConnection*)connection;
+- (NSString*) _ioThreadDescription;
 - (void) _listen;
 - (void) _log: (NSString*)fmt, ...;
 - (void) _process1: (WebServerConnection*)connection;

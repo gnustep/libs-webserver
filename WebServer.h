@@ -380,6 +380,7 @@
   NSUInteger		_requests;
   NSString		*_root;
   NSTimeInterval	_ticked;
+  NSTimeInterval	_connectionTimeout;
   NSCountedSet		*_perHost;
   id			_xCountRequests;
   id			_xCountConnections;

@@ -26,6 +26,7 @@
 #import "WebServer.h"
 #import "Internal.h"
 #import <Foundation/NSHost.h>
+#import <Foundation/NSLock.h>
 
 static Class NSDateClass = Nil;
 static Class NSMutableDataClass = Nil;
@@ -179,8 +180,6 @@ static Class WebServerResponseClass = Nil;
 
 - (void) dealloc
 {
-  [ticker invalidate];
-  ticker = nil;
   [handle closeFile];
   DESTROY(ioThread);
   DESTROY(handle);
@@ -203,44 +202,63 @@ static Class WebServerResponseClass = Nil;
     [self identity], [self address]];
 }
 
+/* Must be called on the IO thread.
+ */
 - (void) end
 {
-  NSFileHandle	*h;
-
-  [ticker invalidate];
-  ticker = nil;
-
-  [nc removeObserver: self
-		name: NSFileHandleReadCompletionNotification
-	      object: handle];
-  [nc removeObserver: self
-		name: GSFileHandleWriteCompletionNotification
-	      object: handle];
-  h = handle;
-  handle = nil;
-  [h closeFile];
-  [h release];
-
-  ticked = [NSDateClass timeIntervalSinceReferenceDate];
-  if (NO == quiet)
+  if ([NSThread currentThread] != ioThread->thread)
     {
-      NSTimeInterval	r = [self requestDuration: ticked];
+      NSLog(@"Argh ... -end called on wrong thread");
+      [self performSelector: @selector(end)
+		   onThread: ioThread->thread
+		 withObject: nil
+	      waitUntilDone: YES];
+    }
+  else
+    {
+      NSFileHandle	*h;
 
-      if (r > 0.0)
+      [nc removeObserver: self
+		    name: NSFileHandleReadCompletionNotification
+		  object: handle];
+      [nc removeObserver: self
+		    name: GSFileHandleWriteCompletionNotification
+		  object: handle];
+      h = handle;
+      handle = nil;
+      [h closeFile];
+      [h release];
+
+      ticked = [NSDateClass timeIntervalSinceReferenceDate];
+      if (NO == quiet)
 	{
-	  [self setRequestEnd: ticked];
-	  if (YES == conf->durations)
+	  NSTimeInterval	r = [self requestDuration: ticked];
+
+	  if (r > 0.0)
 	    {
-	      [server _log: @"%@ end of request (duration %g)", self, r];
+	      [self setRequestEnd: ticked];
+	      if (YES == conf->durations)
+		{
+		  [server _log: @"%@ end of request (duration %g)", self, r];
+		}
 	    }
-	}
-      if (YES == conf->verbose)
-	{
-	  NSTimeInterval	s = [self connectionDuration: ticked];
+	  if (YES == conf->verbose)
+	    {
+	      NSTimeInterval	s = [self connectionDuration: ticked];
 
-	  [server _log: @"%@ disconnect (duration %g)", self, s];
+	      [server _log: @"%@ disconnect (duration %g)", self, s];
+	    }
+	  [server _audit: self];
 	}
-      [server _audit: self];
+      /* Remove from the linked list we are in (if any).
+       */
+      [ioThread->threadLock lock];
+      if (owner != nil)
+	{
+	  GSLinkedListRemove(self, owner);
+	}
+      [ioThread->threadLock unlock];
+      [server _endConnect: self];
     }
 }
 
@@ -256,18 +274,6 @@ static Class WebServerResponseClass = Nil;
 - (NSData*) excess
 {
   return excess;
-}
-
-- (void) extend: (NSTimeInterval)i
-{
-  if (i > 0.0)
-    {
-      if (extended == 0.0)
-	{
-	  extended = ticked;
-	}
-      extended += i;
-    }
 }
 
 - (NSFileHandle*) handle
@@ -296,20 +302,32 @@ static Class WebServerResponseClass = Nil;
 {
   static NSUInteger	connectionIdentity = 0;
 
-  nc = [[NSNotificationCenter defaultCenter] retain];
-  ioThread = [t retain];
-  server = svr;
-  identity = ++connectionIdentity;
-  requestStart = 0.0;
-  duration = 0.0;
-  requests = 0;
-  ASSIGN(handle, hdl);
-  address = [adr copy];
-  conf = [c retain];
-  quiet = q;
-  ssl = s;
-  result = [r copy];
-
+  if ((self = [super init]) != nil)
+    {
+      nc = [[NSNotificationCenter defaultCenter] retain];
+      server = svr;
+      identity = ++connectionIdentity;
+      requestStart = 0.0;
+      duration = 0.0;
+      requests = 0;
+      ASSIGN(handle, hdl);
+      address = [adr copy];
+      conf = [c retain];
+      quiet = q;
+      ssl = s;
+      result = [r copy];
+      ioThread = [t retain];
+      [ioThread->threadLock lock];
+      if (YES == ssl)
+	{
+	  GSLinkedListInsertAfter(self, t->handshakes, t->handshakes->tail);
+	}
+      else
+	{
+	  GSLinkedListInsertAfter(self, t->readwrites, t->readwrites->tail);
+	}
+      [ioThread->threadLock unlock];
+    }
   return self;
 }
 
@@ -331,7 +349,7 @@ static Class WebServerResponseClass = Nil;
 
 - (BOOL) processing
 {
-  return processing;
+  return  owner == ioThread->processing ? YES : NO;
 }
 
 - (BOOL) quiet
@@ -599,7 +617,26 @@ static Class WebServerResponseClass = Nil;
 
 - (void) setProcessing: (BOOL)aFlag
 {
-  processing = aFlag;
+  [ioThread->threadLock lock];
+  if (YES == aFlag)
+    {
+      if (owner != ioThread->processing)
+	{
+	  GSLinkedListRemove(self, owner);
+	  GSLinkedListInsertAfter(self, ioThread->processing,
+	    ioThread->processing->tail);
+	}
+    }
+  else
+    {
+      if (owner != ioThread->readwrites)
+	{
+	  GSLinkedListRemove(self, owner);
+	  GSLinkedListInsertAfter(self, ioThread->readwrites,
+	    ioThread->readwrites->tail);
+	}
+    }
+  [ioThread->threadLock unlock];
 }
 
 - (void) setRequestEnd: (NSTimeInterval)when
@@ -634,9 +671,12 @@ static Class WebServerResponseClass = Nil;
   simple = aFlag;
 }
 
-- (void) setTicked: (NSTimeInterval)when
+- (void) setTicked: (NSTimeInterval)t
 {
-  ticked = when;
+  [ioThread->threadLock lock];
+  ticked = t;
+  GSLinkedListMoveToTail(self, owner);
+  [ioThread->threadLock unlock];
 }
 
 - (void) setUser: (NSString*)aString
@@ -654,32 +694,9 @@ static Class WebServerResponseClass = Nil;
   return simple;
 }
 
-- (BOOL) ssl
-{
-  BOOL	r;
-
-  handshake = YES;			// Avoid timeouts during handshake
-  r = [handle sslAccept];
-  handshake = NO;
-  if (r == YES)			// Reset timer of last I/O
-    {
-      [self setTicked: [NSDateClass timeIntervalSinceReferenceDate]];
-    }
-  return r;
-}
-
 - (void) start
 {
   NSHost	*host;
-
-  if (ticker == nil)
-    {
-      ticker = [NSTimer scheduledTimerWithTimeInterval: 0.8
-        target: self
-        selector: @selector(timeout:)
-        userInfo: 0
-        repeats: YES];
-    }
 
   host = nil;
   if (YES == conf->reverse && nil == result)
@@ -711,20 +728,22 @@ static Class WebServerResponseClass = Nil;
     {
       BOOL	ok;
 
-      handshake = YES;			// Avoid timeouts during handshake
       ok = [handle sslAccept];
-      handshake = NO;
-      if (YES == ok)			// Reset timer of last I/O
-	{
-	  ticked = [NSDateClass timeIntervalSinceReferenceDate];
-	}
-      else
+
+      [ioThread->threadLock lock];
+      ticked = [NSDateClass timeIntervalSinceReferenceDate];
+      GSLinkedListRemove(self, owner);
+      GSLinkedListInsertAfter(self, ioThread->readwrites,
+	ioThread->readwrites->tail);
+      [ioThread->threadLock unlock];
+
+      if (NO == ok)			// Reset time of last I/O
 	{
 	  if (NO == quiet)
 	    {
 	      [server _log: @"SSL accept fail on (%@).", address];
 	    }
-	  [server _endConnect: self];
+	  [self end];
 	}
     }
 
@@ -772,56 +791,9 @@ static Class WebServerResponseClass = Nil;
     }
 }
 
-- (NSTimeInterval) ticked
+- (BOOL) verbose
 {
-  /* If we are doing an SSL handshake, we add 30 seconds to the timestamp
-   * to allow for the fact that the handshake may take up to 30 seconds
-   * itsself.  This prevents the connection from being removed during
-   * a slow handshake.
-   */
-  return ticked + (YES == handshake ? 30.0 : 0.0);
-}
-
-- (void) timeout: (NSTimer*)timer
-{
-  NSTimeInterval	now = [NSDateClass timeIntervalSinceReferenceDate];
-  NSTimeInterval	age = now - ticked;
-  BOOL			shouldEnd = NO;
-
-  if (age > conf->connectionTimeout)
-    {
-      if ([self processing] == NO)
-	{
-	  shouldEnd = YES;
-	}
-      else
-	{
-	  NSTimeInterval	e = (extended == 0.0) ? ticked : extended;
-
-	  if (now - e > conf->connectionTimeout)
-	    {
-	      if (e == ticked)
-		{
-		  [self extend: 300.0];
-		}
-	      else
-		{
-		  [server _alert: @"%@ abort after %g seconds to process %@",
-		    self, age, [self request]];
-		  shouldEnd = YES;
-		}
-	    }
-	}
-    }
-
-  if (YES == shouldEnd)
-    {
-      if (YES == conf->verbose)
-	{
-	  [server _log: @"Connection timed out - %@", self];
-	}
-      [server _endConnect: self];
-    }
+  return conf->verbose;
 }
 
 - (void) _didData: (NSData*)d
@@ -1152,8 +1124,10 @@ static Class WebServerResponseClass = Nil;
 {
   NSDictionary		*dict;
   NSData		*d;
+  NSTimeInterval	now = [NSDateClass timeIntervalSinceReferenceDate];
 
   NSAssert([notification object] == handle, NSInternalInconsistencyException);
+  [self setTicked: now];
 
   dict = [notification userInfo];
   d = [dict objectForKey: NSFileHandleNotificationDataItem];
@@ -1186,7 +1160,7 @@ static Class WebServerResponseClass = Nil;
 	  [server _log: @"%@ read end-of-file in incomplete request - %@",
 	    self, [parser mimeDocument]];
 	}
-      [server _endConnect: self];
+      [self end];
       return;
     }
 
@@ -1200,14 +1174,17 @@ static Class WebServerResponseClass = Nil;
 
 - (void) _didWrite: (NSNotification*)notification
 {
+  NSTimeInterval	now = [NSDateClass timeIntervalSinceReferenceDate];
+
   NSAssert([notification object] == handle, NSInternalInconsistencyException);
+  [self setTicked: now];
+
   if ([self shouldClose] == YES)
     {
-      [server _endConnect: self];
+      [self end];
     }
   else
     {
-      NSTimeInterval	now = [NSDateClass timeIntervalSinceReferenceDate];
       NSTimeInterval	t = [self requestDuration: now];
 
       if (t > 0.0)

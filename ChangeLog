@@ -1,6 +1,14 @@
+2010-09-30 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServerConnection.m:
+	* WebServer.h:
+	* WebServer.m:
+	* Internal.h:
+	Alterations for scalibilty.
+
 2010-09-28 Richard Frith-Macdonald  <rfm@gnu.org>
 
-	* WebServer.m: fix bug setting extra infor for a request
+	* WebServer.m: fix bug setting extra info for a request
 
 2010-09-27 Richard Frith-Macdonald  <rfm@gnu.org>
 

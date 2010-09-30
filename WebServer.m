@@ -850,11 +850,11 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   [_lock lock];
   result = [NSStringClass stringWithFormat:
     @"%@ on %@(%@), %u of %u connections active,"
-    @" %u ended, %u requests, listening: %@\nThread pool %@",
+    @" %u ended, %u requests, listening: %@\nIO threads: %@\nWorker pool %@",
     [super description], _port, ([self isSecure] ? @"https" : @"http"),
     [_connections count],
     _maxConnections, _handled, _requests, _accepting == YES ? @"yes" : @"no",
-    _pool];
+    [self _ioThreadDescription], _pool];
   [_lock unlock];
   return result;
 }
@@ -862,8 +862,11 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 - (id) init
 {
   _nc = [[NSNotificationCenter defaultCenter] retain];
+  _connectionTimeout = 30.0;
   _ioMain = [IOThread new];
   _ioMain->thread = [NSThread mainThread];
+  _ioMain->server = self;
+  _ioMain->cTimeout = _connectionTimeout;
   _lock =  [NSLock new];
   _pool = [GSThreadPool new];
   [_pool setThreads: 0];
@@ -876,7 +879,6 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   _conf->maxConnectionDuration = 10.0;
   _conf->maxBodySize = 4*1024*1024;
   _conf->maxRequestSize = 8*1024;
-  _conf->connectionTimeout = 30.0;
   _maxPerHost = 32;
   _maxConnections = 128;
   _substitutionLimit = 4;
@@ -891,6 +893,27 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     initWithType: WSHCountConnectedHosts andObject: self];
 
   return self;
+}
+
+- (NSString*) _ioThreadDescription
+{
+  unsigned		counter = [_ioThreads count];
+
+  if (0 == counter)
+    {
+      return [@"\n  " stringByAppendingString: [_ioMain description]];
+    }
+  else
+    {
+      NSMutableString	*s = [NSMutableString string];
+
+      while (counter-- > 0)
+	{
+	  [s appendString: @"\n  "];
+	  [s appendString: [[_ioThreads objectAtIndex: counter] description]];
+	}
+      return s;
+    }
 }
 
 - (BOOL) isSecure
@@ -1316,13 +1339,27 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
 - (void) setConnectionTimeout: (NSTimeInterval)aDelay
 {
-  if (_conf->connectionTimeout != aDelay)
+  if (aDelay != _connectionTimeout)
     {
-      WebServerConfig	*c = [_conf copy];
+      NSEnumerator	*e;
+      NSArray		*a;
+      IOThread		*t;
 
-      c->connectionTimeout = aDelay;
-      [_conf release];
-      _conf = c;
+      _connectionTimeout = aDelay;
+      [_ioMain->threadLock lock];
+      _ioMain->cTimeout = _connectionTimeout;
+      [_ioMain->threadLock unlock];
+      [_lock lock];
+      a = [_ioThreads copy];
+      e = [a objectEnumerator];
+      [a release];
+      [_lock unlock];
+      while ((t = [e nextObject]) != nil)
+	{
+	  [t->threadLock lock];
+	  t->cTimeout = _connectionTimeout;
+	  [t->threadLock unlock];
+	}
     }
 }
 
@@ -1367,6 +1404,8 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	{
 	  IOThread	*t = [IOThread new];
 
+	  t->server = self;
+	  t->cTimeout = _connectionTimeout;
           [NSThread detachNewThreadSelector: @selector(run)  
 				   toTarget: t
 				 withObject: nil];
@@ -1555,9 +1594,8 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       /* Try to allow more connections to be accepted.
        */
       [self _listen];
-      [NSException raise: NSInternalInconsistencyException
-		  format: @"[%@ -%@] missing handle",
-	NSStringFromClass([self class]), NSStringFromSelector(_cmd)];
+      NSLog(@"[%@ -%@] missing handle ... %@",
+	NSStringFromClass([self class]), NSStringFromSelector(_cmd), userInfo);
     }
   else
     {
@@ -1635,11 +1673,15 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       while (counter-- > 0)
 	{
 	  IOThread	*tmp = [_ioThreads objectAtIndex: counter];
+	  NSUInteger	c;
 
-	  if (tmp->connections < ioConns)
+	  c = tmp->readwrites->count
+	    + tmp->handshakes->count
+	    + tmp->processing->count;
+	  if (c < ioConns)
 	    {
 	      ioThread = tmp;
-	      ioConns = ioThread->connections;
+	      ioConns = c;
 	    }
 	}
       if (nil == ioThread)
@@ -1662,7 +1704,6 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       [_connections addObject: connection];
       [connection release];	// Retained in _connections map
       [_perHost addObject: address];
-      ioThread->connections++;
       [_lock unlock];
 
       /* Ensure we always have an 'accept' in progress unless we are already
@@ -1681,24 +1722,10 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
 - (void) _endConnect: (WebServerConnection*)connection
 {
-  /* The connection must actually be closed in the same thread that
-   * it uses for I/O or we will leave a reference to it in the
-   * runloop.
-   */
-  [self performSelector: @selector(_removeConnection:)
-	       onThread: [connection ioThread]->thread
-	     withObject: connection
-	  waitUntilDone: NO];
-}
-
-- (void) _removeConnection: (WebServerConnection*)connection
-{
-  [connection retain];
   [_lock lock];
   /* Clear the response so any completion attempt will fail.
    */
   [(WebServerResponse*)[connection response] setWebServerConnection: nil];
-  [connection ioThread]->connections--;
   if (NO == [connection quiet])
     {
       [self _audit: connection];
@@ -1707,8 +1734,6 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   [_perHost removeObject: [connection address]];
   [_connections removeObject: connection];
   [_lock unlock];
-  [connection end];
-  [connection release];
   [self _listen];
 }
 
@@ -2057,7 +2082,38 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 - (void) dealloc
 {
   [thread release];
+  [processing release];
+  [handshakes release];
+  [readwrites release];
+  [threadLock release];
   [super dealloc];
+}
+
+- (NSString*) description
+{
+  NSString	*s;
+
+  [threadLock lock];
+  s = [NSString stringWithFormat:
+    @"%@ readwrites: %u, handshakes: %u, processing: %u",
+    [super description],
+    (unsigned)readwrites->count,
+    (unsigned)handshakes->count,
+    (unsigned)processing->count];
+  [threadLock unlock];
+  return s;
+}
+
+- (id) init
+{
+  if ((self = [super init]) != nil)
+    {
+      processing = [GSLinkedList new];
+      handshakes = [GSLinkedList new];
+      readwrites = [GSLinkedList new];
+      threadLock = [NSLock new];
+    }
+  return self;
 }
 
 - (void) run
@@ -2065,18 +2121,105 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   thread = [NSThread currentThread];
   /* We need a timer so that the run loop will run forever (or at least
    * until the timer is invalidated).
+   * This is also used to handle connection timeouts on this thread.
    */
-  timer = [NSTimer scheduledTimerWithTimeInterval: 100000000000.0
+  timer = [NSTimer scheduledTimerWithTimeInterval: 0.8
 					   target: self
 					 selector: @selector(timeout:)
 					 userInfo: 0
-					  repeats: NO];
+					  repeats: YES];
   [[NSRunLoop currentRunLoop] run];
 }
 
 - (void) timeout: (NSTimer*)t
 {
-  return;
+  NSTimeInterval	now = [NSDateClass timeIntervalSinceReferenceDate];
+  NSMutableArray	*ended = nil;
+  NSTimeInterval	age;
+  WebServerConnection	*con;
+
+  [threadLock lock];
+
+  /* Find any connections which have timed out waiting for I/O
+   */
+  age = now - cTimeout;
+  for (con = (id)readwrites->head; nil != con; con = (id)con->next)
+    {
+      if (age > con->ticked)
+	{
+	  if (nil == ended)
+	    {
+	      ended = [NSMutableArray new];
+	    }
+	  [ended addObject: con];
+	}
+      else
+	{
+	  break;
+	}
+    }
+
+  /* Find any connections which have timed out waiting for SSL
+   * handshake (allows 30 seconds more than basic timeout).
+   */
+  age -= 30.0;
+  for (con = (id)handshakes->head; nil != con; con = (id)con->next)
+    {
+      if (age > con->ticked)
+	{
+	  if (nil == ended)
+	    {
+	      ended = [NSMutableArray new];
+	    }
+	  [ended addObject: con];
+	}
+      else
+	{
+	  break;
+	}
+    }
+
+  /* Find any connections which have timed out waiting for processing.
+   * We allow five minutes for processing (270 seconds more than for
+   * SSL handshakes).
+   */
+  age -= 270.0;
+  for (con = (id)processing->head; nil != con; con = (id)con->next)
+    {
+      if (age > con->ticked)
+	{
+	  if (nil == ended)
+	    {
+	      ended = [NSMutableArray new];
+	    }
+	  [ended addObject: con];
+	}
+      else
+	{
+	  break;
+	}
+    }
+  [threadLock unlock];
+
+  if (nil != ended)
+    {
+      NSEnumerator	*e = [ended objectEnumerator];
+
+      [ended release];
+      while (nil != (con = [e nextObject]))
+	{
+	  if (con->owner == processing)
+	    {
+	      [server _alert: @"%@ abort after %g seconds to process %@",
+		con, now - con->extended, [con request]];
+	    }
+	  if (YES == [con verbose] && NO == [con quiet])
+	    {
+	      [server _log: @"Connection timed out - %@", con];
+	    }
+	  [con end];
+	}
+    }
 }
 @end
 
