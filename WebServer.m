@@ -850,11 +850,11 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   [_lock lock];
   result = [NSStringClass stringWithFormat:
     @"%@ on %@(%@), %u of %u connections active,"
-    @" %u ended, %u requests, listening: %@\nIO threads: %@\nWorker pool %@",
+    @" %u ended, %u requests, listening: %@%@%@",
     [super description], _port, ([self isSecure] ? @"https" : @"http"),
     [_connections count],
     _maxConnections, _handled, _requests, _accepting == YES ? @"yes" : @"no",
-    [self _ioThreadDescription], _pool];
+    [self _ioThreadDescription], [self _poolDescription]];
   [_lock unlock];
   return result;
 }
@@ -901,12 +901,13 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
   if (0 == counter)
     {
-      return [@"\n  " stringByAppendingString: [_ioMain description]];
+      return @"";
     }
   else
     {
       NSMutableString	*s = [NSMutableString string];
 
+      [s appendString: @"\nIO threads:"];
       while (counter-- > 0)
 	{
 	  [s appendString: @"\n  "];
@@ -923,6 +924,15 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       return NO;
     }
   return YES;
+}
+
+- (NSString*) _poolDescription
+{
+  if (0 == [_pool maxThreads])
+    {
+      return @"";
+    }
+  return [NSString stringWithFormat: @"\nWorkers: %@", _pool];
 }
 
 - (BOOL) produceResponse: (GSMimeDocument*)aResponse

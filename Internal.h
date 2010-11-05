@@ -219,6 +219,7 @@ typedef	enum {
 - (NSString*) _ioThreadDescription;
 - (void) _listen;
 - (void) _log: (NSString*)fmt, ...;
+- (NSString*) _poolDescription;
 - (void) _process1: (WebServerConnection*)connection;
 - (void) _process2: (WebServerConnection*)connection;
 - (void) _removeConnection: (WebServerConnection*)connection;
