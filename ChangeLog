@@ -1,3 +1,10 @@
+2010-11-28 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServer.h:
+	* WebServer.m:
+	Add convenience method to match an IP address of a remote host against
+	a pattern containing multiple addresses and masks.
+
 2010-09-30 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* WebServerConnection.m:

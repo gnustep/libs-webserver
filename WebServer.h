@@ -425,6 +425,14 @@
 	   relative: (NSURL*)oldURL
 	      query: (NSDictionary*)fields, ...;
 
+/** Convenience function to check to see if a particular IP address matches
+ * anything in a comma separated list of IP addresses or masks.<br />
+ * This currently handles simple IPv4 addresses, and masks in the format
+ * nnn.nnn.nnn.nnn/bb where bb is the number of bits of the mask to match
+ * against the address (eg. 192.168.11.0/24).
+ */
++ (BOOL) matchIP: (NSString*)address to: (NSString*)pattern;
+
 /**
  * Same as the instance method of the same name.
  */
