@@ -850,6 +850,11 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     }
 }
 
+- (void) closeConnectionAfter: (GSMimeDocument*)response
+{
+  [[(WebServerResponse*)response webServerConnection] setShouldClose: YES];
+}
+
 - (void) completedWithResponse: (GSMimeDocument*)response
 {
   if (YES == _doPostProcess)

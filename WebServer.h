@@ -494,6 +494,12 @@
 	      response: (GSMimeDocument*)response;
 
 /**
+ * Instructs the server that the connection handlind the current request
+ * should be closed once the response has been sent back to the client.
+ */
+- (void) closeConnectionAfter: (GSMimeDocument*)response;
+
+/**
  * <p>This may only be called in the case where a call to the delegate's
  * [(WebServerDelegate)-processRequest:response:for:] method
  * to process a request returned NO, indicating that the delegate
