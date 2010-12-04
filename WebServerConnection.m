@@ -477,20 +477,33 @@ static Class WebServerResponseClass = Nil;
 	  s = [s stringByAppendingString: @"\r\n"];
 	  [out appendData: [s dataUsingEncoding: NSASCIIStringEncoding]];
 	  [response deleteHeader: hdr];
-	  /*
-	   * If the http version has been set to be an old one,
-	   * we must be prepared to close the connection at once
-	   * unless connection keep-alive has been set.
-	   */
 	  if ([s hasPrefix: @"HTTP/"] == NO)
 	    {
+	      /* Old browser ... pre HTTP 1.0 ... always close.
+	       */
 	      [self setShouldClose: YES];
 	    }
 	  else if ([[s substringFromIndex: 5] floatValue] < 1.1) 
 	    {
+	      /* This is HTTP 1.0 ...
+	       * we must be prepared to close the connection at once
+	       * unless connection keep-alive has been set.
+	       */
 	      s = [[response headerNamed: @"connection"] value]; 
 	      if (s == nil
 	        || ([s caseInsensitiveCompare: @"keep-alive"] != NSOrderedSame))
+		{
+		  [self setShouldClose: YES];
+		}
+	    }
+	  else
+	    {
+	      /* Modern browser ... we assume the connection will be
+	       * kept open unless a 'close' has been set.
+	       */
+	      s = [[response headerNamed: @"connection"] value]; 
+	      if (s != nil
+		&& [s caseInsensitiveCompare: @"close"] == NSOrderedSame)
 		{
 		  [self setShouldClose: YES];
 		}
