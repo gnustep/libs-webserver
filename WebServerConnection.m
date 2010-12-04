@@ -496,7 +496,7 @@ static Class WebServerResponseClass = Nil;
 		  [self setShouldClose: YES];
 		}
 	    }
-	  else
+	  else if (NO == [self shouldClose])
 	    {
 	      /* Modern browser ... we assume the connection will be
 	       * kept open unless a 'close' has been set.
