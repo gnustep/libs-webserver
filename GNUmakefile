@@ -49,14 +49,12 @@ WebServer_OBJC_FILES +=\
 WebServer_HEADER_FILES +=\
 	WebServer.h\
 	WebServerBundles.h\
-	WebServerForm.h\
-	WebServerTable.h\
+	WebServerHTML.h\
 
 WebServer_AGSDOC_FILES +=\
 	WebServer.h\
 	WebServerBundles.h\
-	WebServerForm.h\
-	WebServerTable.h\
+	WebServerHTML.h\
 
 # Optional Java wrappers for the library
 JAVA_WRAPPER_NAME = WebServer

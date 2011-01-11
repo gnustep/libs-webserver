@@ -253,6 +253,7 @@
 
 - (void) webLog: (NSString*)message for: (WebServer*)http
 {
+  return;	// Nothing to do in the default implementation
 }
 
 @end

@@ -26,8 +26,7 @@
 #import <Foundation/Foundation.h>
 
 #import "WebServer.h"
-#import "WebServerForm.h"
-#import "WebServerTable.h"
+#import "WebServerHTML.h"
 
 @implementation	WebServerTable
 

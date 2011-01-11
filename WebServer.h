@@ -107,7 +107,7 @@
       low level communications.
     </p>
     <p>With the use of a thread pool, you muse be aware that the 
-      [(WebServerDelegate)-preProcessRequest:response:for:] method will be
+      -preProcessRequest:response:for: method will be
       executed by a thread from the pool rather than by the main thread.<br />
       This may be useful if you wish to split the processing into part
       which is thread-safe, and part which uses complex interacting data
@@ -647,8 +647,8 @@
  * characterset used, you can change the content type header in the
  * request after you call this method.<br />
  * Note that, although the map is nominally an NSDictionary instance, it
- * can in fact be any object which responds to the -objectForKey: message
- * by returning a string or nil.
+ * can in fact be any object which responds to the [NSDictionary-objectForKey:]
+ * message by returning a string or nil.
  */
 - (BOOL) produceResponse: (GSMimeDocument*)aResponse
 	    fromTemplate: (NSString*)aPath

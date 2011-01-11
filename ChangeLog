@@ -1,3 +1,8 @@
+2011-01-11 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	Consolidated WebServerForm.h and WebServerTable.h into a single file
+	WebServerHTML.h and fixed minor documentation errors.
+
 2010-12-03 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* WebServerConnection.m:
