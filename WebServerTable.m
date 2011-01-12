@@ -37,7 +37,6 @@
 
 - (void) dealloc
 {
-  [_name release];
   [_titles release];
   [_contents release];
   [super dealloc];
@@ -52,9 +51,8 @@
        columnTitles: (NSArray*)titles
 	   rowCount: (NSUInteger)rows
 {
-  if ((self = [super init]) != nil)
+  if ((self = [super initWithName: name]) != nil)
     {
-      _name = [name copy];
       _titles = [titles copy];
       _cols = [_titles count];
       _rows = rows;
@@ -174,7 +172,7 @@
     }
 
   [m appendString: @"</table>\n"];
-  [map setObject: m forKey: _name];
+  [map setObject: m forKey: [self name]];
 }
 
 - (void) setContents: (NSArray*)contents

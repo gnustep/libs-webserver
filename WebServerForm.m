@@ -32,7 +32,6 @@
 
 - (void) dealloc
 {
-  [_name release];
   [_fields release];
   [_URL release];
   [super dealloc];
@@ -128,52 +127,14 @@
   return [_fields allKeys];
 }
 
-- (id) init
-{
-  return [self initWithName: @""];
-}
-
 - (id) initWithName: (NSString*)name
 {
-  const char	*ptr = [name UTF8String];
-
-  /* Break on bad character ...
-   */
-  if (ptr && *ptr)
+  self = [super initWithName: name];
+  if (nil != self)
     {
-      if (*ptr == '_' || isalpha(*ptr))
-	{
-	  ptr++;
-	  while (*ptr != '\0')
-	    {
-	      if (*ptr == '_' || isalnum(*ptr))
-		{
-		  ptr++;
-		}
-	      else
-		{
-		  break;
-		}
-	    }
-	}
-    }
-
-  if (ptr != 0 && *ptr == '\0')
-    {
-      _name = [name copy];
       _fields = [NSMutableDictionary new];
     }
-  else
-    {
-      [self release];
-      self = nil;
-    }
   return self;
-}
-
-- (NSString*) name
-{
-  return _name;
 }
 
 - (void) output: (NSMutableDictionary*)map

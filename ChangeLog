@@ -1,3 +1,12 @@
+2011-01-12 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServerHTML.h:
+	* WebServerForm.m:
+	* WebServerField.m:
+	* WebServerTable.m:
+	Fixup instance variables, designated initialiser, and make sure all
+	items have a name.
+
 2011-01-11 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	Consolidated WebServerForm.h and WebServerTable.h into a single file

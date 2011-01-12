@@ -46,7 +46,12 @@ static id null = nil;
 
 - (id) init
 {
-  return [self initWithName: nil];
+  NSString	*c = NSStringFromClass([self class]);
+
+  [self release];
+  [NSException raise: NSInvalidArgumentException
+	      format: @"[%@-init] should not be used ... init with a name", c];
+  return nil;
 }
 
 - (id) initWithName: (NSString*)name

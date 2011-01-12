@@ -82,7 +82,7 @@
 @end
 
 /** This class provides a framework for handling incoming form data
- * and substituting form fields into n html template being output
+ * and substituting form fields into an html template being output
  * in a response.
  */
 @interface	WebServerForm: WebServerItem
@@ -134,14 +134,6 @@
 /** Return the names of the fields on the form.
  */
 - (NSArray*) fieldNames;
-
-/** Initialise a new instance using ther specified name.
- */
-- (id) initWithName: (NSString*)name;
-
-/** Return the name of this form as set when the form was initialised.
- */
-- (NSString*) name;
 
 /** Places values from the form fields in the map dictionary.<br />
  * If the -setURL:get: method has been called, this method also adds
@@ -252,7 +244,9 @@
   NSArray	*_vals;
   BOOL		_multiple;
 }
-/** The options supported by this field are listed as keys (the text
+
+/** <init />
+ * The options supported by this field are listed as keys (the text
  * that the user sees in their web browser) and values (the text
  * used by your program).  The two arguments must be arrays of the
  * same size, with no items repeated within an array ... so there is
@@ -297,7 +291,6 @@
  */
 @interface	WebServerTable: WebServerItem
 {
-  NSString		*_name;  
   NSArray		*_titles;
   NSUInteger		_cols;
   NSUInteger		_rows;
@@ -317,7 +310,8 @@
  */
 - (WebServerForm*) form;
 
-/** Initialises the receiver as a named table with the supplied column
+/** <init />
+ * Initialises the receiver as a named table with the supplied column
  * titles and able to display the specified number of rows.
  */
 - (id) initWithName: (NSString*)name
