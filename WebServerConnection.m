@@ -711,7 +711,6 @@ static Class WebServerResponseClass = Nil;
 {
   NSHost	*host;
 
-  host = nil;
   if (YES == conf->reverse && nil == result)
     {
       host = [NSHost hostWithAddress: address];

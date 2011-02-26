@@ -84,7 +84,6 @@ unescapeData(const uint8_t *bytes, NSUInteger length, uint8_t *buf)
 	{
 	  uint8_t	tmp;
 
-	  c = 0;
 	  tmp = bytes[from++];
 	  if (tmp <= '9' && tmp >= '0')
 	    {
@@ -939,37 +938,40 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
 - (id) init
 {
-  _nc = [[NSNotificationCenter defaultCenter] retain];
-  _connectionTimeout = 30.0;
-  _ioMain = [IOThread new];
-  _ioMain->thread = [NSThread mainThread];
-  _ioMain->server = self;
-  _ioMain->cTimeout = _connectionTimeout;
-  _lock =  [NSLock new];
-  _pool = [GSThreadPool new];
-  [_pool setThreads: 0];
-  _defs = [[NSUserDefaults standardUserDefaults] retain];
-  _quiet = [[_defs arrayForKey: @"WebServerQuiet"] copy];
-  _hosts = [[_defs arrayForKey: @"WebServerHosts"] copy];
-  _conf = [WebServerConfig new];
-  _conf->reverse = [_defs boolForKey: @"ReverseHostLookup"];
-  _conf->maxConnectionRequests = 100;
-  _conf->maxConnectionDuration = 10.0;
-  _conf->maxBodySize = 4*1024*1024;
-  _conf->maxRequestSize = 8*1024;
-  _maxPerHost = 32;
-  _maxConnections = 128;
-  _substitutionLimit = 4;
-  _connections = [NSMutableSet new];
-  _perHost = [NSCountedSet new];
-  _ioThreads = [NSMutableArray new];
-  _xCountRequests = [[WebServerHeader alloc]
-    initWithType: WSHCountRequests andObject: self];
-  _xCountConnections = [[WebServerHeader alloc]
-    initWithType: WSHCountConnections andObject: self];
-  _xCountConnectedHosts = [[WebServerHeader alloc]
-    initWithType: WSHCountConnectedHosts andObject: self];
-
+  if (nil != (self = [super init]))
+    {
+      _reserved = 0;
+      _nc = [[NSNotificationCenter defaultCenter] retain];
+      _connectionTimeout = 30.0;
+      _ioMain = [IOThread new];
+      _ioMain->thread = [NSThread mainThread];
+      _ioMain->server = self;
+      _ioMain->cTimeout = _connectionTimeout;
+      _lock =  [NSLock new];
+      _pool = [GSThreadPool new];
+      [_pool setThreads: 0];
+      _defs = [[NSUserDefaults standardUserDefaults] retain];
+      _quiet = [[_defs arrayForKey: @"WebServerQuiet"] copy];
+      _hosts = [[_defs arrayForKey: @"WebServerHosts"] copy];
+      _conf = [WebServerConfig new];
+      _conf->reverse = [_defs boolForKey: @"ReverseHostLookup"];
+      _conf->maxConnectionRequests = 100;
+      _conf->maxConnectionDuration = 10.0;
+      _conf->maxBodySize = 4*1024*1024;
+      _conf->maxRequestSize = 8*1024;
+      _maxPerHost = 32;
+      _maxConnections = 128;
+      _substitutionLimit = 4;
+      _connections = [NSMutableSet new];
+      _perHost = [NSCountedSet new];
+      _ioThreads = [NSMutableArray new];
+      _xCountRequests = [[WebServerHeader alloc]
+	initWithType: WSHCountRequests andObject: self];
+      _xCountConnections = [[WebServerHeader alloc]
+	initWithType: WSHCountConnections andObject: self];
+      _xCountConnectedHosts = [[WebServerHeader alloc]
+	initWithType: WSHCountConnectedHosts andObject: self];
+    }
   return self;
 }
 

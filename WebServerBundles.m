@@ -146,34 +146,37 @@
 
 - (id) initAsDelegateOf: (WebServer*)http
 {
-  if (http == nil)
+  if (nil != (self = [super init]))
     {
-      DESTROY(self);
-    }
-  else
-    {
-      NSNotificationCenter	*nc = [NSNotificationCenter defaultCenter];
-      NSUserDefaults		*defs = [NSUserDefaults standardUserDefaults];
-      NSNotification		*n;
-
-      ASSIGN(_http, http);
-      [_http setDelegate: self];
-
-      /*
-       * Watch for config changes, and set initial config by sending a
-       * faked change notification.
-       */
-      [nc addObserver: self
-	     selector: @selector(defaultsUpdate:)
-		 name: NSUserDefaultsDidChangeNotification
-	       object: defs];
-      n = [NSNotification
-	notificationWithName: NSUserDefaultsDidChangeNotification
-		      object: defs
-		    userInfo: nil];
-      if ([self defaultsUpdate: n] == NO)
+      if (http == nil)
 	{
 	  DESTROY(self);
+	}
+      else
+	{
+	  NSNotificationCenter	*nc = [NSNotificationCenter defaultCenter];
+	  NSUserDefaults	*defs = [NSUserDefaults standardUserDefaults];
+	  NSNotification	*n;
+
+	  ASSIGN(_http, http);
+	  [_http setDelegate: self];
+
+	  /*
+	   * Watch for config changes, and set initial config by sending a
+	   * faked change notification.
+	   */
+	  [nc addObserver: self
+		 selector: @selector(defaultsUpdate:)
+		     name: NSUserDefaultsDidChangeNotification
+		   object: defs];
+	  n = [NSNotification
+	    notificationWithName: NSUserDefaultsDidChangeNotification
+			  object: defs
+			userInfo: nil];
+	  if ([self defaultsUpdate: n] == NO)
+	    {
+	      DESTROY(self);
+	    }
 	}
     }
   return self;

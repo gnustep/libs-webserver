@@ -56,33 +56,36 @@ static id null = nil;
 
 - (id) initWithName: (NSString*)name
 {
-  NSUInteger	count = [name length];
-  unichar	c;
+  if (nil != (self = [super init]))
+    {
+      NSUInteger	count = [name length];
+      unichar	c;
 
-  if (count == 0)
-    {
-      [NSException raise: NSInvalidArgumentException
-		  format: @"[%@-%@] empty name",
-	NSStringFromClass([self class]), NSStringFromSelector(_cmd)];
-    }
-  while (count-- > 1)
-    {
-      c = [name characterAtIndex: count];
-      if (c != '_' && !isalnum(c))
+      if (count == 0)
 	{
 	  [NSException raise: NSInvalidArgumentException
-		      format: @"[%@-%@] illegal character in name",
+		      format: @"[%@-%@] empty name",
 	    NSStringFromClass([self class]), NSStringFromSelector(_cmd)];
 	}
+      while (count-- > 1)
+	{
+	  c = [name characterAtIndex: count];
+	  if (c != '_' && !isalnum(c))
+	    {
+	      [NSException raise: NSInvalidArgumentException
+			  format: @"[%@-%@] illegal character in name",
+		NSStringFromClass([self class]), NSStringFromSelector(_cmd)];
+	    }
+	}
+      c = [name characterAtIndex: 0];
+      if (c != '_' && !isalpha(c))
+	{
+	  [NSException raise: NSInvalidArgumentException
+		      format: @"[%@-%@] bad initial character in name",
+	    NSStringFromClass([self class]), NSStringFromSelector(_cmd)];
+	}
+      _name = [name copy];
     }
-  c = [name characterAtIndex: 0];
-  if (c != '_' && !isalpha(c))
-    {
-      [NSException raise: NSInvalidArgumentException
-		  format: @"[%@-%@] bad initial character in name",
-	NSStringFromClass([self class]), NSStringFromSelector(_cmd)];
-    }
-  _name = [name copy];
   return self;
 }
 
@@ -522,7 +525,7 @@ static id null = nil;
 
 - (void) sortUsingSelector: (SEL)aSelector
 {
-  NSArray		*nk = [_keys sortedArrayUsingSelector: aSelector];
+  NSArray		*nk;
   NSMutableArray	*nv;
   NSUInteger		c;
   NSUInteger		i;
@@ -538,7 +541,6 @@ static id null = nil;
     }
   [_keys release];
   _keys = [nk copy];
-  [nk release];
   [_vals release];
   _vals = [nv copy];
   [nv release];
