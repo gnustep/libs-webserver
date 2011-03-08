@@ -42,6 +42,7 @@ static	Class	NSStringClass = Nil;
 static	Class	GSMimeDocumentClass = Nil;
 static	Class	WebServerHeaderClass = Nil;
 static NSZone	*defaultMallocZone = 0;
+static NSSet	*defaultPermittedMethods = nil;
 
 #define	Alloc(X)	[(X) allocWithZone: defaultMallocZone]
 
@@ -51,6 +52,8 @@ static NSZone	*defaultMallocZone = 0;
 {
   if (NSDataClass == Nil)
     {
+      static id	m[2] = { @"GET", @"POST" };
+
       defaultMallocZone = NSDefaultMallocZone();
       NSStringClass = [NSString class];
       NSArrayClass = [NSArray class];
@@ -63,6 +66,7 @@ static NSZone	*defaultMallocZone = 0;
       NSMutableStringClass = [NSMutableString class];
       GSMimeDocumentClass = [GSMimeDocument class];
       WebServerHeaderClass = [WebServerHeader class];
+      defaultPermittedMethods = [[NSSet alloc] initWithObjects: m count: 2];
     }
 }
 
@@ -955,6 +959,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       _hosts = [[_defs arrayForKey: @"WebServerHosts"] copy];
       _conf = [WebServerConfig new];
       _conf->reverse = [_defs boolForKey: @"ReverseHostLookup"];
+      _conf->permittedMethods = [defaultPermittedMethods copy];
       _conf->maxConnectionRequests = 100;
       _conf->maxConnectionDuration = 10.0;
       _conf->maxBodySize = 4*1024*1024;
@@ -1344,6 +1349,19 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       [_conf release];
       _conf = c;
     }
+}
+
+- (void) setPermittedMethods: (NSSet*)s
+{
+  WebServerConfig	*c = [_conf copy];
+
+  if (nil == s)
+    {
+      s = defaultPermittedMethods;
+    }
+  ASSIGNCOPY(c->permittedMethods, s);
+  [_conf release];
+  _conf = c;
 }
 
 - (BOOL) setPort: (NSString*)aPort secure: (NSDictionary*)secure
@@ -2163,7 +2181,16 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 @implementation	WebServerConfig
 - (id) copyWithZone: (NSZone*)z
 {
-  return NSCopyObject(self, 0, z);
+  WebServerConfig	*c;
+
+  c = (WebServerConfig*)NSCopyObject(self, 0, z);
+  c->permittedMethods = [c->permittedMethods copy];
+  return c;
+}
+- (void) dealloc
+{
+  [permittedMethods release];
+  [super dealloc];
 }
 @end
 

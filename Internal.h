@@ -94,6 +94,7 @@
   NSUInteger		maxRequestSize;
   NSUInteger		maxConnectionRequests;
   NSTimeInterval	maxConnectionDuration;
+  NSSet			*permittedMethods;
 }
 @end
 

@@ -27,6 +27,7 @@
 #import "Internal.h"
 #import <Foundation/NSHost.h>
 #import <Foundation/NSLock.h>
+#import <Foundation/NSSet.h>
 
 static Class NSDateClass = Nil;
 static Class NSMutableDataClass = Nil;
@@ -1011,14 +1012,13 @@ static Class WebServerResponseClass = Nil;
 	    }
 	  path = [NSStringClass stringWithUTF8String: (char*)bytes + start];
 
-	  if ([method isEqualToString: @"GET"] == NO
-	    && [method isEqualToString: @"POST"] == NO)
+	  if (nil != [conf->permittedMethods member: method])
 	    {
 	      NSData	*data;
 
 	      [self setShouldClose: YES];	// Not persistent.
-	      [self setResult: @"HTTP/1.0 501 Not Implemented"];
-	      data = [@"HTTP/1.0 501 Not Implemented\r\n\r\n"
+	      [self setResult: @"HTTP/1.0 501 Method not implemented"];
+	      data = [@"HTTP/1.0 501 method not implemented\r\n\r\n"
 		dataUsingEncoding: NSASCIIStringEncoding];
 	      [handle performSelector: @selector(writeInBackgroundAndNotify:)
 			     onThread: ioThread->thread

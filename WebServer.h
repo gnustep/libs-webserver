@@ -752,6 +752,13 @@
  */
 - (void) setMaxRequestSize: (NSUInteger)max;
 
+/** Sets the HTTP methods which may be used by the server.<br />
+ * Any incoming request using a method not listed in the permitted set is
+ * rejected with an HTTP 501 response.<br />
+ * The default set contains only the GET and POST methods.
+ */
+- (void) setPermittedMethods: (NSSet*)s;
+
 /**
  * Sets the port and security information for the receiver ... without
  * this the receiver will not listen for incoming requests.<br />
