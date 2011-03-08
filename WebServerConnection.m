@@ -1012,7 +1012,7 @@ static Class WebServerResponseClass = Nil;
 	    }
 	  path = [NSStringClass stringWithUTF8String: (char*)bytes + start];
 
-	  if (nil != [conf->permittedMethods member: method])
+	  if (nil == [conf->permittedMethods member: method])
 	    {
 	      NSData	*data;
 
