@@ -1039,9 +1039,10 @@ static Class WebServerResponseClass = Nil;
 
 	  parser = [GSMimeParser new];
 	  [parser setIsHttp];
-	  if ([method isEqualToString: @"POST"] == NO)
+	  if (NO == [method isEqualToString: @"POST"]
+	    && NO == [method isEqualToString: @"PUT"])
 	    {
-	      /* If it's not a POST, we don't need a body.
+	      /* If it's not a POST or PUT, we don't need a body.
 	       */
 	      [parser setHeadersOnly];
 	    }
