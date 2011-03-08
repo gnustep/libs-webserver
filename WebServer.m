@@ -1355,7 +1355,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 {
   WebServerConfig	*c = [_conf copy];
 
-  if (nil == s)
+  if (0 == [s count])
     {
       s = defaultPermittedMethods;
     }
