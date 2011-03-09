@@ -757,6 +757,7 @@ static Class WebServerResponseClass = Nil;
 	      [server _log: @"SSL accept fail on (%@).", address];
 	    }
 	  [self end];
+	  return;
 	}
     }
 
