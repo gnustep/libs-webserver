@@ -163,7 +163,7 @@ unescapeData(const uint8_t *bytes, NSUInteger length, uint8_t *buf)
 }
 
 + (NSUInteger) decodeURLEncodedForm: (NSData*)data
-			     into: (NSMutableDictionary*)dict
+			       into: (NSMutableDictionary*)dict
 {
   const uint8_t		*bytes = (const uint8_t	*)[data bytes];
   NSUInteger		length = [data length];
@@ -910,7 +910,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 }
 
 - (NSUInteger) decodeURLEncodedForm: (NSData*)data
-			     into: (NSMutableDictionary*)dict
+			       into: (NSMutableDictionary*)dict
 {
   return [[self class] decodeURLEncodedForm: data into: dict];
 }
