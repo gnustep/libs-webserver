@@ -95,17 +95,18 @@ static Class WebServerResponseClass = Nil;
   NSString	*u;
   NSDate	*d;
 
-  if (address == nil)
+  if (nil == command)
     {
-      h = @"-";
-    }
-  else
-    {
-      h = address;	
-    }
-
-  if (command == nil)
-    {
+      /* If we haven't read in a command, we don't actually have a request
+       * to log (eg the connection is closing after a response or when the
+       * remote end didn't send us a request).
+       * We only generate an empty log to record the end of the connection
+       * if in verbose mode or if there have been no requests.
+       */
+      if (NO == conf->verbose && requestCount > 0)
+	{
+	  return nil;
+	}
       c = @"-";
     }
   else
@@ -120,6 +121,15 @@ static Class WebServerResponseClass = Nil;
 	  c = [c stringByReplacingString: @"\"" withString: @"\\\""];
 	}
       c = [NSStringClass stringWithFormat: @"\"%@\"", c];
+    }
+
+  if (nil == address)
+    {
+      h = @"-";
+    }
+  else
+    {
+      h = address;	
     }
 
   if (agent == nil)
@@ -249,7 +259,6 @@ static Class WebServerResponseClass = Nil;
 
 	      [server _log: @"%@ disconnect (duration %g)", self, s];
 	    }
-	  [server _audit: self];
 	}
       /* Remove from the linked list we are in (if any).
        */
@@ -1102,6 +1111,7 @@ static Class WebServerResponseClass = Nil;
     {
       if ([parser isComplete] == YES)
 	{
+	  requestCount++;
 	  [server _process1: self];
 	}
       else
@@ -1123,6 +1133,7 @@ static Class WebServerResponseClass = Nil;
   else if (([parser isComplete] == YES)
     || ([parser isInHeaders] == NO && ([method isEqualToString: @"GET"])))
     {
+      requestCount++;
       [server _process1: self];
     }
   else

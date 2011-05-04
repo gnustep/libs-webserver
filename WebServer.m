@@ -1681,14 +1681,22 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
 - (void) _audit: (WebServerConnection*)connection
 {
-  if ([_delegate respondsToSelector: @selector(webAudit:for:)] == YES)
+  NSString	*msg = [connection audit];
+
+  /* We only generate the audit log if the connection returns one to be
+   * reported.
+   */
+  if (nil != msg)
     {
-      [_delegate webAudit: [connection audit] for: self];
+      if ([_delegate respondsToSelector: @selector(webAudit:for:)] == YES)
+	{
+	  [_delegate webAudit: msg for: self];
+	}
+      else
+	{
+	  fprintf(stderr, "%s\r\n", [msg UTF8String]);
+	} 
     }
-  else
-    {
-      fprintf(stderr, "%s\r\n", [[connection audit] UTF8String]);
-    } 
 }
 
 - (void) _didConnect: (NSNotification*)notification

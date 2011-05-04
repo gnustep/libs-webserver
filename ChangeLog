@@ -1,3 +1,11 @@
+2011-05-04 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* Internal.h: new ivar for connection to count requests.
+	* WebServerConnection.m: remove redundant audit log and generate
+	connection end report only in verbose mode or if there have been
+	no requests.
+	* WebServer.m: cope with case where there is no audit logging to do.
+
 2011-04-01 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	Version 1.4.0:

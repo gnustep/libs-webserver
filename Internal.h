@@ -150,6 +150,7 @@ typedef	enum {
   NSData		*excess;
   NSUInteger		byteCount;
   NSUInteger		identity;
+  NSUInteger		requestCount;
   NSTimeInterval	requestStart;
   NSTimeInterval	connectionStart;
   NSTimeInterval	duration;
