@@ -389,6 +389,7 @@ static Class WebServerResponseClass = Nil;
 - (void) reset
 {
   hasReset = YES;
+  responding = NO;
   simple = NO;
   DESTROY(command);
   [response setWebServerConnection: nil];
@@ -408,6 +409,7 @@ static Class WebServerResponseClass = Nil;
   NSData	*data;
 
   ticked = [NSDateClass timeIntervalSinceReferenceDate];
+  responding = YES;
   [self setProcessing: NO];
 
   [response setHeader: @"content-transfer-encoding"
@@ -710,6 +712,19 @@ static Class WebServerResponseClass = Nil;
 - (BOOL) shouldClose
 {
   return shouldClose;
+}
+
+- (void) shutdown
+{
+  [ioThread->threadLock lock];
+  [self setShouldClose: YES];
+  if (NO == responding && owner == ioThread->readwrites)
+    {
+      /* We are waiting for an incoming request ... set zero timeout.
+       */
+      ticked = 0.0;
+    }
+  [ioThread->threadLock unlock];
 }
 
 - (BOOL) simple
@@ -1204,6 +1219,7 @@ static Class WebServerResponseClass = Nil;
   NSAssert([notification object] == handle, NSInternalInconsistencyException);
   [self setTicked: now];
 
+  responding = NO;
   if ([self shouldClose] == YES)
     {
       [self end];

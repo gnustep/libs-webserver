@@ -780,7 +780,7 @@
  * a port may not already be in use and may not be in the range up to 1024
  * (unless running as the super-user).<br />
  * Call this with a nil port argument to shut the server down as soon as
- * all current connections are closed.
+ * all current connections are closed (and refuse new incoming connections).
  */
 - (BOOL) setPort: (NSString*)aPort secure: (NSDictionary*)secure;
 

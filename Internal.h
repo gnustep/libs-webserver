@@ -160,6 +160,7 @@ typedef	enum {
   BOOL			simple;
   BOOL			quiet;		// Suppress log of warning/debug info?
   BOOL			ssl;		// Should perform SSL negotiation?
+  BOOL			responding;	// Writing to remote system
 @public
   NSTimeInterval	ticked;
   NSTimeInterval	extended;
@@ -205,6 +206,7 @@ typedef	enum {
 - (void) setTicked: (NSTimeInterval)t;
 - (void) setUser: (NSString*)aString;
 - (BOOL) shouldClose;
+- (void) shutdown;
 - (void) start;
 - (BOOL) verbose;
 

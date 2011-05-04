@@ -1393,7 +1393,23 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	}
       _accepting = NO;	// No longer listening for connections.
       DESTROY(_port);
-      if (aPort != nil)
+      if (nil == aPort)
+	{
+	  NSEnumerator		*enumerator;
+	  WebServerConnection	*connection;
+
+	  /* If we have been shut down (port is nil) then we want any
+	   * outstanding connections to close down as soon as possible.
+	   */
+	  [_lock lock];
+	  enumerator = [_connections objectEnumerator];
+	  while ((connection = [enumerator nextObject]) != nil)
+	    {
+	      [connection shutdown];
+	    }
+	  [_lock unlock];
+	}
+      else
 	{
 	  _port = [aPort copy];
 	  if (_sslConfig != nil)
@@ -2342,7 +2358,14 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	    }
 	  if (YES == [con verbose] && NO == [con quiet])
 	    {
-	      [server _log: @"Connection timed out - %@", con];
+	      if (con->ticked > 0.0)
+		{
+	          [server _log: @"Connection timed out - %@", con];
+		}
+	      else
+		{
+	          [server _log: @"Connection shut down - %@", con];
+		}
 	    }
 	  [con end];
 	}

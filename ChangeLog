@@ -1,5 +1,14 @@
 2011-05-04 Richard Frith-Macdonald  <rfm@gnu.org>
 
+	* WebServerConnection.m:
+	* WebServer.h:
+	* WebServer.m:
+	* Internal.h:
+	Add code to make shutdown faster by immediately terminating any
+	connection which is not already responding to or processing a request.
+
+2011-05-04 Richard Frith-Macdonald  <rfm@gnu.org>
+
 	* Internal.h: new ivar for connection to count requests.
 	* WebServerConnection.m: remove redundant audit log and generate
 	connection end report only in verbose mode or if there have been
