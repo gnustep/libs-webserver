@@ -1,5 +1,9 @@
 2011-05-04 Richard Frith-Macdonald  <rfm@gnu.org>
 
+	* GNUmakefile: Increment subminor version for 4.0.1 bugfix release.
+
+2011-05-04 Richard Frith-Macdonald  <rfm@gnu.org>
+
 	* WebServerConnection.m:
 	* WebServer.h:
 	* WebServer.m:
