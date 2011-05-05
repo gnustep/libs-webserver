@@ -6,6 +6,12 @@
 	* Internal.h:
 	Add code to make shutdown faster by immediately terminating any
 	connection which is not already responding to or processing a request.
+	Add method to return an array of connections ... so an app can count
+	how many connections still exist, and wait until shutdown is done.
+	Fix retain cycle between server and header objects, so an instance
+	can be deallocated as long as it has been shut down properly.
+	Fix bug with connection timeouts when running single-threaded.
+	Add tiny optimisation for audit logging suggested by <thumb_@mcn.ne.jp>
 
 2011-05-04 Richard Frith-Macdonald  <rfm@gnu.org>
 

@@ -344,10 +344,14 @@
  *   is that host lookups can be slow and cause performance problems.
  *   </desc>
  * </deflist>
- * <p>To shut down the WebServer, you should call -setPort:secure: with
+ * <p>To shut down the WebServer, you must call -setPort:secure: with
  * nil arguments.  This will stop the server listening for incoming
  * connections and wait for any existing connections to be closed
- * (or to time out).
+ * (or to time out).<br />
+ * NB. Once a WebServer instance has been started listening on a port,
+ * it is not OK to simply release it without shutting it down ... doing
+ * that will cause a leak of memory and resources as the instance will
+ * continue to operate.
  * </p>
  */
 @interface	WebServer : NSObject
@@ -369,6 +373,9 @@
   BOOL			_doPreProcess;
   BOOL			_doProcess;
   uint8_t		_reject;
+  BOOL			_pad1;
+  BOOL			_pad2;
+  BOOL			_doAudit;
   NSUInteger		_substitutionLimit;
   NSUInteger		_maxConnections;
   NSUInteger		_maxPerHost;
@@ -514,6 +521,11 @@
  * </p>
  */
 - (void) completedWithResponse: (GSMimeDocument*)response;
+
+/** Returns an array containing an object representing each connection
+ * currently active for this server instance.
+ */
+- (NSArray*) connections;
 
 /**         
  * Decode an application/x-www-form-urlencoded form and store its

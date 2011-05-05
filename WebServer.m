@@ -890,6 +890,16 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     }
 }
 
+- (NSArray*) connections
+{
+  NSArray	*a;
+
+  [_lock lock];
+  a = [_connections allObjects];
+  [_lock unlock];
+  return a;
+}
+
 - (void) dealloc
 {
   [self setPort: nil secure: nil];
@@ -900,12 +910,14 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   DESTROY(_conf);
   DESTROY(_perHost);
   DESTROY(_lock);
-  DESTROY(_ioMain);
+  if (nil != _ioMain)
+    {
+      [_ioMain->timer invalidate];
+      _ioMain->timer = nil;
+      DESTROY(_ioMain);
+    }
   DESTROY(_ioThreads);
   DESTROY(_connections);
-  DESTROY(_xCountRequests);
-  DESTROY(_xCountConnections);
-  DESTROY(_xCountConnectedHosts);
   [super dealloc];
 }
 
@@ -949,11 +961,21 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       _reserved = 0;
       _nc = [[NSNotificationCenter defaultCenter] retain];
       _connectionTimeout = 30.0;
+      _lock =  [NSLock new];
       _ioMain = [IOThread new];
       _ioMain->thread = [NSThread mainThread];
       _ioMain->server = self;
       _ioMain->cTimeout = _connectionTimeout;
-      _lock =  [NSLock new];
+      /* We need a timer so that the main thread can handle connection
+       * timeouts.
+       */
+      _ioMain->timer
+	= [NSTimer scheduledTimerWithTimeInterval: 0.8
+					   target: _ioMain
+					 selector: @selector(timeout:)
+					 userInfo: 0
+					  repeats: YES];
+
       _pool = [GSThreadPool new];
       [_pool setThreads: 0];
       _defs = [[NSUserDefaults standardUserDefaults] retain];
@@ -972,12 +994,6 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       _connections = [NSMutableSet new];
       _perHost = [NSCountedSet new];
       _ioThreads = [NSMutableArray new];
-      _xCountRequests = [[WebServerHeader alloc]
-	initWithType: WSHCountRequests andObject: self];
-      _xCountConnections = [[WebServerHeader alloc]
-	initWithType: WSHCountConnections andObject: self];
-      _xCountConnectedHosts = [[WebServerHeader alloc]
-	initWithType: WSHCountConnectedHosts andObject: self];
     }
   return self;
 }
@@ -1252,6 +1268,8 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 - (void) setDelegate: (id)anObject
 {
   _delegate = anObject;
+  _doAudit = [_delegate respondsToSelector:
+    @selector(webAudit:for:)];
   _doProcess = [_delegate respondsToSelector:
     @selector(processRequest:response:for:)];
   _doPreProcess = [_delegate respondsToSelector:
@@ -1398,20 +1416,39 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	  NSEnumerator		*enumerator;
 	  WebServerConnection	*connection;
 
+	  [_lock lock];
 	  /* If we have been shut down (port is nil) then we want any
 	   * outstanding connections to close down as soon as possible.
 	   */
-	  [_lock lock];
 	  enumerator = [_connections objectEnumerator];
 	  while ((connection = [enumerator nextObject]) != nil)
 	    {
 	      [connection shutdown];
 	    }
+	  /* We also get rid of the headers which refer to us, so that
+	   * we can be released as soon as any connections/requests using
+	   * those headers have released us.
+	   */
+	  DESTROY(_xCountRequests);
+	  DESTROY(_xCountConnections);
+	  DESTROY(_xCountConnectedHosts);
+
 	  [_lock unlock];
 	}
       else
 	{
 	  _port = [aPort copy];
+
+	  /* Set up headers to be used by requests on incoming connections
+	   * to find information about this instance.
+           */
+	  _xCountRequests = [[WebServerHeader alloc]
+	    initWithType: WSHCountRequests andObject: self];
+	  _xCountConnections = [[WebServerHeader alloc]
+	    initWithType: WSHCountConnections andObject: self];
+	  _xCountConnectedHosts = [[WebServerHeader alloc]
+	    initWithType: WSHCountConnectedHosts andObject: self];
+
 	  if (_sslConfig != nil)
 	    {
 	      _listener = [[NSFileHandle sslClass]
@@ -1704,7 +1741,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
    */
   if (nil != msg)
     {
-      if ([_delegate respondsToSelector: @selector(webAudit:for:)] == YES)
+      if (YES == _doAudit)
 	{
 	  [_delegate webAudit: msg for: self];
 	}
@@ -2282,7 +2319,6 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   WebServerConnection	*con;
 
   [threadLock lock];
-
   /* Find any connections which have timed out waiting for I/O
    */
   age = now - cTimeout;
