@@ -1,6 +1,6 @@
 2011-05-04 Richard Frith-Macdonald  <rfm@gnu.org>
 
-	* GNUmakefile: Increment subminor version for 4.0.1 bugfix release.
+	* GNUmakefile: Increment subminor version for 1.4.1 bugfix release.
 
 2011-05-04 Richard Frith-Macdonald  <rfm@gnu.org>
 
