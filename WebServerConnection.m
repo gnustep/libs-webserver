@@ -1215,16 +1215,18 @@ static Class WebServerResponseClass = Nil;
 - (void) _didWrite: (NSNotification*)notification
 {
   NSTimeInterval	now = [NSDateClass timeIntervalSinceReferenceDate];
+  NSString		*err;
 
   NSAssert([notification object] == handle, NSInternalInconsistencyException);
   [self setTicked: now];
 
   responding = NO;
+  err = [[notification userInfo] objectForKey: GSFileHandleNotificationError];
   if ([self shouldClose] == YES)
     {
       [self end];
     }
-  else
+  else if (nil == err)
     {
       NSTimeInterval	t = [self requestDuration: now];
 
@@ -1256,6 +1258,14 @@ static Class WebServerResponseClass = Nil;
 		     onThread: ioThread->thread
 		   withObject: nil
 		waitUntilDone: NO];
+    }
+  else
+    {
+      if (NO == quiet)
+	{
+	  [server _log: @"%@ %@", self, err];
+	}
+      [self end];
     }
 }
 
