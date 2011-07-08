@@ -1152,7 +1152,7 @@ static Class WebServerResponseClass = Nil;
     }
   else
     {
-      [self performSelector: @selector(doRead)
+      [self performSelector: @selector(_doRead)
 		   onThread: ioThread->thread
 		 withObject: nil
 	      waitUntilDone: NO];
