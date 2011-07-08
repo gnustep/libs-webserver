@@ -567,10 +567,10 @@ static Class WebServerResponseClass = Nil;
   [nc removeObserver: self
 		name: NSFileHandleReadCompletionNotification
 	      object: handle];
-  [handle performSelector: @selector(writeInBackgroundAndNotify:)
-                 onThread: ioThread->thread
-               withObject: data
-            waitUntilDone: NO];
+  [self performSelector: @selector(_doWrite:)
+	       onThread: ioThread->thread
+	     withObject: data
+	  waitUntilDone: NO];
 
 
   /* If this connection is not closing and excess data has been read,
@@ -797,10 +797,10 @@ static Class WebServerResponseClass = Nil;
 	     selector: @selector(_didRead:)
 		 name: NSFileHandleReadCompletionNotification
 	       object: handle];
-      [handle performSelector: @selector(readInBackgroundAndNotify)
-		     onThread: ioThread->thread
-		   withObject: nil
-		waitUntilDone: NO];
+      [self performSelector: @selector(_doRead)
+		   onThread: ioThread->thread
+		 withObject: nil
+	      waitUntilDone: NO];
     }
   else
     {
@@ -822,10 +822,10 @@ static Class WebServerResponseClass = Nil;
 	    }
 	  body = [result stringByAppendingString: @"\r\n\r\n"];
         }
-      [handle performSelector: @selector(writeInBackgroundAndNotify:)
-		     onThread: ioThread->thread
-		   withObject: [body dataUsingEncoding: NSASCIIStringEncoding]
-		waitUntilDone: NO];
+      [self performSelector: @selector(_doWrite:)
+		   onThread: ioThread->thread
+		 withObject: [body dataUsingEncoding: NSASCIIStringEncoding]
+	      waitUntilDone: NO];
     }
 }
 
@@ -905,10 +905,10 @@ static Class WebServerResponseClass = Nil;
 		      object: handle];
 	  data = [@"HTTP/1.0 413 Request data too long\r\n\r\n"
 	    dataUsingEncoding: NSASCIIStringEncoding];
-	  [handle performSelector: @selector(writeInBackgroundAndNotify:)
-			 onThread: ioThread->thread
-		       withObject: data
-		    waitUntilDone: NO];
+	  [self performSelector: @selector(_doWrite:)
+		       onThread: ioThread->thread
+		     withObject: data
+		  waitUntilDone: NO];
 	  return;
 	}
 
@@ -916,10 +916,10 @@ static Class WebServerResponseClass = Nil;
 	{
 	  /* Needs more data.
 	   */
-	  [handle performSelector: @selector(readInBackgroundAndNotify)
-			 onThread: ioThread->thread
-		       withObject: nil
-		    waitUntilDone: NO];
+	  [self performSelector: @selector(_doRead)
+		       onThread: ioThread->thread
+		     withObject: nil
+		  waitUntilDone: NO];
 	  return;
 	}
       else
@@ -1023,11 +1023,10 @@ static Class WebServerResponseClass = Nil;
 		  [self setResult: @"HTTP/1.0 413 Query string not UTF8"];
 		  data = [@"HTTP/1.0 413 Query string not UTF8\r\n\r\n"
 		    dataUsingEncoding: NSASCIIStringEncoding];
-		  [handle performSelector:
-		    @selector(writeInBackgroundAndNotify:)
-				 onThread: ioThread->thread
-			       withObject: data
-			    waitUntilDone: NO];
+		  [self performSelector: @selector(_doWrite:)
+			       onThread: ioThread->thread
+			     withObject: data
+			  waitUntilDone: NO];
 		  return;
 		}
 	    }
@@ -1045,10 +1044,10 @@ static Class WebServerResponseClass = Nil;
 	      [self setResult: @"HTTP/1.0 501 Method not implemented"];
 	      data = [@"HTTP/1.0 501 method not implemented\r\n\r\n"
 		dataUsingEncoding: NSASCIIStringEncoding];
-	      [handle performSelector: @selector(writeInBackgroundAndNotify:)
-			     onThread: ioThread->thread
-			   withObject: data
-			waitUntilDone: NO];
+	      [self performSelector: @selector(_doWrite:)
+			   onThread: ioThread->thread
+			 withObject: data
+		      waitUntilDone: NO];
 	      return;
 	    }
 
@@ -1094,10 +1093,10 @@ static Class WebServerResponseClass = Nil;
 	  if (pos >= length)
 	    {
 	      // Needs more data.
-	      [handle performSelector: @selector(readInBackgroundAndNotify)
-			     onThread: ioThread->thread
-			   withObject: nil
-			waitUntilDone: NO];
+	      [self performSelector: @selector(_doRead)
+			   onThread: ioThread->thread
+			 withObject: nil
+		      waitUntilDone: NO];
 	      return;
 	    }
 	  // Fall through to parse remaining data with mime parser
@@ -1116,10 +1115,10 @@ static Class WebServerResponseClass = Nil;
       [self setResult: @"HTTP/1.0 413 Request body too long"];
       data = [@"HTTP/1.0 413 Request body too long\r\n\r\n"
 	dataUsingEncoding: NSASCIIStringEncoding];
-      [handle performSelector: @selector(writeInBackgroundAndNotify:)
-		     onThread: ioThread->thread
-		   withObject: data
-		waitUntilDone: NO];
+      [self performSelector: @selector(_doWrite:)
+		   onThread: ioThread->thread
+		 withObject: data
+	      waitUntilDone: NO];
       return;
     }
   else if ([parser parse: d] == NO)
@@ -1138,10 +1137,10 @@ static Class WebServerResponseClass = Nil;
           [self setResult: @"HTTP/1.0 400 Bad Request"];
           data = [@"HTTP/1.0 400 Bad Request\r\n\r\n"
             dataUsingEncoding: NSASCIIStringEncoding];
-	  [handle performSelector: @selector(writeInBackgroundAndNotify:)
-			 onThread: ioThread->thread
-		       withObject: data
-		    waitUntilDone: NO];
+	  [self performSelector: @selector(_doWrite:)
+		       onThread: ioThread->thread
+		     withObject: data
+		  waitUntilDone: NO];
 	  return;
 	}
     }
@@ -1153,10 +1152,10 @@ static Class WebServerResponseClass = Nil;
     }
   else
     {
-      [handle performSelector: @selector(readInBackgroundAndNotify)
-		     onThread: ioThread->thread
-		   withObject: nil
-		waitUntilDone: NO];
+      [self performSelector: @selector(doRead)
+		   onThread: ioThread->thread
+		 withObject: nil
+	      waitUntilDone: NO];
     }
 }
 
@@ -1164,9 +1163,13 @@ static Class WebServerResponseClass = Nil;
 {
   NSDictionary		*dict;
   NSData		*d;
-  NSTimeInterval	now = [NSDateClass timeIntervalSinceReferenceDate];
+  NSTimeInterval	now;
 
-  NSAssert([notification object] == handle, NSInternalInconsistencyException);
+  if ([notification object] != handle)
+    {
+      return;	// Must be an old notification
+    }
+  now = [NSDateClass timeIntervalSinceReferenceDate];
   [self setTicked: now];
 
   dict = [notification userInfo];
@@ -1214,10 +1217,14 @@ static Class WebServerResponseClass = Nil;
 
 - (void) _didWrite: (NSNotification*)notification
 {
-  NSTimeInterval	now = [NSDateClass timeIntervalSinceReferenceDate];
+  NSTimeInterval	now;
   NSString		*err;
 
-  NSAssert([notification object] == handle, NSInternalInconsistencyException);
+  if ([notification object] != handle)
+    {
+      return;	// Must be an old notification
+    }
+  now = [NSDateClass timeIntervalSinceReferenceDate];
   [self setTicked: now];
 
   responding = NO;
@@ -1254,10 +1261,10 @@ static Class WebServerResponseClass = Nil;
 	     selector: @selector(_didRead:)
 		 name: NSFileHandleReadCompletionNotification
 	       object: handle];
-      [handle performSelector: @selector(readInBackgroundAndNotify)
-		     onThread: ioThread->thread
-		   withObject: nil
-		waitUntilDone: NO];
+      [self performSelector: @selector(_doRead)
+		   onThread: ioThread->thread
+		 withObject: nil
+	      waitUntilDone: NO];
     }
   else
     {
@@ -1267,6 +1274,24 @@ static Class WebServerResponseClass = Nil;
 	}
       [self end];
     }
+}
+
+/* This method must only ever be called from the I/O thread.
+ * It starts an asynchronous read in that thread, but only if the handle
+ * still exists (is not nil).
+ */
+- (void) _doRead
+{
+  [handle readInBackgroundAndNotify];
+}
+
+/* This method must only ever be called from the I/O thread.
+ * It starts an asynchronous write in that thread, but only if the handle
+ * still exists (is not nil).
+ */
+- (void) _doWrite: (NSData*)d
+{
+  [handle writeInBackgroundAndNotify: d];
 }
 
 @end

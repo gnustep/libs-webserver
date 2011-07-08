@@ -1,3 +1,10 @@
+2011-07-08 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServerConnection.m: Check for errors on write ... if a write
+	fails, end the connection immediately.  Modify code to ensure that
+	threads won't attept to read/write a handle which has been removed
+	from the connection.
+
 2011-05-04 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* GNUmakefile: Increment subminor version for 1.4.1 bugfix release.
