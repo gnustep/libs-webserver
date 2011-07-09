@@ -1,3 +1,8 @@
+2011-07-09 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServerConnection.m: Fix possible null pointer reference if
+	connection times out while waiting for ssl handshake.
+
 2011-07-08 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* WebServerConnection.m: Check for errors on write ... if a write

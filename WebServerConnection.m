@@ -263,7 +263,7 @@ static Class WebServerResponseClass = Nil;
       /* Remove from the linked list we are in (if any).
        */
       [ioThread->threadLock lock];
-      if (owner != nil)
+      if (nil != owner)
 	{
 	  GSLinkedListRemove(self, owner);
 	}
@@ -767,13 +767,6 @@ static Class WebServerResponseClass = Nil;
 
       ok = [handle sslAccept];
 
-      [ioThread->threadLock lock];
-      ticked = [NSDateClass timeIntervalSinceReferenceDate];
-      GSLinkedListRemove(self, owner);
-      GSLinkedListInsertAfter(self, ioThread->readwrites,
-	ioThread->readwrites->tail);
-      [ioThread->threadLock unlock];
-
       if (NO == ok)			// Reset time of last I/O
 	{
 	  if (NO == quiet)
@@ -783,6 +776,15 @@ static Class WebServerResponseClass = Nil;
 	  [self end];
 	  return;
 	}
+
+      /* SSL handshake OK ... move to readwrite thread and record start time.
+       */
+      [ioThread->threadLock lock];
+      ticked = [NSDateClass timeIntervalSinceReferenceDate];
+      GSLinkedListRemove(self, owner);
+      GSLinkedListInsertAfter(self, ioThread->readwrites,
+	ioThread->readwrites->tail);
+      [ioThread->threadLock unlock];
     }
 
   [nc addObserver: self
@@ -1232,6 +1234,7 @@ static Class WebServerResponseClass = Nil;
   if ([self shouldClose] == YES)
     {
       [self end];
+      return;
     }
   else if (nil == err)
     {
@@ -1273,6 +1276,7 @@ static Class WebServerResponseClass = Nil;
 	  [server _log: @"%@ %@", self, err];
 	}
       [self end];
+      return;
     }
 }
 
