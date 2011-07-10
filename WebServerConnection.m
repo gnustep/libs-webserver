@@ -647,7 +647,10 @@ static Class WebServerResponseClass = Nil;
     {
       if (owner != ioThread->processing)
 	{
-	  GSLinkedListRemove(self, owner);
+	  if (nil != owner)
+	    {
+	      GSLinkedListRemove(self, owner);
+	    }
 	  GSLinkedListInsertAfter(self, ioThread->processing,
 	    ioThread->processing->tail);
 	}
@@ -656,7 +659,10 @@ static Class WebServerResponseClass = Nil;
     {
       if (owner != ioThread->readwrites)
 	{
-	  GSLinkedListRemove(self, owner);
+	  if (nil != owner)
+	    {
+	      GSLinkedListRemove(self, owner);
+	    }
 	  GSLinkedListInsertAfter(self, ioThread->readwrites,
 	    ioThread->readwrites->tail);
 	}
@@ -700,7 +706,10 @@ static Class WebServerResponseClass = Nil;
 {
   [ioThread->threadLock lock];
   ticked = t;
-  GSLinkedListMoveToTail(self, owner);
+  if (nil != owner)
+    {
+      GSLinkedListMoveToTail(self, owner);
+    }
   [ioThread->threadLock unlock];
 }
 
@@ -781,7 +790,10 @@ static Class WebServerResponseClass = Nil;
        */
       [ioThread->threadLock lock];
       ticked = [NSDateClass timeIntervalSinceReferenceDate];
-      GSLinkedListRemove(self, owner);
+      if (nil != owner)
+	{
+	  GSLinkedListRemove(self, owner);
+	}
       GSLinkedListInsertAfter(self, ioThread->readwrites,
 	ioThread->readwrites->tail);
       [ioThread->threadLock unlock];
