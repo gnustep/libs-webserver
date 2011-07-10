@@ -28,11 +28,49 @@
 #import <Foundation/NSHost.h>
 #import <Foundation/NSLock.h>
 #import <Foundation/NSSet.h>
+#import <Foundation/NSThread.h>
 
 static Class NSDateClass = Nil;
 static Class NSMutableDataClass = Nil;
 static Class NSStringClass = Nil;
 static Class WebServerResponseClass = Nil;
+
+@interface	HandshakeThread : NSThread
+{
+  NSTimer	*timer;
+}
+- (void) run;
+@end
+
+@implementation	HandshakeThread
+
+- (id) init
+{
+  self = [super initWithTarget: self selector: @selector(run) object: nil];
+  if (nil != self)
+    {
+      [self start];
+    }
+  return self;
+}
+
+/* Run the thread's main runloop until terminated.
+ */
+- (void) run
+{
+  NSDate		*when = [NSDate distantFuture];
+  NSTimeInterval	delay = [when timeIntervalSinceNow];
+
+  timer = [NSTimer scheduledTimerWithTimeInterval: delay
+					   target: [self class]
+					 selector: @selector(exit)
+					 userInfo: nil
+					  repeats: NO];
+  [[NSRunLoop currentRunLoop] run];
+}
+
+@end
+
 
 @implementation	WebServerResponse
 
@@ -70,6 +108,8 @@ static Class WebServerResponseClass = Nil;
 
 @implementation	WebServerConnection
 
+static NSThread	*handshakeThread = nil;
+
 + (void) initialize
 {
   if ([WebServerConnection class] == self)
@@ -78,6 +118,7 @@ static Class WebServerResponseClass = Nil;
       NSMutableDataClass = [NSMutableData class];
       NSStringClass = [NSString class];
       WebServerResponseClass = self;
+      handshakeThread = [HandshakeThread new];
     }
 }
 
@@ -745,6 +786,19 @@ static Class WebServerResponseClass = Nil;
 {
   NSHost	*host;
 
+  /* Any handshake needs to be done on the correct thread so that other
+   * new connections don't cause stack overflow if we have lots of slow
+   * handshakes.
+   */
+  if (YES == ssl && [NSThread currentThread] != handshakeThread)
+    {
+      [self performSelector: @selector(start)
+		   onThread: handshakeThread
+		 withObject: nil
+	      waitUntilDone: NO];
+      return;
+    }
+
   if (YES == conf->reverse && nil == result)
     {
       host = [NSHost hostWithAddress: address];
@@ -775,6 +829,10 @@ static Class WebServerResponseClass = Nil;
       BOOL	ok;
 
       ok = [handle sslAccept];
+      if (nil == owner)
+	{
+	  return;	// Already ended
+	}
 
       if (NO == ok)			// Reset time of last I/O
 	{
@@ -782,7 +840,10 @@ static Class WebServerResponseClass = Nil;
 	    {
 	      [server _log: @"SSL accept fail on (%@).", address];
 	    }
-	  [self end];
+	  [self performSelector: @selector(end)
+		       onThread: ioThread->thread
+		     withObject: nil
+		  waitUntilDone: NO];
 	  return;
 	}
 
@@ -790,10 +851,7 @@ static Class WebServerResponseClass = Nil;
        */
       [ioThread->threadLock lock];
       ticked = [NSDateClass timeIntervalSinceReferenceDate];
-      if (nil != owner)
-	{
-	  GSLinkedListRemove(self, owner);
-	}
+      GSLinkedListRemove(self, owner);
       GSLinkedListInsertAfter(self, ioThread->readwrites,
 	ioThread->readwrites->tail);
       [ioThread->threadLock unlock];
