@@ -1,3 +1,8 @@
+2011-07-12 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServerConnection.m: Take advantage of base changes to avoid
+	potential stack overflow when processing lots of slow SSL handshakes.
+
 2011-07-09 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* WebServerConnection.m: Fix possible null pointer reference if

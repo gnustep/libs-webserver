@@ -35,43 +35,6 @@ static Class NSMutableDataClass = Nil;
 static Class NSStringClass = Nil;
 static Class WebServerResponseClass = Nil;
 
-@interface	HandshakeThread : NSThread
-{
-  NSTimer	*timer;
-}
-- (void) run;
-@end
-
-@implementation	HandshakeThread
-
-- (id) init
-{
-  self = [super initWithTarget: self selector: @selector(run) object: nil];
-  if (nil != self)
-    {
-      [self start];
-    }
-  return self;
-}
-
-/* Run the thread's main runloop until terminated.
- */
-- (void) run
-{
-  NSDate		*when = [NSDate distantFuture];
-  NSTimeInterval	delay = [when timeIntervalSinceNow];
-
-  timer = [NSTimer scheduledTimerWithTimeInterval: delay
-					   target: [self class]
-					 selector: @selector(exit)
-					 userInfo: nil
-					  repeats: NO];
-  [[NSRunLoop currentRunLoop] run];
-}
-
-@end
-
-
 @implementation	WebServerResponse
 
 - (id) copy
@@ -108,8 +71,6 @@ static Class WebServerResponseClass = Nil;
 
 @implementation	WebServerConnection
 
-static NSThread	*handshakeThread = nil;
-
 + (void) initialize
 {
   if ([WebServerConnection class] == self)
@@ -118,7 +79,6 @@ static NSThread	*handshakeThread = nil;
       NSMutableDataClass = [NSMutableData class];
       NSStringClass = [NSString class];
       WebServerResponseClass = self;
-      handshakeThread = [HandshakeThread new];
     }
 }
 
@@ -270,6 +230,8 @@ static NSThread	*handshakeThread = nil;
     {
       NSFileHandle	*h;
 
+      [handshakeTimer invalidate];
+      handshakeTimer = nil;
       [nc removeObserver: self
 		    name: NSFileHandleReadCompletionNotification
 		  object: handle];
@@ -330,6 +292,40 @@ static NSThread	*handshakeThread = nil;
 - (NSFileHandle*) handle
 {
   return handle;
+}
+
+/* This must only be run from the I/O thread.
+ */
+- (void) handshake
+{
+  BOOL	ok;
+
+  ok = [handle sslAccept];
+  if (nil == owner)
+    {
+      return;	// Already ended
+    }
+
+  if (NO == ok)			// Reset time of last I/O
+    {
+      if (NO == quiet)
+	{
+	  [server _log: @"SSL accept fail on (%@).", address];
+	}
+      [self end];
+      return;
+    }
+
+  /* SSL handshake OK ... move to readwrite thread and record start time.
+   */
+  [ioThread->threadLock lock];
+  ticked = [NSDateClass timeIntervalSinceReferenceDate];
+  GSLinkedListRemove(self, owner);
+  GSLinkedListInsertAfter(self, ioThread->readwrites,
+    ioThread->readwrites->tail);
+  [ioThread->threadLock unlock];
+
+  [self run];
 }
 
 - (BOOL) hasReset
@@ -647,6 +643,58 @@ static NSThread	*handshakeThread = nil;
   return response;
 }
 
+/* NB. This must be called from within the I/O thread.
+ */
+- (void) run
+{
+  if (nil == owner)
+    {
+      return;	// Already finished.
+    }
+  [nc addObserver: self
+	 selector: @selector(_didWrite:)
+	     name: GSFileHandleWriteCompletionNotification
+	   object: handle];
+
+  if (nil == result)
+    {
+      buffer = [[NSMutableDataClass alloc] initWithCapacity: 1024];
+      [nc addObserver: self
+	     selector: @selector(_didRead:)
+		 name: NSFileHandleReadCompletionNotification
+	       object: handle];
+      [self performSelector: @selector(_doRead)
+		   onThread: ioThread->thread
+		 withObject: nil
+	      waitUntilDone: NO];
+    }
+  else
+    {
+      NSString	*body;
+
+      [self setShouldClose: YES];
+
+      if ([result rangeOfString: @" 503 "].location != NSNotFound)
+	{
+	  [server _alert: result];
+	  body = [result stringByAppendingString:
+	    @"\r\nRetry-After: 120\r\n\r\n"];
+	}
+      else
+	{
+	  if (YES == quiet)
+	    {
+	      [server _log: result];
+	    }
+	  body = [result stringByAppendingString: @"\r\n\r\n"];
+        }
+      [self performSelector: @selector(_doWrite:)
+		   onThread: ioThread->thread
+		 withObject: [body dataUsingEncoding: NSASCIIStringEncoding]
+	      waitUntilDone: NO];
+    }
+}
+
 - (NSTimeInterval) connectionDuration: (NSTimeInterval)now
 {
   if (connectionStart > 0.0)
@@ -782,22 +830,11 @@ static NSThread	*handshakeThread = nil;
   return simple;
 }
 
+/* NB. This must be called from the I/O thread.
+ */
 - (void) start
 {
   NSHost	*host;
-
-  /* Any handshake needs to be done on the correct thread so that other
-   * new connections don't cause stack overflow if we have lots of slow
-   * handshakes.
-   */
-  if (YES == ssl && [NSThread currentThread] != handshakeThread)
-    {
-      [self performSelector: @selector(start)
-		   onThread: handshakeThread
-		 withObject: nil
-	      waitUntilDone: NO];
-      return;
-    }
 
   if (YES == conf->reverse && nil == result)
     {
@@ -826,78 +863,25 @@ static NSThread	*handshakeThread = nil;
 
   if (YES == ssl)
     {
-      BOOL	ok;
-
-      ok = [handle sslAccept];
-      if (nil == owner)
+      if ([handle respondsToSelector:
+	@selector(sslHandshakeEstablished:outgoing:)])
 	{
-	  return;	// Already ended
-	}
-
-      if (NO == ok)			// Reset time of last I/O
-	{
-	  if (NO == quiet)
-	    {
-	      [server _log: @"SSL accept fail on (%@).", address];
-	    }
-	  [self performSelector: @selector(end)
-		       onThread: ioThread->thread
-		     withObject: nil
-		  waitUntilDone: NO];
-	  return;
-	}
-
-      /* SSL handshake OK ... move to readwrite thread and record start time.
-       */
-      [ioThread->threadLock lock];
-      ticked = [NSDateClass timeIntervalSinceReferenceDate];
-      GSLinkedListRemove(self, owner);
-      GSLinkedListInsertAfter(self, ioThread->readwrites,
-	ioThread->readwrites->tail);
-      [ioThread->threadLock unlock];
-    }
-
-  [nc addObserver: self
-	 selector: @selector(_didWrite:)
-	     name: GSFileHandleWriteCompletionNotification
-	   object: handle];
-
-  if (nil == result)
-    {
-      buffer = [[NSMutableDataClass alloc] initWithCapacity: 1024];
-      [nc addObserver: self
-	     selector: @selector(_didRead:)
-		 name: NSFileHandleReadCompletionNotification
-	       object: handle];
-      [self performSelector: @selector(_doRead)
-		   onThread: ioThread->thread
-		 withObject: nil
-	      waitUntilDone: NO];
-    }
-  else
-    {
-      NSString	*body;
-
-      [self setShouldClose: YES];
-
-      if ([result rangeOfString: @" 503 "].location != NSNotFound)
-	{
-	  [server _alert: result];
-	  body = [result stringByAppendingString:
-	    @"\r\nRetry-After: 120\r\n\r\n"];
+	  handshakeRetry = 0.01;
+	  handshakeTimer
+	    = [NSTimer scheduledTimerWithTimeInterval: handshakeRetry
+					       target: self
+					     selector: @selector(_timeout:)
+					     userInfo: nil
+					      repeats: NO];
 	}
       else
 	{
-	  if (YES == quiet)
-	    {
-	      [server _log: result];
-	    }
-	  body = [result stringByAppendingString: @"\r\n\r\n"];
-        }
-      [self performSelector: @selector(_doWrite:)
-		   onThread: ioThread->thread
-		 withObject: [body dataUsingEncoding: NSASCIIStringEncoding]
-	      waitUntilDone: NO];
+	  [self handshake];
+	}
+    }
+  else
+    {
+      [self run];
     }
 }
 
@@ -1366,6 +1350,40 @@ static NSThread	*handshakeThread = nil;
 - (void) _doWrite: (NSData*)d
 {
   [handle writeInBackgroundAndNotify: d];
+}
+
+/* Called to try an ssl handshake.
+ */
+- (void) _timeout: (NSTimer*)t
+{
+  BOOL	established;
+
+  handshakeTimer = nil;
+  if (YES == [handle sslHandshakeEstablished: &established outgoing: NO])
+    {
+      if (YES == established)
+	{
+	  [self run];
+	}
+      else
+	{
+	  [self end];
+	}
+    }
+  else if (ioThread->handshakes == owner)
+    {
+      handshakeRetry *= 2.0;
+      if (handshakeRetry > 0.5)
+	{
+	  handshakeRetry = 0.01;
+	}
+      handshakeTimer
+	= [NSTimer scheduledTimerWithTimeInterval: handshakeRetry
+					   target: self
+					 selector: @selector(_timeout:)
+					 userInfo: nil
+					  repeats: NO];
+    }
 }
 
 @end

@@ -154,6 +154,8 @@ typedef	enum {
   NSTimeInterval	requestStart;
   NSTimeInterval	connectionStart;
   NSTimeInterval	duration;
+  NSTimeInterval	handshakeRetry;
+  NSTimer		*handshakeTimer;
   NSUInteger		requests;
   BOOL			shouldClose;
   BOOL			hasReset;
@@ -172,6 +174,7 @@ typedef	enum {
 - (BOOL) ended;
 - (NSData*) excess;
 - (NSFileHandle*) handle;
+- (void) handshake;
 - (BOOL) hasReset;
 - (NSUInteger) identity;
 - (id) initWithHandle: (NSFileHandle*)hdl
@@ -192,6 +195,7 @@ typedef	enum {
 - (void) reset;
 - (void) respond;
 - (WebServerResponse*) response;
+- (void) run;
 - (void) setAddress: (NSString*)aString;
 - (void) setAgent: (NSString*)aString;
 - (void) setConnectionStart: (NSTimeInterval)when;
@@ -213,6 +217,7 @@ typedef	enum {
 - (void) _didData: (NSData*)d;
 - (void) _didRead: (NSNotification*)notification;
 - (void) _didWrite: (NSNotification*)notification;
+- (void) _timeout: (NSTimer*)t;
 @end
 
 @interface	WebServer (Internal)
