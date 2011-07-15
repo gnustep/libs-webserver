@@ -1981,16 +1981,38 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   con = [[request headerNamed: @"connection"] value]; 
   if (con != nil)
     {
-      if ([con caseInsensitiveCompare: @"keep-alive"] == NSOrderedSame)
+      con = [con lowercaseString];
+      if ([con compare: @"keep-alive"] == NSOrderedSame)
 	{
 	  [connection setShouldClose: NO];	// Persistent (even in HTTP 1.0)
 	  [response setHeader: @"Connection"
 		        value: @"Keep-Alive"
 		   parameters: nil];
 	}
-      else if ([con caseInsensitiveCompare: @"close"] == NSOrderedSame)
+      else if ([con compare: @"close"] == NSOrderedSame)
 	{
 	  [connection setShouldClose: YES];	// Not persistent.
+	}
+      else if ([con length] > 5)
+	{
+	  NSEnumerator	*e;
+
+	  e = [[con componentsSeparatedByString: @","] objectEnumerator];
+	  while (nil != (con = [e nextObject]))
+	    {
+	      con = [con stringByTrimmingSpaces];
+	      if ([con compare: @"keep-alive"] == NSOrderedSame)
+		{
+		  [connection setShouldClose: NO];
+		  [response setHeader: @"Connection"
+				value: @"Keep-Alive"
+			   parameters: nil];
+		}
+	      else if ([con compare: @"close"] == NSOrderedSame)
+		{
+		  [connection setShouldClose: YES];
+		}
+	    }
 	}
     }
 

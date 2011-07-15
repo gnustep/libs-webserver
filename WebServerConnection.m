@@ -551,10 +551,28 @@ static Class WebServerResponseClass = Nil;
 	       * kept open unless a 'close' has been set.
 	       */
 	      s = [[response headerNamed: @"connection"] value]; 
-	      if (s != nil
-		&& [s caseInsensitiveCompare: @"close"] == NSOrderedSame)
+	      if (nil != s)
 		{
-		  [self setShouldClose: YES];
+		  s = [s lowercaseString];
+		  if ([s compare: @"close"] == NSOrderedSame)
+		    {
+		      [self setShouldClose: YES];
+		    }
+		  else if ([s length] > 5)
+		    {
+		      NSEnumerator	*e;
+
+		      e = [[s componentsSeparatedByString: @","]
+			objectEnumerator];
+		      while (nil != (s = [e nextObject]))
+			{
+			  s = [s stringByTrimmingSpaces];
+			  if ([s compare: @"close"] == NSOrderedSame)
+			    {
+			      [self setShouldClose: YES];
+			    }
+			}
+		    }
 		}
 	    }
 	}
