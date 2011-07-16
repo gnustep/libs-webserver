@@ -1252,10 +1252,10 @@ static Class WebServerResponseClass = Nil;
   if (owner == ioThread->keepalives)
     {
       [ioThread->threadLock lock];
+      ioThread->keepaliveCount--;
       GSLinkedListRemove(self, owner);
       GSLinkedListInsertAfter(self, ioThread->readwrites,
 	ioThread->readwrites->tail);
-      ioThread->keepaliveCount++;
       [ioThread->threadLock unlock];
     }
 
@@ -1349,25 +1349,7 @@ static Class WebServerResponseClass = Nil;
 	}
       [self reset];
 
-      [ioThread->threadLock lock];
-      GSLinkedListRemove(self, owner);
-      GSLinkedListInsertAfter(self, ioThread->keepalives,
-	ioThread->keepalives->tail);
-      ioThread->keepaliveCount++;
-
-      /* If we have hit the limit on keepalive connections,
-       * end older ones until we are back inside the limit.
-       */
-      while (ioThread->keepaliveCount > ioThread->keepaliveMax)
-	{
-	  WebServerConnection	*con;
-
-	  con = (WebServerConnection*)ioThread->keepalives->head;
-          [ioThread->threadLock unlock];
-	  [con end];
-          [ioThread->threadLock lock];
-	}
-      [ioThread->threadLock unlock];
+      [self _keepalive];
 
       [nc addObserver: self
 	     selector: @selector(_didRead:)
@@ -1405,6 +1387,28 @@ static Class WebServerResponseClass = Nil;
 - (void) _doWrite: (NSData*)d
 {
   [handle writeInBackgroundAndNotify: d];
+}
+
+- (void) _keepalive
+{
+  [ioThread->threadLock lock];
+  /* If we have hit the limit on keepalive connections,
+   * end older ones until we are back inside the limit.
+   */
+  while (ioThread->keepaliveCount >= ioThread->keepaliveMax)
+    {
+      WebServerConnection	*con;
+
+      con = (WebServerConnection*)ioThread->keepalives->head;
+      [ioThread->threadLock unlock];
+      [con end];
+      [ioThread->threadLock lock];
+    }
+  GSLinkedListRemove(self, owner);
+  GSLinkedListInsertAfter(self, ioThread->keepalives,
+    ioThread->keepalives->tail);
+  ioThread->keepaliveCount++;
+  [ioThread->threadLock unlock];
 }
 
 /* Called to try an ssl handshake.

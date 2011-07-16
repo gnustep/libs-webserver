@@ -220,6 +220,7 @@ typedef	enum {
 - (void) _didData: (NSData*)d;
 - (void) _didRead: (NSNotification*)notification;
 - (void) _didWrite: (NSNotification*)notification;
+- (void) _keepalive;
 - (void) _timeout: (NSTimer*)t;
 @end
 
