@@ -582,13 +582,18 @@ static Class WebServerResponseClass = Nil;
 	}
 
       /* We will close this connection if the maximum number of requests
-       * or maximum request duration has been exceeded.
+       * or maximum request duration has been exceeded or if the keepalive
+       * limit for the tthread has been reached.
        */
       if (requests >= conf->maxConnectionRequests)
 	{
 	  [self setShouldClose: YES];
 	}
       else if (duration >= conf->maxConnectionDuration)
+	{
+	  [self setShouldClose: YES];
+	}
+      else if (ioThread->keepaliveCount >= ioThread->keepaliveMax)
 	{
 	  [self setShouldClose: YES];
 	}
