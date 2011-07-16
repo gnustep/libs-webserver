@@ -838,7 +838,8 @@ static Class WebServerResponseClass = Nil;
 {
   [ioThread->threadLock lock];
   [self setShouldClose: YES];
-  if (NO == responding && owner == ioThread->readwrites)
+  if (owner == ioThread->keepalives
+    || (NO == responding && owner == ioThread->readwrites))
     {
       /* We are waiting for an incoming request ... set zero timeout.
        */
