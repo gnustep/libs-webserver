@@ -1,3 +1,11 @@
+2011-07-16 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServerConnection.m:
+	* WebServer.h:
+	* WebServer.m:
+	* Internal.h:
+	Implement maximum number of connections in a keepalive state.
+
 2011-07-15 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* WebServerConnection.m:

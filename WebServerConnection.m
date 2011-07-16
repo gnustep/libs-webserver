@@ -268,6 +268,10 @@ static Class WebServerResponseClass = Nil;
       [ioThread->threadLock lock];
       if (nil != owner)
 	{
+	  if (owner == ioThread->keepalives)
+	    {
+	      ioThread->keepaliveCount--;
+	    }
 	  GSLinkedListRemove(self, owner);
 	}
       [ioThread->threadLock unlock];
@@ -860,6 +864,7 @@ static Class WebServerResponseClass = Nil;
       if (nil == host)
 	{
 	  result = @"HTTP/1.0 403 Bad client host";
+	  [self setShouldClose: YES];
 	}
     }
   else
@@ -1243,6 +1248,17 @@ static Class WebServerResponseClass = Nil;
     {
       return;	// Must be an old notification
     }
+
+  if (owner == ioThread->keepalives)
+    {
+      [ioThread->threadLock lock];
+      GSLinkedListRemove(self, owner);
+      GSLinkedListInsertAfter(self, ioThread->readwrites,
+	ioThread->readwrites->tail);
+      ioThread->keepaliveCount++;
+      [ioThread->threadLock unlock];
+    }
+
   now = [NSDateClass timeIntervalSinceReferenceDate];
   [self setTicked: now];
 
@@ -1332,6 +1348,27 @@ static Class WebServerResponseClass = Nil;
           [server _audit: self];
 	}
       [self reset];
+
+      [ioThread->threadLock lock];
+      GSLinkedListRemove(self, owner);
+      GSLinkedListInsertAfter(self, ioThread->keepalives,
+	ioThread->keepalives->tail);
+      ioThread->keepaliveCount++;
+
+      /* If we have hit the limit on keepalive connections,
+       * end older ones until we are back inside the limit.
+       */
+      while (ioThread->keepaliveCount > ioThread->keepaliveMax)
+	{
+	  WebServerConnection	*con;
+
+	  con = (WebServerConnection*)ioThread->keepalives->head;
+          [ioThread->threadLock unlock];
+	  [con end];
+          [ioThread->threadLock lock];
+	}
+      [ioThread->threadLock unlock];
+
       [nc addObserver: self
 	     selector: @selector(_didRead:)
 		 name: NSFileHandleReadCompletionNotification

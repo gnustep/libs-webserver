@@ -1359,6 +1359,28 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   _reject = (reject == YES) ? 1 : 0;
 }
 
+- (void) setMaxKeepalives: (NSUInteger)max
+{
+  unsigned counter;
+
+  /* Set the maximum number of keepalives per thread to be as specified
+   */
+  if (0 == max || max > 1000)
+    {
+      max = 100;
+    }
+  [_lock lock];
+  _ioMain->keepaliveMax = max;
+  counter = [_ioThreads count];
+  while (counter-- > 0)
+    {
+      IOThread	*tmp = [_ioThreads objectAtIndex: counter];
+
+      tmp->keepaliveMax = max;
+    }
+  [_lock unlock];
+}
+
 - (void) setMaxRequestSize: (NSUInteger)max
 {
   if (max != _conf->maxRequestSize)
@@ -1569,6 +1591,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
 	  t->server = self;
 	  t->cTimeout = _connectionTimeout;
+	  t->keepaliveMax = _ioMain->keepaliveMax;
           [NSThread detachNewThreadSelector: @selector(run)  
 				   toTarget: t
 				 withObject: nil];
@@ -2174,6 +2197,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       [response setHeader: @"http"
 		    value: @"HTTP/1.0 500 Internal Server Error"
 	       parameters: nil];
+      [connection setShouldClose: YES];	// Not persistent.
     }
   NS_ENDHANDLER
 
@@ -2219,6 +2243,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       [response setHeader: @"http"
 		    value: @"HTTP/1.0 500 Internal Server Error"
 	       parameters: nil];
+      [connection setShouldClose: YES];	// Not persistent.
     }
   NS_ENDHANDLER
 
@@ -2287,6 +2312,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   [processing release];
   [handshakes release];
   [readwrites release];
+  [keepalives release];
   [threadLock release];
   [super dealloc];
 }
@@ -2313,6 +2339,8 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       processing = [GSLinkedList new];
       handshakes = [GSLinkedList new];
       readwrites = [GSLinkedList new];
+      keepalives = [GSLinkedList new];
+      keepaliveMax = 100;
       threadLock = [NSLock new];
     }
   return self;
@@ -2341,10 +2369,26 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   WebServerConnection	*con;
 
   [threadLock lock];
+
   /* Find any connections which have timed out waiting for I/O
    */
   age = now - cTimeout;
   for (con = (id)readwrites->head; nil != con; con = (id)con->next)
+    {
+      if (age > con->ticked)
+	{
+	  if (nil == ended)
+	    {
+	      ended = [NSMutableArray new];
+	    }
+	  [ended addObject: con];
+	}
+      else
+	{
+	  break;
+	}
+    }
+  for (con = (id)keepalives->head; nil != con; con = (id)con->next)
     {
       if (age > con->ticked)
 	{

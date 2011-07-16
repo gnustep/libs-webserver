@@ -757,6 +757,15 @@
 - (void) setMaxConnectionsReject: (BOOL)reject;
 
 /**
+ * Sets the maximum number of connections in each I/O thread which are
+ * to be kept in a 'keepalive' state waiting for a new request once a
+ * request completes.<br />
+ * The permitted range is currently from 1 to 1000, with settings outside
+ * that range being treated as the default value (100).
+ */
+- (void) setMaxKeepalives: (NSUInteger)max;
+
+/**
  * Sets the maximum size of an incoming request (including all headers,
  * but not the body).<br />
  * The default is 8K bytes.<br />

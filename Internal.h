@@ -72,6 +72,9 @@
   GSLinkedList	*processing;	// Connections processing a request.
   GSLinkedList	*handshakes;	// Connections performing SSL handshake
   GSLinkedList	*readwrites;	// Connections performing read or write.
+  GSLinkedList	*keepalives;	// Connections waiting for a new request.
+  uint16_t	keepaliveCount;	// Number of connections in keepalive.
+  uint16_t	keepaliveMax;	// Maximum connections kept alive.
 }
 - (void) run;
 - (void) timeout: (NSTimer*)t;
