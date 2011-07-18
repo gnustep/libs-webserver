@@ -30,6 +30,10 @@
 #import <Foundation/NSSet.h>
 #import <Foundation/NSThread.h>
 
+@interface NSFileHandle (new)
+- (BOOL) sslHandshakeEstablished: (BOOL*)result outgoing: (BOOL)direction;
+@end
+
 static Class NSDateClass = Nil;
 static Class NSMutableDataClass = Nil;
 static Class NSStringClass = Nil;
