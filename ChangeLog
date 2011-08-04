@@ -1,5 +1,10 @@
 2011-08-04 Richard Frith-Macdonald  <rfm@gnu.org>
 
+	* GNUmakefile: Version 1.4.3 bugfix release
+	* WebServer.m: Close listener immediately when we are done with it.
+
+2011-08-04 Richard Frith-Macdonald  <rfm@gnu.org>
+
 	* GNUmakefile: Version 1.4.2 bugfix release
 
 2011-07-16 Richard Frith-Macdonald  <rfm@gnu.org>

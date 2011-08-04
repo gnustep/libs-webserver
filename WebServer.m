@@ -1429,6 +1429,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	  [_nc removeObserver: self
 			 name: NSFileHandleConnectionAcceptedNotification
 		       object: _listener];
+	  [_listener closeFile];
 	  DESTROY(_listener);
 	}
       _accepting = NO;	// No longer listening for connections.
