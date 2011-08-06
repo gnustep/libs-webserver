@@ -69,6 +69,7 @@ main()
   handler = [Handler new];
   [server setDelegate: handler];
   [server setPort: [defs stringForKey: @"Port"] secure: nil];
+  [server setVerbose: [defs boolForKey: @"Debug"]];
   [[NSRunLoop currentRunLoop] run];
   [handler release];
 

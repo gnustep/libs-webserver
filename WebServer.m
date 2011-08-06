@@ -885,7 +885,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	  [_pool scheduleSelector: @selector(respond)
 		       onReceiver: connection
 		       withObject: nil];
-	   [connection release];
+	  [connection release];
 	}
     }
 }

@@ -247,6 +247,7 @@ static Class WebServerResponseClass = Nil;
       [h closeFile];
       [h release];
 
+      [self setExcess: nil];
       ticked = [NSDateClass timeIntervalSinceReferenceDate];
       if (NO == quiet)
 	{
@@ -639,29 +640,6 @@ static Class WebServerResponseClass = Nil;
 	       onThread: ioThread->thread
 	     withObject: data
 	  waitUntilDone: NO];
-
-
-  /* If this connection is not closing and excess data has been read,
-   * we may continue dealing with incoming data before the write
-   * has completed.
-   */
-  if ([self shouldClose] == YES)
-    {
-      [self setExcess: nil];
-    }
-  else
-    {
-      NSData	*more = [self excess];
-
-      if (more != nil)
-	{
-	  [more retain];
-	  [self setExcess: nil];
-	  [self reset];
-          [self _didData: more];
-	  [more release];
-	}
-    }
 }
 
 - (WebServerResponse*) response
@@ -1337,6 +1315,7 @@ static Class WebServerResponseClass = Nil;
   else if (nil == err)
     {
       NSTimeInterval	t = [self requestDuration: now];
+      NSData		*more;
 
       if (t > 0.0)
 	{
@@ -1361,14 +1340,29 @@ static Class WebServerResponseClass = Nil;
 
       [self _keepalive];
 
+      more = [self excess];
       [nc addObserver: self
 	     selector: @selector(_didRead:)
 		 name: NSFileHandleReadCompletionNotification
 	       object: handle];
-      [self performSelector: @selector(_doRead)
-		   onThread: ioThread->thread
-		 withObject: nil
-	      waitUntilDone: NO];
+      if (nil != more)
+	{
+	  /* Use pipelined data to start new request.
+	   */
+	  [more retain];
+	  [self setExcess: nil];
+          [self _didData: more];
+	  [more release];
+	}
+      else
+	{
+	  /* Start reading a new request.
+	   */
+	  [self performSelector: @selector(_doRead)
+		       onThread: ioThread->thread
+		     withObject: nil
+		  waitUntilDone: NO];
+	}
     }
   else
     {
