@@ -1240,10 +1240,13 @@ static Class WebServerResponseClass = Nil;
   if (owner == ioThread->keepalives)
     {
       [ioThread->threadLock lock];
-      ioThread->keepaliveCount--;
-      GSLinkedListRemove(self, owner);
-      GSLinkedListInsertAfter(self, ioThread->readwrites,
-	ioThread->readwrites->tail);
+      if (owner == ioThread->keepalives)
+	{
+	  ioThread->keepaliveCount--;
+	  GSLinkedListRemove(self, owner);
+	  GSLinkedListInsertAfter(self, ioThread->readwrites,
+	    ioThread->readwrites->tail);
+	}
       [ioThread->threadLock unlock];
     }
 
@@ -1404,14 +1407,20 @@ static Class WebServerResponseClass = Nil;
       WebServerConnection	*con;
 
       con = (WebServerConnection*)ioThread->keepalives->head;
+      con->owner = nil;
+      GSLinkedListRemove(con, ioThread->keepalives);
+      ioThread->keepaliveCount--;
       [ioThread->threadLock unlock];
       [con end];
       [ioThread->threadLock lock];
     }
-  GSLinkedListRemove(self, owner);
-  GSLinkedListInsertAfter(self, ioThread->keepalives,
-    ioThread->keepalives->tail);
-  ioThread->keepaliveCount++;
+  if (owner != ioThread->keepalives)
+    {
+      GSLinkedListRemove(self, owner);
+      GSLinkedListInsertAfter(self, ioThread->keepalives,
+	ioThread->keepalives->tail);
+      ioThread->keepaliveCount++;
+    }
   [ioThread->threadLock unlock];
 }
 
