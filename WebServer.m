@@ -956,68 +956,23 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
 - (id) init
 {
-  if (nil != (self = [super init]))
-    {
-      _reserved = 0;
-      _nc = [[NSNotificationCenter defaultCenter] retain];
-      _connectionTimeout = 30.0;
-      _lock =  [NSLock new];
-      _ioMain = [IOThread new];
-      _ioMain->thread = [NSThread mainThread];
-      _ioMain->server = self;
-      _ioMain->cTimeout = _connectionTimeout;
-      /* We need a timer so that the main thread can handle connection
-       * timeouts.
-       */
-      _ioMain->timer
-	= [NSTimer scheduledTimerWithTimeInterval: 0.8
-					   target: _ioMain
-					 selector: @selector(timeout:)
-					 userInfo: 0
-					  repeats: YES];
-
-      _pool = [GSThreadPool new];
-      [_pool setThreads: 0];
-      _defs = [[NSUserDefaults standardUserDefaults] retain];
-      _quiet = [[_defs arrayForKey: @"WebServerQuiet"] copy];
-      _hosts = [[_defs arrayForKey: @"WebServerHosts"] copy];
-      _conf = [WebServerConfig new];
-      _conf->reverse = [_defs boolForKey: @"ReverseHostLookup"];
-      _conf->permittedMethods = [defaultPermittedMethods copy];
-      _conf->maxConnectionRequests = 100;
-      _conf->maxConnectionDuration = 10.0;
-      _conf->maxBodySize = 4*1024*1024;
-      _conf->maxRequestSize = 8*1024;
-      _maxPerHost = 32;
-      _maxConnections = 128;
-      _substitutionLimit = 4;
-      _connections = [NSMutableSet new];
-      _perHost = [NSCountedSet new];
-      _ioThreads = [NSMutableArray new];
-    }
-  return self;
+  return [self initForThread: nil];
 }
 
-- (NSString*) _ioThreadDescription
+- (id) initForThread: (NSThread*)aThread
 {
-  unsigned		counter = [_ioThreads count];
-
-  if (0 == counter)
+  if (NO == [aThread isKindOfClass: [NSThread class]])
     {
-      return @"";
+      aThread = [NSThread mainThread];
     }
-  else
+  if (nil != (self = [super init]))
     {
-      NSMutableString	*s = [NSMutableString string];
-
-      [s appendString: @"\nIO threads:"];
-      while (counter-- > 0)
-	{
-	  [s appendString: @"\n  "];
-	  [s appendString: [[_ioThreads objectAtIndex: counter] description]];
-	}
-      return s;
+      [self performSelector: @selector(_setup)
+		   onThread: aThread
+		 withObject: nil
+	      waitUntilDone: YES];
     }
+  return self;
 }
 
 - (BOOL) isSecure
@@ -1932,6 +1887,28 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   [self _listen];
 }
 
+- (NSString*) _ioThreadDescription
+{
+  unsigned		counter = [_ioThreads count];
+
+  if (0 == counter)
+    {
+      return @"";
+    }
+  else
+    {
+      NSMutableString	*s = [NSMutableString string];
+
+      [s appendString: @"\nIO threads:"];
+      while (counter-- > 0)
+	{
+	  [s appendString: @"\n  "];
+	  [s appendString: [[_ioThreads objectAtIndex: counter] description]];
+	}
+      return s;
+    }
+}
+
 - (void) _listen
 {
   [_lock lock];
@@ -1940,8 +1917,9 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     {
       _accepting = YES;
       [_lock unlock];
-      [_listener performSelectorOnMainThread:
+      [_listener performSelector:
 	@selector(acceptConnectionInBackgroundAndNotify)
+	onThread: _ioMain->thread
 	withObject: nil
 	waitUntilDone: NO];
     }
@@ -2102,9 +2080,12 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     }
   else if (YES == _doProcess)
     {
-      [self performSelectorOnMainThread: @selector(_process3:)
-			     withObject: connection
-			  waitUntilDone: NO];
+      /* OK ... now process in main thread.
+       */
+      [self performSelector: @selector(_process3:)
+		   onThread: _ioMain->thread
+		 withObject: connection
+	      waitUntilDone: NO];
     }
   else
     {
@@ -2158,9 +2139,10 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     {
       /* OK ... now process in main thread.
        */
-      [self performSelectorOnMainThread: @selector(_process3:)
-			     withObject: connection
-			  waitUntilDone: NO];
+      [self performSelector: @selector(_process3:)
+		   onThread: _ioMain->thread
+		 withObject: connection
+	      waitUntilDone: NO];
     }
   else
     {
@@ -2255,6 +2237,45 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	       onReceiver: connection
 	       withObject: nil];
   [connection release];
+}
+
+- (void) _setup
+{
+  _reserved = 0;
+  _nc = [[NSNotificationCenter defaultCenter] retain];
+  _connectionTimeout = 30.0;
+  _lock =  [NSLock new];
+  _ioMain = [IOThread new];
+  _ioMain->thread = [NSThread currentThread];
+  _ioMain->server = self;
+  _ioMain->cTimeout = _connectionTimeout;
+  _pool = [GSThreadPool new];
+  [_pool setThreads: 0];
+  _defs = [[NSUserDefaults standardUserDefaults] retain];
+  _quiet = [[_defs arrayForKey: @"WebServerQuiet"] copy];
+  _hosts = [[_defs arrayForKey: @"WebServerHosts"] copy];
+  _conf = [WebServerConfig new];
+  _conf->reverse = [_defs boolForKey: @"ReverseHostLookup"];
+  _conf->permittedMethods = [defaultPermittedMethods copy];
+  _conf->maxConnectionRequests = 100;
+  _conf->maxConnectionDuration = 10.0;
+  _conf->maxBodySize = 4*1024*1024;
+  _conf->maxRequestSize = 8*1024;
+  _maxPerHost = 32;
+  _maxConnections = 128;
+  _substitutionLimit = 4;
+  _connections = [NSMutableSet new];
+  _perHost = [NSCountedSet new];
+  _ioThreads = [NSMutableArray new];
+
+  /* We need a timer so that the main thread can handle connection
+   * timeouts.
+   */
+  _ioMain->timer = [NSTimer scheduledTimerWithTimeInterval: 0.8
+						    target: _ioMain
+						  selector: @selector(timeout:)
+						  userInfo: 0
+						   repeats: YES];
 }
 
 - (NSString*) _xCountRequests

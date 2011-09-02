@@ -89,7 +89,7 @@
       response back to the WebServer instance for delivery to the client.<br />
       NB. the -completedWithResponse: method is safe to call from any thread
       but all other methods of the class should be called only from the
-      main thread.  If a delegate needs to call methods of the WebServer
+      master thread.  If a delegate needs to call methods of the WebServer
       instance in order to handle a request, it should do so in the
       [(WebServerDelegate)-processRequest:response:for:] method before
       handing control to another thread.
@@ -99,7 +99,7 @@
       You may call the -setIOThreads:andPool: method to ask the WebServer
       instance to use threading internally itsself.  In this case the
       low-level I/O operations will be shared across the specified number
-      of I/O threads instead of occurring in the main thread (makes sense
+      of I/O threads instead of occurring in the master thread (makes sense
       if you need to handle a very large number of simultaneous connections).
       In addition, the parsing of the incoming HTTP request and the generation
       of the raw data of the outgoing response are performed usign threads
@@ -108,7 +108,7 @@
     </p>
     <p>With the use of a thread pool, you muse be aware that the 
       -preProcessRequest:response:for: method will be
-      executed by a thread from the pool rather than by the main thread.<br />
+      executed by a thread from the pool rather than by the master thread.<br />
       This may be useful if you wish to split the processing into part
       which is thread-safe, and part which uses complex interacting data
       structures which are hard to make safe (done in the main processing
@@ -220,7 +220,8 @@
  * The server takes no action respond to the request until the delegate
  * calls [WebServer-completedWithResponse:] to let it know that processing
  * is complete and the response should at last be sent out.<br />
- * This method is always called in the main thread of your application.
+ * This method is always called in the master thread of your WebServer
+ * instance (usually the main thread of your application).
  */
 - (BOOL) processRequest: (GSMimeDocument*)request
 	       response: (GSMimeDocument*)response
@@ -279,7 +280,7 @@
  * You may use the [WebServer-userInfoForRequest:] method to obtain
  * any information passed from an earlier stage of processing.<br />
  * NB. if threading is turned on this method may be called from a thread
- * other than the main one.
+ * other than the master one.
  */
 - (void) postProcessRequest: (GSMimeDocument*)request
 	           response: (GSMimeDocument*)response
@@ -298,7 +299,7 @@
  * and/or -postProcessRequest:response:for: methods.<br />
  * NB. This method is called <em>before</em> any HTTP basic authentication
  * is done, and may (if threading is turned on) be called from a thread
- * other than the main one.
+ * other than the master one.
  */
 - (BOOL) preProcessRequest: (GSMimeDocument*)request
 	          response: (GSMimeDocument*)response
@@ -565,6 +566,21 @@
  * non-ascii characters with the appropriate numeric entity references.
  */
 - (NSString*) escapeHTML: (NSString*)str;
+
+/** Initialises the receiver to run on the processes main thread (as
+ * returned by [NSThread+mainThread].
+ */
+- (id) init;
+
+/** <init />
+ * Initialises the WebServer instance to operate using the specified thread
+ * as the 'master' thread.  If aThread is nil, [NSThread+mainThread] is used
+ * as the master thread for the newly initialised instance.<br />
+ * If the current thread is not the same as the specified master thread,
+ * this method will not return until the master thread's run loop had run
+ * to handle the initialisation.
+ */
+- (id) initForThread: (NSThread*)aThread;
 
 /**
  * Returns YES if the server is for HTTPS (encrypted connections),

@@ -236,6 +236,7 @@ typedef	enum {
 - (void) _process1: (WebServerConnection*)connection;
 - (void) _process2: (WebServerConnection*)connection;
 - (void) _removeConnection: (WebServerConnection*)connection;
+- (void) _setup;
 - (NSString*) _xCountRequests;
 - (NSString*) _xCountConnections;
 - (NSString*) _xCountConnectedHosts;

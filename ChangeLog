@@ -1,5 +1,14 @@
 2011-08-06 Richard Frith-Macdonald  <rfm@gnu.org>
 
+	* WebServer.h:
+	* WebServer.m:
+	* Internal.h:
+	Changes to support initialisation of a WebServer instance to operate
+	in a thread other than the main one.  Not really tested though.
+	eg. svr = [[WebServer alloc] initForThread: [NSThread currentThread]]
+
+2011-08-06 Richard Frith-Macdonald  <rfm@gnu.org>
+
 	* WebServer.m:
 	* WebServerConnection.m:
 	Change to only start processing new request when write of preceeding
