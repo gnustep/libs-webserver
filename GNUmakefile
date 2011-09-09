@@ -21,7 +21,7 @@ include $(GNUSTEP_MAKEFILES)/common.make
 -include config.make
 
 PACKAGE_NAME = WebServer
-PACKAGE_VERSION = 1.4.3
+PACKAGE_VERSION = 1.4.4
 WebServer_INTERFACE_VERSION=1.4
 CVS_MODULE_NAME = gnustep/dev-libs/WebServer
 CVS_TAG_NAME = WebServer
