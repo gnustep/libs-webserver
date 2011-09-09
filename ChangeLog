@@ -1,3 +1,13 @@
+2011-09-09 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* GNUmakefile: Version 1.4.4 bugfix release
+
+2011-08-26 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServerConnection.m:
+	Fix bug updating keepalive counts to avoid possible hang in loop
+	removing old connections.
+
 2011-08-06 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* WebServer.h:
