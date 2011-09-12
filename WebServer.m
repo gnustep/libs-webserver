@@ -902,7 +902,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
 - (void) dealloc
 {
-  [self setPort: nil secure: nil];
+  [self setAddress: nil port: nil secure: nil];
   [self setIOThreads: 0 andPool: 0];
   DESTROY(_nc);
   DESTROY(_defs);
@@ -1220,6 +1220,126 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   return [self parameterString: name at: 0 from: params charset: charset];
 }
 
+- (BOOL) setAddress: (NSString*)anAddress
+	       port: (NSString*)aPort
+	     secure: (NSDictionary*)secure
+{
+  BOOL	ok = YES;
+  BOOL	update = NO;
+
+  if ([anAddress length] == 0)
+    {
+      anAddress = nil;
+    }
+  if (anAddress != _addr && [anAddress isEqual: _addr] == NO)
+    {
+      update = YES;
+    }
+  if (aPort != _port && [aPort isEqual: _port] == NO)
+    {
+      update = YES;
+    }
+  if ((secure == nil && _sslConfig != nil)
+    || (secure != nil && [secure isEqual: _sslConfig] == NO))
+    {
+      update = YES;
+    }
+
+  if (update == YES)
+    {
+      ASSIGNCOPY(_sslConfig, secure);
+      if (_listener != nil)
+	{
+	  [_nc removeObserver: self
+			 name: NSFileHandleConnectionAcceptedNotification
+		       object: _listener];
+	  [_listener closeFile];
+	  DESTROY(_listener);
+	}
+      _accepting = NO;	// No longer listening for connections.
+      DESTROY(_addr);
+      DESTROY(_port);
+      if (nil == anAddress || nil == aPort)
+	{
+	  NSEnumerator		*enumerator;
+	  WebServerConnection	*connection;
+
+	  [_lock lock];
+	  /* If we have been shut down (port is nil) then we want any
+	   * outstanding connections to close down as soon as possible.
+	   */
+	  enumerator = [_connections objectEnumerator];
+	  while ((connection = [enumerator nextObject]) != nil)
+	    {
+	      [connection shutdown];
+	    }
+	  /* We also get rid of the headers which refer to us, so that
+	   * we can be released as soon as any connections/requests using
+	   * those headers have released us.
+	   */
+	  DESTROY(_xCountRequests);
+	  DESTROY(_xCountConnections);
+	  DESTROY(_xCountConnectedHosts);
+
+	  [_lock unlock];
+	}
+      else
+	{
+	  _addr = [anAddress copy];
+	  _port = [aPort copy];
+
+	  /* Set up headers to be used by requests on incoming connections
+	   * to find information about this instance.
+           */
+	  _xCountRequests = [[WebServerHeader alloc]
+	    initWithType: WSHCountRequests andObject: self];
+	  _xCountConnections = [[WebServerHeader alloc]
+	    initWithType: WSHCountConnections andObject: self];
+	  _xCountConnectedHosts = [[WebServerHeader alloc]
+	    initWithType: WSHCountConnectedHosts andObject: self];
+
+	  if (_sslConfig != nil)
+	    {
+	      _listener = [[NSFileHandle sslClass]
+		fileHandleAsServerAtAddress: nil
+		service: _port
+		protocol: @"tcp"];
+	    }
+	  else
+	    {
+	      _listener = [NSFileHandle fileHandleAsServerAtAddress: _addr
+							    service: _port
+							   protocol: @"tcp"];
+	    }
+
+	  if (_listener == nil)
+	    {
+	      if (nil == _addr)
+		{
+		  [self _alert: @"Failed to listen on port %@", _port];
+		}
+	      else
+		{
+		  [self _alert: @"Failed to listen on %@:%@", _addr, _port];
+		}
+	      DESTROY(_addr);
+	      DESTROY(_port);
+	      ok = NO;
+	    }
+	  else
+	    {
+	      RETAIN(_listener);
+	      [_nc addObserver: self
+		      selector: @selector(_didConnect:)
+			  name: NSFileHandleConnectionAcceptedNotification
+			object: _listener];
+	      [self _listen];
+	    }
+	}
+    }
+  return ok;
+}
+
 - (void) setDelegate: (id)anObject
 {
   _delegate = anObject;
@@ -1363,102 +1483,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
 - (BOOL) setPort: (NSString*)aPort secure: (NSDictionary*)secure
 {
-  BOOL	ok = YES;
-  BOOL	update = NO;
-
-  if (aPort == nil || [aPort isEqual: _port] == NO)
-    {
-      update = YES;
-    }
-  if ((secure == nil && _sslConfig != nil)
-    || (secure != nil && [secure isEqual: _sslConfig] == NO))
-    {
-      update = YES;
-    }
-
-  if (update == YES)
-    {
-      ASSIGNCOPY(_sslConfig, secure);
-      if (_listener != nil)
-	{
-	  [_nc removeObserver: self
-			 name: NSFileHandleConnectionAcceptedNotification
-		       object: _listener];
-	  [_listener closeFile];
-	  DESTROY(_listener);
-	}
-      _accepting = NO;	// No longer listening for connections.
-      DESTROY(_port);
-      if (nil == aPort)
-	{
-	  NSEnumerator		*enumerator;
-	  WebServerConnection	*connection;
-
-	  [_lock lock];
-	  /* If we have been shut down (port is nil) then we want any
-	   * outstanding connections to close down as soon as possible.
-	   */
-	  enumerator = [_connections objectEnumerator];
-	  while ((connection = [enumerator nextObject]) != nil)
-	    {
-	      [connection shutdown];
-	    }
-	  /* We also get rid of the headers which refer to us, so that
-	   * we can be released as soon as any connections/requests using
-	   * those headers have released us.
-	   */
-	  DESTROY(_xCountRequests);
-	  DESTROY(_xCountConnections);
-	  DESTROY(_xCountConnectedHosts);
-
-	  [_lock unlock];
-	}
-      else
-	{
-	  _port = [aPort copy];
-
-	  /* Set up headers to be used by requests on incoming connections
-	   * to find information about this instance.
-           */
-	  _xCountRequests = [[WebServerHeader alloc]
-	    initWithType: WSHCountRequests andObject: self];
-	  _xCountConnections = [[WebServerHeader alloc]
-	    initWithType: WSHCountConnections andObject: self];
-	  _xCountConnectedHosts = [[WebServerHeader alloc]
-	    initWithType: WSHCountConnectedHosts andObject: self];
-
-	  if (_sslConfig != nil)
-	    {
-	      _listener = [[NSFileHandle sslClass]
-		fileHandleAsServerAtAddress: nil
-		service: _port
-		protocol: @"tcp"];
-	    }
-	  else
-	    {
-	      _listener = [NSFileHandle fileHandleAsServerAtAddress: nil
-							    service: _port
-							   protocol: @"tcp"];
-	    }
-
-	  if (_listener == nil)
-	    {
-	      [self _alert: @"Failed to listen on port %@", _port];
-	      DESTROY(_port);
-	      ok = NO;
-	    }
-	  else
-	    {
-	      RETAIN(_listener);
-	      [_nc addObserver: self
-		      selector: @selector(_didConnect:)
-			  name: NSFileHandleConnectionAcceptedNotification
-			object: _listener];
-	      [self _listen];
-	    }
-	}
-    }
-  return ok;
+  return [self setAddress: nil port: aPort secure: secure];
 }
 
 - (void) setRoot: (NSString*)aPath

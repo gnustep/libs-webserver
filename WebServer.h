@@ -310,8 +310,8 @@
  * <p>You create an instance of the WebServer class in order to handle
  * incoming HTTP or HTTPS requests on a single port.
  * </p>
- * <p>Before use, it must be configured using the -setPort:secure: method
- * to specify the port and if/how SSL is to be used.
+ * <p>Before use, it must be configured using the -setAddress:port:secure:
+ * method to specify the address and port and if/how SSL is to be used.
  * </p>
  * <p>You must also set a delegate to handle incoming requests,
  * and may specify a maximum number of simultaneous connections
@@ -345,7 +345,7 @@
  *   is that host lookups can be slow and cause performance problems.
  *   </desc>
  * </deflist>
- * <p>To shut down the WebServer, you must call -setPort:secure: with
+ * <p>To shut down the WebServer, you must call -setAddress:port:secure: with
  * nil arguments.  This will stop the server listening for incoming
  * connections and wait for any existing connections to be closed
  * (or to time out).<br />
@@ -360,6 +360,7 @@
 @private
   NSNotificationCenter	*_nc;
   NSUserDefaults	*_defs;
+  NSString		*_addr;
   NSString		*_port;
   NSLock		*_lock;
   IOThread		*_ioMain;
@@ -694,6 +695,35 @@
 - (void) setDelegate: (id)anObject;
 
 /**
+ * Sets the listenng address, port and security information for the
+ * receiver ... without this the receiver will not listen for incoming
+ * requests.<br />
+ * If anAddress is nil or empty, the receiver will listen on
+ * all available network interfaces.<br />
+ * If secure is nil then the receiver listens on aPort for HTTP requests.<br />
+ * If secure is not nil, the receiver listens for HTTPS instead.<br />
+ * If secure is a dictionary containing <code>CertificateFile</code>,
+ * <code>KeyFile</code> and <code>Password</code> then the server will
+ * use the specified certificate and key files (which it will access
+ * using the password).<br />
+ * The <em>secure</em> dictionary may also contain other dictionaries
+ * keyed on IP addresses, and if the address that an incoming connection
+ * arrived on matches the key of a dictionary, that dictionary is used
+ * to provide the certificate information, with the top-level values
+ * being used as a fallback.<br />
+ * This method returns YES on success, NO on failure ... if it returns NO
+ * then the receiver will <em>not</em> be capable of handling incoming
+ * web requests!<br />
+ * Typically a failure will be due to an invalid port being specified ...
+ * a port may not already be in use and may not be in the range up to 1024
+ * (unless running as the super-user).<br />
+ * Call this with a nil port argument to shut the server down as soon as
+ * all current connections are closed (and refuse new incoming connections).
+ */
+- (BOOL) setAddress: (NSString*)anAddress
+	       port: (NSString*)aPort
+	     secure: (NSDictionary*)secure;
+/**
  * Sets a flag to determine whether logging of request and connection
  * durations is to be performed.<br />
  * If this is YES then the duration of requests and connections will
@@ -796,28 +826,7 @@
  */
 - (void) setPermittedMethods: (NSSet*)s;
 
-/**
- * Sets the port and security information for the receiver ... without
- * this the receiver will not listen for incoming requests.<br />
- * If secure is nil then the receiver listens on aPort for HTTP requests.<br />
- * If secure is not nil, the receiver listens for HTTPS instead.<br />
- * If secure is a dictionary containing <code>CertificateFile</code>,
- * <code>KeyFile</code> and <code>Password</code> then the server will
- * use the specified certificate and key files (which it will access
- * using the password).<br />
- * The <em>secure</em> dictionary may also contain other dictionaries
- * keyed on IP addresses, and if the address that an incoming connection
- * arrived on matches the key of a dictionary, that dictionary is used
- * to provide the certificate information, with the top-level values
- * being used as a fallback.<br />
- * This method returns YES on success, NO on failure ... if it returns NO
- * then the receiver will <em>not</em> be capable of handling incoming
- * web requests!<br />
- * Typically a failure will be due to an invalid port being specified ...
- * a port may not already be in use and may not be in the range up to 1024
- * (unless running as the super-user).<br />
- * Call this with a nil port argument to shut the server down as soon as
- * all current connections are closed (and refuse new incoming connections).
+/** Deprecated ... use -setAddress:port:secure: instead.
  */
 - (BOOL) setPort: (NSString*)aPort secure: (NSDictionary*)secure;
 

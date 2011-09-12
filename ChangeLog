@@ -1,3 +1,7 @@
+2011-09-12 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* Extend API to set listening address.
+
 2011-09-09 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* GNUmakefile: Version 1.4.4 bugfix release
