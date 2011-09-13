@@ -1235,6 +1235,10 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     {
       update = YES;
     }
+  if ([aPort length] == 0)
+    {
+      aPort = nil;
+    }
   if (aPort != _port && [aPort isEqual: _port] == NO)
     {
       update = YES;
@@ -1259,7 +1263,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       _accepting = NO;	// No longer listening for connections.
       DESTROY(_addr);
       DESTROY(_port);
-      if (nil == anAddress || nil == aPort)
+      if (nil == aPort)
 	{
 	  NSEnumerator		*enumerator;
 	  WebServerConnection	*connection;

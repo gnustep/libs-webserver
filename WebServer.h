@@ -714,10 +714,10 @@
  * This method returns YES on success, NO on failure ... if it returns NO
  * then the receiver will <em>not</em> be capable of handling incoming
  * web requests!<br />
- * Typically a failure will be due to an invalid port being specified ...
- * a port may not already be in use and may not be in the range up to 1024
- * (unless running as the super-user).<br />
- * Call this with a nil port argument to shut the server down as soon as
+ * Typically a failure will be due to an invalid address or port being
+ * specified ...  a port may not already be in use and may not be in the
+ * range up to 1024 (unless running as the super-user).<br />
+ * Call this with a nil/empty port argument to shut the server down as soon as
  * all current connections are closed (and refuse new incoming connections).
  */
 - (BOOL) setAddress: (NSString*)anAddress
