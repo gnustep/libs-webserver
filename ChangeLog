@@ -1,3 +1,11 @@
+2011-12-13 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServerConnection.m:
+	* WebServer.h:
+	* WebServer.m:
+	* Internal.h:
+	Add new -setLogRawIO: option to log I/O on connections.
+
 2011-09-23 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* GNUmakefile: Version 1.4.5 minor release

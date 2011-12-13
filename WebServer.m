@@ -1587,6 +1587,18 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   [_lock unlock];
 }
 
+- (void) setLogRawIO: (BOOL)aFlag
+{
+  if (aFlag != _conf->logRawIO)
+    {
+      WebServerConfig	*c = [_conf copy];
+  
+      c->logRawIO = aFlag;
+      [_conf release];
+      _conf = c;
+    }
+}
+
 - (void) setUserInfo: (NSObject*)info forRequest: (GSMimeDocument*)request
 {
   WebServerHeader	*h;

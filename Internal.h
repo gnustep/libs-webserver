@@ -93,6 +93,7 @@
   BOOL			durations;	// log request and connection times
   BOOL                  reverse;	// should do reverse DNS lookup
   BOOL			secureProxy;	// using a secure proxy
+  BOOL			logRawIO;	// log raw I/O on connection
   NSUInteger		maxBodySize;
   NSUInteger		maxRequestSize;
   NSUInteger		maxConnectionRequests;

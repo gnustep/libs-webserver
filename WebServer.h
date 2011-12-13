@@ -864,6 +864,13 @@
 - (void) setIOThreads: (NSUInteger)threads andPool: (NSInteger)poolSize;
 
 /**
+ * Sets a flag to determine whether I/O logging is to be performed.<br />
+ * If this is YES then all incoming requests and their responses will
+ * be logged using the [(WebServerDelegate)-webLog:for:] method.
+ */
+- (void) setLogRawIO: (BOOL)aFlag;
+
+/**
  * Stores additional user information with a request.<br />
  * This information may be retrieved later using the -userInfoForRequest:
  * method.

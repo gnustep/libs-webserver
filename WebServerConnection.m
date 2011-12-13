@@ -1288,11 +1288,14 @@ static Class WebServerResponseClass = Nil;
       return;
     }
 
-  if (YES == conf->verbose && NO == quiet)
+  if (YES == conf->logRawIO && NO == quiet)
     {
-      [server _log: @"Data read on %@ ... %@", self, d];
-    }
+      int		len = [d length];
+      const char	*str = (const char*)[d bytes];
 
+      [server _log: @"Data read %u bytes on %@ ... '%*.*s'",
+	len, self, len, len, str];
+    }
   [self _didData: d];
 }
 
@@ -1393,6 +1396,14 @@ static Class WebServerResponseClass = Nil;
  */
 - (void) _doWrite: (NSData*)d
 {
+  if (YES == conf->logRawIO && NO == quiet)
+    {
+      int		len = [d length];
+      const char	*str = (const char*)[d bytes];
+
+      [server _log: @"Data write %u bytes on %@ ... '%*.*s'",
+	len, self, len, len, str];
+    }
   [handle writeInBackgroundAndNotify: d];
 }
 
