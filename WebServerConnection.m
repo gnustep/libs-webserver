@@ -214,7 +214,7 @@ static Class WebServerResponseClass = Nil;
 
 - (NSString*) description
 {
-  return [NSStringClass stringWithFormat: @"WebServerConnection: %08x [%@] ",
+  return [NSStringClass stringWithFormat: @"WebServerConnection: %08x [%@]",
     [self identity], [self address]];
 }
 
