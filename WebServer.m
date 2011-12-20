@@ -297,6 +297,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	  case '@':
 	  case '[':
 	  case '\'':
+	  case '\\':
 	  case ']':
 	  case '{':
 	  case '}':
