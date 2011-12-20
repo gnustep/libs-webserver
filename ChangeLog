@@ -1,4 +1,10 @@
-2011-09-23 Richard Frith-Macdonald  <rfm@gnu.org>
+2011-12-20 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* GNUmakefile: Version 1.4.7 minor release
+	* WebServer.m: Escape a few more characters when generating
+	URL encoded forms.  In particular the '/'.
+
+2011-12-13 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* GNUmakefile: Version 1.4.6 minor release
 	* WebServerConnection.m: Fix excess space in -description

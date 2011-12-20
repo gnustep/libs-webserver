@@ -275,23 +275,31 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
       switch (c)
 	{
-	  case ',':
-	  case ';':
+	  case ' ':
+	  case '!':
 	  case '"':
-	  case '\'':
+	  case '#':
+	  case '$':
+	  case '%':
 	  case '&':
-	  case '=':
 	  case '(':
 	  case ')':
+	  case '*':
+	  case '+':
+	  case ',':
+	  case '/':
+	  case ':':
+	  case ';':
 	  case '<':
+	  case '=':
 	  case '>':
 	  case '?':
-	  case '#':
+	  case '@':
+	  case '[':
+	  case '\'':
+	  case ']':
 	  case '{':
 	  case '}':
-	  case '%':
-	  case ' ':
-	  case '+':
 	    dst[dpos++] = '%';
 	    hi = (c & 0xf0) >> 4;
 	    dst[dpos++] = (hi > 9) ? 'A' + hi - 10 : '0' + hi;
