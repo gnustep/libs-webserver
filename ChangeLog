@@ -1,7 +1,7 @@
 2012-01-17 Richard Frith-Macdonald  <rfm@gnu.org>
 
-	* WebServer.m: Allow an empty string as a key in the access control
-	dictionary to match any otherwise unmatched path.
+	* WebServer.m: Fix bug with access control ... need to do it before
+	main processing if we didn't do it in the pre-process stage.
 
 2011-12-20 Richard Frith-Macdonald  <rfm@gnu.org>
 

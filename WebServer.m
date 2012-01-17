@@ -810,11 +810,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	    }
 	  else
 	    {
-	      access = [conf objectForKey: @""];	// Try default
-	      if (nil == access)
-		{
-		  return YES;	// No access dictionary - permit access
-		}
+	      return YES;	// No access dictionary - permit access
 	    }
 	}
     }
@@ -2222,9 +2218,13 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   NS_DURING
     {
       [connection setTicked: _ticked];
-      processed = [_delegate processRequest: request
-				   response: response
-					for: self];
+      if (YES == _doPreProcess
+        || YES == [self accessRequest: request response: response])
+	{
+	  processed = [_delegate processRequest: request
+				       response: response
+					    for: self];
+	}
       _ticked = [NSDateClass timeIntervalSinceReferenceDate];
       [connection setTicked: _ticked];
     }
