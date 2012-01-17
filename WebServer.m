@@ -810,7 +810,11 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	    }
 	  else
 	    {
-	      return YES;	// No access dictionary - permit access
+	      access = [conf objectForKey: @""];	// Try default
+	      if (nil == access)
+		{
+		  return YES;	// No access dictionary - permit access
+		}
 	    }
 	}
     }

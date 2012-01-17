@@ -1,3 +1,8 @@
+2012-01-17 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServer.m: Allow an empty string as a key in the access control
+	dictionary to match any otherwise unmatched path.
+
 2011-12-20 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* GNUmakefile: Version 1.4.7 minor release
