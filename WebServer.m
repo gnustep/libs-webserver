@@ -754,7 +754,10 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	   parameters: nil];
 
   type = @"text/html";
-  body = [NSString stringWithFormat: @"<a href=\"%@\">continue</a>",
+  body = [NSString stringWithFormat:
+    @"<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n"
+    @"<html><head><title>continue</title>"
+    @"</head><body><a href=\"%@\">continue</a></body></html>",
     [self escapeHTML: s]];
   s = [[request headerNamed: @"accept"] value];
   if ([s length] > 0)
