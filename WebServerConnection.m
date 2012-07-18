@@ -1291,26 +1291,10 @@ static Class WebServerResponseClass = Nil;
   if (YES == conf->logRawIO && NO == quiet)
     {
       int		len = [d length];
-      int               i = len;
       const char	*str = (const char*)[d bytes];
 
-      while (i-- > 0)
-        {
-          if (0 == str[i])
-            {
-              break;
-            }
-        }
-      if (i >= 0)
-        {
-          [server _log: @"Data read %u bytes on %@ ... %@",
-            len, self, d];
-        }
-      else
-        {
-          [server _log: @"Data read %u bytes on %@ ... '%*.*s'",
-            len, self, len, len, str];
-        }
+      [server _log: @"Data read %u bytes on %@ ... '%.*s' %@",
+        len, self, len, str, d];
     }
   [self _didData: d];
 }
@@ -1415,26 +1399,10 @@ static Class WebServerResponseClass = Nil;
   if (YES == conf->logRawIO && NO == quiet)
     {
       int		len = [d length];
-      int               i = len;
       const char	*str = (const char*)[d bytes];
 
-      while (i-- > 0)
-        {
-          if (0 == str[i])
-            {
-              break;
-            }
-        }
-      if (i >= 0)
-        {
-          [server _log: @"Data write %u bytes on %@ ... %@",
-            len, self, d];
-        }
-      else
-        {
-          [server _log: @"Data write %u bytes on %@ ... '%*.*s'",
-            len, self, len, len, str];
-        }
+      [server _log: @"Data write %u bytes on %@ ... '%.*s' %@",
+        len, self, len, str, d];
     }
   [handle writeInBackgroundAndNotify: d];
 }
