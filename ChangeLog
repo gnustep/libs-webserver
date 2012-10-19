@@ -1,3 +1,9 @@
+2012-10-19 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* GNUmakefile: Version 1.4.8 minor bugfix release
+	* WebServerConnection.m: Fix error in 'quiet' host logic when
+        refusing access due to unkown/not-allowed client host.
+
 2012-07-18 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* WebServerConnection.m: When logging the data read/written, allow

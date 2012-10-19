@@ -685,13 +685,16 @@ static Class WebServerResponseClass = Nil;
 
       if ([result rangeOfString: @" 503 "].location != NSNotFound)
 	{
+          /* We use 503 for a throughput/connection limit issue.
+           * Tell the remote end to back-off and log an alert.
+           */
 	  [server _alert: result];
 	  body = [result stringByAppendingString:
 	    @"\r\nRetry-After: 120\r\n\r\n"];
 	}
       else
 	{
-	  if (YES == quiet)
+	  if (NO == quiet)
 	    {
 	      [server _log: result];
 	    }
