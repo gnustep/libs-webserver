@@ -41,6 +41,7 @@ static	Class	NSMutableStringClass = Nil;
 static	Class	NSStringClass = Nil;
 static	Class	GSMimeDocumentClass = Nil;
 static	Class	WebServerHeaderClass = Nil;
+static	Class	WebServerResponseClass = Nil;
 static NSZone	*defaultMallocZone = 0;
 static NSSet	*defaultPermittedMethods = nil;
 
@@ -66,6 +67,7 @@ static NSSet	*defaultPermittedMethods = nil;
       NSMutableStringClass = [NSMutableString class];
       GSMimeDocumentClass = [GSMimeDocument class];
       WebServerHeaderClass = [WebServerHeader class];
+      WebServerResponseClass = [WebServerResponse class];
       defaultPermittedMethods = [[NSSet alloc] initWithObjects: m count: 2];
     }
 }
@@ -874,11 +876,17 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
 - (void) completedWithResponse: (GSMimeDocument*)response
 {
+  if (NO == [response isKindOfClass: WebServerResponseClass])
+    {
+      [NSException raise: NSInvalidArgumentException
+        format: @"[%@-%@] argument is not a valid response object",
+        NSStringFromClass([self class]), NSStringFromSelector(_cmd)];
+    }
   if (YES == _doPostProcess)
     {
       [_pool scheduleSelector: @selector(_process4:)
 		   onReceiver: self
-		   withObject: response];
+		   withObject: (WebServerResponse*)response];
     }
   else
     {
@@ -890,7 +898,11 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       [_lock unlock];
       if (nil == connection)
 	{
-	  NSLog(@"Late response %@", response);
+          if (YES == _conf->verbose)
+            {
+              [self _log: @"The client has already closed the connection"
+                @" for response: %@", response];
+            }
 	}
       else
 	{
@@ -2262,9 +2274,13 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   connection = [[response webServerConnection] retain];
   [_lock unlock];
 
-  if (nil == response)
+  if (nil == connection)
     {
-      NSLog(@"Late response %@", response);
+      if (YES == _conf->verbose)
+        {
+          [self _log: @"The client has already closed the connection"
+            @" for response: %@", response];
+        }
     }
   request = [connection request];
 

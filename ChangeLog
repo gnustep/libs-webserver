@@ -1,3 +1,8 @@
+2012-10-25 Richard Frith-Macdonald  <rfm@gnu.org>
+
+        * Source/WebServer.m: Improve error logging for the case when a
+        response is to be handled but we can't find its connection.
+
 2012-10-19 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* GNUmakefile: Version 1.4.8 minor bugfix release
