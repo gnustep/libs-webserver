@@ -25,6 +25,7 @@
 
 #import "WebServer.h"
 #import "Internal.h"
+#import <Foundation/NSDictionary.h>
 #import <Foundation/NSHost.h>
 #import <Foundation/NSLock.h>
 #import <Foundation/NSSet.h>
