@@ -23,18 +23,19 @@
    $Date$ $Revision$
    */ 
 
-#include	<Foundation/Foundation.h>
-#include	<GNUstepBase/GSMime.h>
-#include	"WebServer.h"
+#import	<Foundation/Foundation.h>
+#import	<GNUstepBase/GSMime.h>
+
+#import	"WebServer.h"
 
 @interface	Handler: NSObject
-- (BOOL) processRequest: (GSMimeDocument*)request
-               response: (GSMimeDocument*)response
+- (BOOL) processRequest: (WebServerRequest*)request
+               response: (WebServerResponse*)response
 		    for: (WebServer*)http;
 @end
 @implementation	Handler
-- (BOOL) processRequest: (GSMimeDocument*)request
-               response: (GSMimeDocument*)response
+- (BOOL) processRequest: (WebServerRequest*)request
+               response: (WebServerResponse*)response
 		    for: (WebServer*)http
 {
   NSString		*s;

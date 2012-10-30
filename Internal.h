@@ -102,6 +102,9 @@
 }
 @end
 
+@interface	WebServerRequest : GSMimeDocument
+@end
+
 /* We need to ensure that our map table holds response information safely
  * and efficiently ... so we use a subclass where we control -hash and
  * -isEqual: to ensure that each object is unique and quick.
@@ -111,7 +114,10 @@
 @interface	WebServerResponse : GSMimeDocument
 {
   WebServerConnection	*webServerConnection;
+  BOOL                  prepared;
 }
+- (BOOL) prepared;
+- (void) setPrepared;
 - (void) setWebServerConnection: (WebServerConnection*)c;
 - (WebServerConnection*) webServerConnection;
 @end
@@ -119,8 +125,7 @@
 typedef	enum {
   WSHCountRequests,
   WSHCountConnections,
-  WSHCountConnectedHosts,
-  WSHExtra
+  WSHCountConnectedHosts
 } WSHType;
 
 /* Special header used to store information in a request.
@@ -131,8 +136,6 @@ typedef	enum {
   NSObject	*wshObject;
 }
 - (id) initWithType: (WSHType)t andObject: (NSObject*)o;
-- (void) setWebServerExtra: (NSObject*)data;
-- (id) webServerExtra;
 @end
 
 
@@ -161,9 +164,13 @@ typedef	enum {
   NSTimeInterval	handshakeRetry;
   NSTimer		*handshakeTimer;
   NSUInteger		requests;
+  NSUInteger		bodyLength;
   BOOL			shouldClose;
   BOOL			hasReset;
   BOOL			simple;
+  BOOL                  hadHeader;      // Header has been completely read?
+  BOOL                  hadRequest;     // Request has been completely read?
+  BOOL                  incremental;    // Incremental parsing of request?
   BOOL			quiet;		// Suppress log of warning/debug info?
   BOOL			ssl;		// Should perform SSL negotiation?
   BOOL			responding;	// Writing to remote system
@@ -194,7 +201,7 @@ typedef	enum {
 - (GSMimeParser*) parser;
 - (BOOL) processing;
 - (BOOL) quiet;
-- (GSMimeDocument*) request;
+- (WebServerRequest*) request;
 - (NSTimeInterval) requestDuration: (NSTimeInterval)now;
 - (void) reset;
 - (void) respond;
@@ -231,6 +238,7 @@ typedef	enum {
 - (void) _didConnect: (NSNotification*)notification;
 - (void) _endConnect: (WebServerConnection*)connection;
 - (NSString*) _ioThreadDescription;
+- (BOOL) _incremental: (WebServerConnection*)connection;
 - (void) _listen;
 - (void) _log: (NSString*)fmt, ...;
 - (NSString*) _poolDescription;
@@ -238,6 +246,9 @@ typedef	enum {
 - (void) _process2: (WebServerConnection*)connection;
 - (void) _removeConnection: (WebServerConnection*)connection;
 - (void) _setup;
+- (void) _setIncrementalBytes: (const void*)bytes
+                       length: (NSUInteger)length
+                   forRequest: (WebServerRequest*)request;
 - (NSString*) _xCountRequests;
 - (NSString*) _xCountConnections;
 - (NSString*) _xCountConnectedHosts;

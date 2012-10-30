@@ -25,6 +25,8 @@
 
 #import <Foundation/Foundation.h>
 
+#define WEBSERVERINTERNAL       1
+
 #import "WebServer.h"
 #import "WebServerHTML.h"
 

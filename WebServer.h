@@ -33,9 +33,14 @@
       systems which are intended to control, monitor, or use the services
       provided by the program in which the class is embedded.<br />
       The emphasis is on making it robust/reliable/simple, so you can rapidly
-      develop software using it.  It is a single-threaded, single-process
+      develop software using it.<br />
+      By default, it is a single-threaded, single-process
       system using asynchronous I/O, so you can easily run it under
       debug in gdb to fix any bugs in your delegate object.<br />
+      For performance, it can also operate as a massively multi-threaded
+      process, with separate I/O threads handling groups of hundreds
+      or thousands of simultaneous connections, and a pool of processing
+      threads handling parsing of incoming requests.
     </p>
     <p>
       The class is controlled by a few straightforward settings and
@@ -102,7 +107,7 @@
       of I/O threads instead of occurring in the master thread (makes sense
       if you need to handle a very large number of simultaneous connections).
       In addition, the parsing of the incoming HTTP request and the generation
-      of the raw data of the outgoing response are performed usign threads
+      of the raw data of the outgoing response are performed using threads
       from the thread pool, so that the I/O threads can concentrate on the
       low level communications.
     </p>
@@ -130,6 +135,7 @@
 @class	IOThread;
 @class	WebServer;
 @class	WebServerConfig;
+@class	WebServerRequest;
 @class	WebServerResponse;
 @class	NSArray;
 @class	NSCountedSet;
@@ -154,7 +160,7 @@
 
 /**
  * Process the HTTP request whose headers and data are provided in
- * a GSMimeDocument.<br />
+ * a GSMimeDocument subclass.<br />
  * Extra headers are created as follows -
  * <deflist>
  *   <term>x-http-method</term>
@@ -223,8 +229,8 @@
  * This method is always called in the master thread of your WebServer
  * instance (usually the main thread of your application).
  */
-- (BOOL) processRequest: (GSMimeDocument*)request
-	       response: (GSMimeDocument*)response
+- (BOOL) processRequest: (WebServerRequest*)request
+	       response: (WebServerResponse*)response
 		    for: (WebServer*)http;
 /**
  * Log an error or warning ... if the delegate does not implement this
@@ -271,6 +277,30 @@
  */
 @interface	NSObject(WebServerDelegate)
 
+/* If your delegate implements this method, it will be called before the
+ * first call to handle a request (ie before -preProcessRequest:response:for:
+ * or -processRequest:response:for:) to provide the delegate with the
+ * request header information and allow it to decide whether the request
+ * body should be processed incrementally (return value is YES) or not
+ * (return value is NO).<br />
+ * This method is called <em>before</em> any HTTP basic authentication
+ * is done, and may (if threading is turned on) be called from a thread
+ * other than the master one.<br />
+ * If your delegate turns on incremental parsing for a request, then any
+ * time that more incoming data is read the -processRequest:response:for:
+ * method (preceded by -preProcessRequest:response:for: if it is implemented) 
+ * will be called with the revised request data.   Your code can check to see
+ * if the request is complete by using the -isCompletedRequest: method,
+ * and can check for the latest data added to the request body using the
+ * -incrementalDataForRequest: method.<br />
+ * NB. If the entire incoming request is received from the network in one go,
+ * the -incrementalRequest:for: method may not be called, instead the request
+ * may be passed directly to your -preProcessRequest:response:for: or
+ * -processRequest:response:for: method.
+ */
+- (BOOL) incrementalRequest: (WebServerRequest*)request
+                        for: (WebServer*)http;
+
 /**
  * If your delegate implements this method, it will be called by the
  * -completedWithResponse: method before the response data is actually
@@ -282,8 +312,8 @@
  * NB. if threading is turned on this method may be called from a thread
  * other than the master one.
  */
-- (void) postProcessRequest: (GSMimeDocument*)request
-	           response: (GSMimeDocument*)response
+- (void) postProcessRequest: (WebServerRequest*)request
+	           response: (WebServerResponse*)response
 		        for: (WebServer*)http;
 
 /**
@@ -301,9 +331,10 @@
  * is done, and may (if threading is turned on) be called from a thread
  * other than the master one.
  */
-- (BOOL) preProcessRequest: (GSMimeDocument*)request
-	          response: (GSMimeDocument*)response
+- (BOOL) preProcessRequest: (WebServerRequest*)request
+	          response: (WebServerResponse*)response
 		       for: (WebServer*)http;
+
 @end
 
 /**
@@ -378,6 +409,7 @@
   BOOL			_pad1;
   BOOL			_pad2;
   BOOL			_doAudit;
+  BOOL			_doIncremental;
   NSUInteger		_substitutionLimit;
   NSUInteger		_maxConnections;
   NSUInteger		_maxPerHost;
@@ -394,12 +426,16 @@
   id			_xCountRequests;
   id			_xCountConnections;
   id			_xCountConnectedHosts;
+  NSLock                *_userInfoLock;
+  NSMutableDictionary   *_userInfoMap;
+  NSLock                *_incrementalDataLock;
+  NSMutableDictionary   *_incrementalDataMap;
   void			*_reserved;
 }
 
 /** Returns the base URL used by the remote client to send the request.
  */
-+ (NSURL*) baseURLForRequest: (GSMimeDocument*)request;
++ (NSURL*) baseURLForRequest: (WebServerRequest*)request;
 
 /**
  * Same as the instance method of the same name.
@@ -466,8 +502,8 @@
  * location, otherwise arguments description is taken as a local path to
  * be used with the base URL of the request.
  */
-+ (BOOL) redirectRequest: (GSMimeDocument*)request
-		response: (GSMimeDocument*)response
++ (BOOL) redirectRequest: (WebServerRequest*)request
+		response: (WebServerResponse*)response
 		      to: (id)destination;
 
 /**
@@ -499,14 +535,14 @@
  * };
  * </example>
  */
-- (BOOL) accessRequest: (GSMimeDocument*)request
-	      response: (GSMimeDocument*)response;
+- (BOOL) accessRequest: (WebServerRequest*)request
+	      response: (WebServerResponse*)response;
 
 /**
  * Instructs the server that the connection handlind the current request
  * should be closed once the response has been sent back to the client.
  */
-- (void) closeConnectionAfter: (GSMimeDocument*)response;
+- (void) closeConnectionAfter: (WebServerResponse*)response;
 
 /**
  * <p>This may only be called in the case where a call to the delegate's
@@ -522,7 +558,7 @@
  * the client process.
  * </p>
  */
-- (void) completedWithResponse: (GSMimeDocument*)response;
+- (void) completedWithResponse: (WebServerResponse*)response;
 
 /** Returns an array containing an object representing each connection
  * currently active for this server instance.
@@ -539,7 +575,7 @@
  * NB. For forms POST-ed using <code>multipart/form-data</code> you don't
  * need to perform any explicit decoding as this will already have been
  * done for you and the decoded form will be presented as the request
- * GSMimeDocument.  The fields of the form will be the component parts
+ * GSMimeDocument subclass.  The fields of the form will be the component parts
  * of the content of the request and can be accessed using the standard
  * GSMimeDocument methods.<br />
  * This method returns the number of fields actually decoded.
@@ -568,6 +604,11 @@
  */
 - (NSString*) escapeHTML: (NSString*)str;
 
+/** Returns a data object containing any data read for the body of a
+ * partially read request since the last call for the same request.
+ */
+- (NSData*) incrementalDataForRequest: (WebServerRequest*)request;
+
 /** Initialises the receiver to run on the processes main thread (as
  * returned by [NSThread+mainThread].
  */
@@ -582,6 +623,12 @@
  * to handle the initialisation.
  */
 - (id) initForThread: (NSThread*)aThread;
+
+/** Returns YES if the request has been completely read, NO if it still
+ * needs more data to be read from the client and parsed before it is
+ * complete (ie incremental parsing is in progress).
+ */
+- (BOOL) isCompletedRequest: (WebServerRequest*)request;
 
 /**
  * Returns YES if the server is for HTTPS (encrypted connections),
@@ -603,7 +650,7 @@
  * Values provided as <code>multipart/form-data</code> are also available
  * in a more flexible format as the content of the request.
  */
-- (NSMutableDictionary*) parameters: (GSMimeDocument*)request;
+- (NSMutableDictionary*) parameters: (WebServerRequest*)request;
 
 /**
  * Returns the index'th data parameter for the specified name.<br />
@@ -659,7 +706,7 @@
  * method.  It's unlikely that this method can be as efficient as a dedicated
  * server.  However this mechanism is adequate for moderate throughputs.
  */
-- (BOOL) produceResponse: (GSMimeDocument*)aResponse
+- (BOOL) produceResponse: (WebServerResponse*)aResponse
 	  fromStaticPage: (NSString*)aPath
 		   using: (NSDictionary*)map;
 
@@ -679,7 +726,7 @@
  * can in fact be any object which responds to the [NSDictionary-objectForKey:]
  * message by returning a string or nil.
  */
-- (BOOL) produceResponse: (GSMimeDocument*)aResponse
+- (BOOL) produceResponse: (WebServerResponse*)aResponse
 	    fromTemplate: (NSString*)aPath
 		   using: (NSDictionary*)map;
 
@@ -875,7 +922,7 @@
  * This information may be retrieved later using the -userInfoForRequest:
  * method.
  */
-- (void) setUserInfo: (NSObject*)info forRequest: (GSMimeDocument*)request;
+- (void) setUserInfo: (NSObject*)info forRequest: (WebServerRequest*)request;
 
 /**
  * Sets a flag to determine whether verbose logging is to be performed.<br />
@@ -914,9 +961,27 @@
  * Retrieves additional user information (previously set using the
  * -setUserInfo:forRequest: method) from a request.
  */
-- (NSObject*) userInfoForRequest: (GSMimeDocument*)request;
+- (NSObject*) userInfoForRequest: (WebServerRequest*)request;
 
 @end
+
+#ifndef WEBSERVERINTERNAL
+/** Do not attempt to subclass the WebServerRequest class to add instance
+ * variables ... the public interface is intended to keep your compiler
+ * happy, but does not guarantee that the instance variable layout is
+ * actually what it seems.
+ */
+@interface      WebServerRequest : GSMimeDocument
+@end
+
+/** Do not attempt to subclass the WebServerResponse class to add instance
+ * variables ... the public interface is intended to keep your compiler
+ * happy, but does not guarantee that the instance variable layout is
+ * actually what it seems.
+ */
+@interface      WebServerResponse : GSMimeDocument
+@end
+#endif
 
 #endif
 

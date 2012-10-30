@@ -22,9 +22,12 @@
 
    $Date$ $Revision$
    */ 
-#include	<Foundation/Foundation.h>
-#include	"WebServer.h"
-#include	"WebServerBundles.h"
+#import	<Foundation/Foundation.h>
+
+#define WEBSERVERINTERNAL       1
+
+#import	"WebServer.h"
+#import	"WebServerBundles.h"
 
 @implementation WebServerBundles
 - (void) dealloc
@@ -185,8 +188,8 @@
 /**
  * We handle the incoming requests here.
  */
-- (BOOL) processRequest: (GSMimeDocument*)request
-	       response: (GSMimeDocument*)response
+- (BOOL) processRequest: (WebServerRequest*)request
+	       response: (WebServerResponse*)response
 		    for: (WebServer*)http
 {
   NSString		*path;

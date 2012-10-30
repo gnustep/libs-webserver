@@ -23,13 +23,16 @@
    $Date: 2010-09-17 16:47:13 +0100 (Fri, 17 Sep 2010) $ $Revision: 31364 $
    */ 
 
-#import "WebServer.h"
-#import "Internal.h"
 #import <Foundation/NSDictionary.h>
 #import <Foundation/NSHost.h>
 #import <Foundation/NSLock.h>
 #import <Foundation/NSSet.h>
 #import <Foundation/NSThread.h>
+
+#define WEBSERVERINTERNAL       1
+
+#import "WebServer.h"
+#import "Internal.h"
 
 @interface NSFileHandle (new)
 - (BOOL) sslHandshakeEstablished: (BOOL*)result outgoing: (BOOL)direction;
@@ -38,13 +41,23 @@
 static Class NSDateClass = Nil;
 static Class NSMutableDataClass = Nil;
 static Class NSStringClass = Nil;
+static Class GSMimeDocumentClass = Nil;
+static Class WebServerRequestClass = Nil;
 static Class WebServerResponseClass = Nil;
 
-@implementation	WebServerResponse
+@implementation	WebServerRequest
+
++ (void) initialize
+{
+  if (Nil == WebServerRequestClass)
+    {
+      WebServerRequestClass = [WebServerRequest class];
+    }
+}
 
 - (id) copy
 {
-  return [self copyWithZone: NSDefaultMallocZone()];
+  return [self retain];
 }
 
 - (id) copyWithZone: (NSZone*)z
@@ -57,9 +70,82 @@ static Class WebServerResponseClass = Nil;
   return ((NSUInteger)self)>>2;
 }
 
+- (id) init
+{
+  Class c = [self class];
+
+  [self release];
+  [NSException raise: NSGenericException
+              format: @"[%@-%@] illegal initialisation",
+    NSStringFromClass(c), NSStringFromSelector(_cmd)];
+  return nil;
+}
+
 - (BOOL) isEqual: (id)other
 {
   return (other == self) ? YES : NO;
+}
+
+@end
+
+@implementation	WebServerResponse
+
++ (void) initialize
+{
+  if (Nil == WebServerResponseClass)
+    {
+      WebServerResponseClass = [WebServerResponse class];
+    }
+}
+
+- (id) copy
+{
+  return [self retain];
+}
+
+- (id) copyWithZone: (NSZone*)z
+{
+  return [self retain];
+}
+
+- (NSUInteger) hash
+{
+  return ((NSUInteger)self)>>2;
+}
+
+- (id) init
+{
+  Class c = [self class];
+
+  [self release];
+  [NSException raise: NSGenericException
+              format: @"[%@-%@] illegal initialisation",
+    NSStringFromClass(c), NSStringFromSelector(_cmd)];
+  return nil;
+}
+
+- (id) initWithConnection: (WebServerConnection*)c
+{
+  if (nil != (self = [super init]))
+    {
+      webServerConnection = c;
+    }
+  return self;
+}
+
+- (BOOL) isEqual: (id)other
+{
+  return (other == self) ? YES : NO;
+}
+
+- (BOOL) prepared
+{
+  return prepared;
+}
+
+- (void) setPrepared
+{
+  prepared = YES;
 }
 
 - (void) setWebServerConnection: (WebServerConnection*)c
@@ -83,7 +169,9 @@ static Class WebServerResponseClass = Nil;
       NSDateClass = [NSDate class];
       NSMutableDataClass = [NSMutableData class];
       NSStringClass = [NSString class];
-      WebServerResponseClass = self;
+      GSMimeDocumentClass = [GSMimeDocument class];
+      [WebServerRequest class];
+      [WebServerResponse class];
     }
 }
 
@@ -414,9 +502,9 @@ static Class WebServerResponseClass = Nil;
   return quiet;
 }
 
-- (GSMimeDocument*) request
+- (WebServerRequest*) request
 {
-  return [parser mimeDocument];
+  return (WebServerRequest*)[parser mimeDocument];
 }
 
 - (NSTimeInterval) requestDuration: (NSTimeInterval)now
@@ -435,15 +523,24 @@ static Class WebServerResponseClass = Nil;
 
 - (void) reset
 {
+  WebServerRequest      *r;
+
   hasReset = YES;
   responding = NO;
   simple = NO;
+  hadHeader = NO;
+  hadRequest = NO;
+  incremental = NO;
   DESTROY(command);
+  r = [self request];
+  [server _setIncrementalBytes: 0 length: 0 forRequest: r];
+  [server setUserInfo: nil forRequest: r];
   [response setWebServerConnection: nil];
   DESTROY(response);
   DESTROY(agent);
   DESTROY(result);
   byteCount = 0;
+  bodyLength = 0;
   DESTROY(buffer);
   buffer = [[NSMutableDataClass alloc] initWithCapacity: 1024];
   [self setRequestStart: 0.0];
@@ -458,7 +555,14 @@ static Class WebServerResponseClass = Nil;
   ticked = [NSDateClass timeIntervalSinceReferenceDate];
   responding = YES;
   [self setProcessing: NO];
-
+  if (NO == hadRequest)
+    {
+      /* We haven't actually read an entire request ... so we need to
+       * drop the network connection or we would be out of sync trying
+       * to read the next request.
+       */
+      [self setShouldClose: YES];
+    }
   [response setHeader: @"content-transfer-encoding"
 		value: @"binary"
 	   parameters: nil];
@@ -647,8 +751,8 @@ static Class WebServerResponseClass = Nil;
 {
   if (nil == response)
     {
-      response = [WebServerResponse new];
-      [response setWebServerConnection: self];
+      response = [WebServerResponse allocWithZone: NSDefaultMallocZone()];
+      response = [response initWithConnection: self];
     }
   return response;
 }
@@ -905,18 +1009,38 @@ static Class WebServerResponseClass = Nil;
   return conf->verbose;
 }
 
+#define PROCESS \
+if (YES == incremental) \
+  { \
+    NSData        *d = [parser data]; \
+    const void    *b = [d bytes]; \
+    NSUInteger    l = [d length]; \
+ \
+    if (l > bodyLength) \
+      { \
+        [server _setIncrementalBytes: b + bodyLength \
+                              length: l - bodyLength \
+                          forRequest: doc]; \
+        bodyLength = l; \
+        /* Doing incremental processing ... pass it on but fall through \
+         * to read more data. \
+         */ \
+        [server _process1: self]; \
+      } \
+  }
+
 - (void) _didData: (NSData*)d
 {
   NSString		*method = @"";
   NSString		*query = @"";
   NSString		*path = @"";
   NSString		*version = @"";
-  GSMimeDocument	*doc;
+  WebServerRequest	*doc = nil;
 
   // Mark as having had I/O ... not idle.
   ticked = [NSDateClass timeIntervalSinceReferenceDate];
 
-  if (parser == nil)
+  if (nil == parser)
     {
       uint8_t		*bytes;
       NSUInteger	length;
@@ -1143,7 +1267,8 @@ static Class WebServerResponseClass = Nil;
 	    }
 	  [parser setDefaultCharset: @"utf-8"];
 
-	  doc = [parser mimeDocument];
+	  doc = (WebServerRequest*)[parser mimeDocument];
+          GSClassSwizzle(doc, WebServerRequestClass);
 
 	  [doc setHeader: @"x-http-method"
 		   value: method
@@ -1174,10 +1299,18 @@ static Class WebServerResponseClass = Nil;
 	}
     }
 
-  doc = [parser mimeDocument];
+  if (nil == doc)
+    {
+      doc = [self request];
+    }
   method = [[doc headerNamed: @"x-http-method"] value];
 
-  if ([self moreBytes: [d length]] > conf->maxBodySize)
+  /* Abandon request if the total data read is too long.
+   * NB.  If we are doing incremental parsing then no length is too great
+   * and it's the responsibility of the higher level application to end
+   * the request if too much has been read.
+   */
+  if ([self moreBytes: [d length]] > conf->maxBodySize && NO == incremental)
     {
       NSData	*data;
 
@@ -1192,12 +1325,17 @@ static Class WebServerResponseClass = Nil;
 	      waitUntilDone: NO];
       return;
     }
-  else if ([parser parse: d] == NO)
+
+  if ([parser parse: d] == NO)
     {
       if ([parser isComplete] == YES)
 	{
+          hadRequest = YES;
 	  requestCount++;
-	  [server _process1: self];
+	  [doc setHeader: @"x-webserver-completed"
+                   value: @"YES"
+              parameters: nil];
+	  PROCESS
 	}
       else
 	{
@@ -1212,22 +1350,49 @@ static Class WebServerResponseClass = Nil;
 		       onThread: ioThread->thread
 		     withObject: data
 		  waitUntilDone: NO];
-	  return;
 	}
+      return;
     }
-  else if (([parser isComplete] == YES)
-    || ([parser isInHeaders] == NO && ([method isEqualToString: @"GET"])))
+
+  if ([parser isComplete] == YES)
     {
+      /* Parsing complete ... pass request on.
+       */
+      hadRequest = YES;
       requestCount++;
-      [server _process1: self];
+      [doc setHeader: @"x-webserver-completed"
+               value: @"YES"
+          parameters: nil];
+      PROCESS
+      return;
     }
-  else
+
+  if (NO == [parser isInHeaders])
     {
-      [self performSelector: @selector(_doRead)
-		   onThread: ioThread->thread
-		 withObject: nil
-	      waitUntilDone: NO];
+      if (NO == hadHeader)
+        {
+          hadHeader = YES;
+          if (YES == [method isEqualToString: @"GET"])
+            {
+              /* A GET request has no body ... pass it on now.
+               */
+              hadRequest = YES;
+              requestCount++;
+              [doc setHeader: @"x-webserver-completed"
+                       value: @"YES"
+                  parameters: nil];
+              PROCESS
+              return;
+            }
+          incremental = [server _incremental: self];
+        }
+      PROCESS
     }
+
+  [self performSelector: @selector(_doRead)
+               onThread: ioThread->thread
+             withObject: nil
+          waitUntilDone: NO];
 }
 
 - (void) _didRead: (NSNotification*)notification

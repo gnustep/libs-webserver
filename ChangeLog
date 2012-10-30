@@ -1,3 +1,23 @@
+2012-10-30 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* Internal.h:
+	* WebServer.h:
+	* WebServer.m:
+	* WebServerBundles.h:
+	* WebServerBundles.m:
+	* WebServerConnection.m:
+	* WebServerField.m:
+	* WebServerForm.m:
+	* WebServerHeader.m:
+	* WebServerTable.m:
+	* testWebServer.m:
+        Change to use WebServerRequest and WebServerResponse instances
+        rather than GSMimeDocument ... so we can carry more information
+        than a mime doucment.
+        Add support for incremental handling of incoming requests, allowing
+        the application to handle partially read requests (once the entre
+        header has been read).
+
 2012-10-25 Richard Frith-Macdonald  <rfm@gnu.org>
 
         * Source/WebServer.m: Improve error logging for the case when a

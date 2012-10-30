@@ -126,8 +126,8 @@
  * path after that base part.
  * </p>
  */
-- (BOOL) processRequest: (GSMimeDocument*)request
-               response: (GSMimeDocument*)response
+- (BOOL) processRequest: (WebServerRequest*)request
+               response: (WebServerResponse*)response
 		    for: (WebServer*)http;
 
 /**

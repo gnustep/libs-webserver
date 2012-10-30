@@ -23,6 +23,8 @@
    $Date: 2010-09-17 16:47:13 +0100 (Fri, 17 Sep 2010) $ $Revision: 31364 $
    */ 
 
+#define WEBSERVERINTERNAL       1
+
 #import "WebServer.h"
 #import "Internal.h"
 
@@ -31,14 +33,6 @@
 
 - (id) copyWithZone: (NSZone*)z
 {
-  if (WSHExtra == wshType)
-    {
-      WebServerHeader	*h;
-
-      h = [WebServerHeader allocWithZone: z];
-      h = [h initWithType: wshType andObject: wshObject];
-      return h;
-    }
   return [self retain];
 }
 
@@ -80,10 +74,6 @@
       wshObject = [o retain];
       switch (t)
 	{
-	  case WSHExtra:
-	    name = @"mime-version";
-	    break;
-
 	  case WSHCountRequests:
 	    name = @"x-count-requests";
 	    break;
@@ -178,14 +168,6 @@
   return;
 }
 
-- (void) setWebServerExtra: (NSObject*)data
-{
-  id	o = wshObject;
-
-  wshObject = [data retain];
-  [o release];
-}
-
 - (NSString*) text
 {
   return [NSString stringWithFormat: @"%@: %@\r\n", name, [self value]];
@@ -205,17 +187,10 @@
 	return [(WebServer*)wshObject _xCountConnectedHosts];
 	break;
 
-      case WSHExtra:
-	return @"";
-
       default:
 	return nil;
     }
 }
 
-- (id) webServerExtra
-{
-  return wshObject;
-}
 @end
 

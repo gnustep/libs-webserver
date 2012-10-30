@@ -23,10 +23,13 @@
    $Date$ $Revision$
    */ 
 
-#include <Foundation/Foundation.h>
-#include <Performance/GSThreadPool.h>
-#include "WebServer.h"
-#include "Internal.h"
+#import <Foundation/Foundation.h>
+#import <Performance/GSThreadPool.h>
+
+#define WEBSERVERINTERNAL       1
+
+#import "WebServer.h"
+#import "Internal.h"
 
 #define	MAXCONNECTIONS	10000
 
@@ -131,7 +134,7 @@ unescapeData(const uint8_t *bytes, NSUInteger length, uint8_t *buf)
   return to;
 }
 
-+ (NSURL*) baseURLForRequest: (GSMimeDocument*)request
++ (NSURL*) baseURLForRequest: (WebServerRequest*)request
 {
   NSString	*scheme = [[request headerNamed: @"x-http-scheme"] value];
   NSString	*host = [[request headerNamed: @"host"] value];
@@ -728,8 +731,8 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   return AUTORELEASE(s);
 }
 
-+ (BOOL) redirectRequest: (GSMimeDocument*)request
-		response: (GSMimeDocument*)response
++ (BOOL) redirectRequest: (WebServerRequest*)request
+		response: (WebServerResponse*)response
 		      to: (id)destination
 {
   NSString	*s;
@@ -790,8 +793,8 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   return YES;
 }
 
-- (BOOL) accessRequest: (GSMimeDocument*)request
-	      response: (GSMimeDocument*)response
+- (BOOL) accessRequest: (WebServerRequest*)request
+	      response: (WebServerResponse*)response
 {
   NSDictionary		*conf = [_defs dictionaryForKey: @"WebServerAccess"];
   NSString		*path = [[request headerNamed: @"x-http-path"] value];
@@ -867,14 +870,14 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     }
 }
 
-- (void) closeConnectionAfter: (GSMimeDocument*)response
+- (void) closeConnectionAfter: (WebServerResponse*)response
 {
   [_lock lock];
-  [[(WebServerResponse*)response webServerConnection] setShouldClose: YES];
+  [[response webServerConnection] setShouldClose: YES];
   [_lock unlock];
 }
 
-- (void) completedWithResponse: (GSMimeDocument*)response
+- (void) completedWithResponse: (WebServerResponse*)response
 {
   if (NO == [response isKindOfClass: WebServerResponseClass])
     {
@@ -886,7 +889,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     {
       [_pool scheduleSelector: @selector(_process4:)
 		   onReceiver: self
-		   withObject: (WebServerResponse*)response];
+		   withObject: response];
     }
   else
     {
@@ -894,7 +897,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
       [_lock lock];
       _processingCount--;
-      connection = [[(WebServerResponse*)response webServerConnection] retain];
+      connection = [[response webServerConnection] retain];
       [_lock unlock];
       if (nil == connection)
 	{
@@ -941,6 +944,10 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       DESTROY(_ioMain);
     }
   DESTROY(_ioThreads);
+  DESTROY(_userInfoMap);
+  DESTROY(_incrementalDataMap);
+  DESTROY(_userInfoLock);
+  DESTROY(_incrementalDataLock);
   DESTROY(_connections);
   [super dealloc];
 }
@@ -978,6 +985,26 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   return result;
 }
 
+- (NSData*) incrementalDataForRequest: (WebServerRequest*)request
+{
+  NSMutableData *m;
+  NSData        *d;
+
+  [_incrementalDataLock lock];
+  m = [_incrementalDataMap objectForKey: request];
+  if (0 == [m length])
+    {
+      d = nil;
+    }
+  else
+    {
+      d = [m copy];
+      [m setLength: 0];
+    }
+  [_incrementalDataLock unlock];
+  return [d autorelease];
+}
+
 - (id) init
 {
   return [self initForThread: nil];
@@ -999,6 +1026,11 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   return self;
 }
 
+- (BOOL) isCompletedRequest: (WebServerRequest*)request
+{
+  return [[[request headerNamed: @"x-webserver-completed"] value] boolValue];
+}
+
 - (BOOL) isSecure
 {
   if (_sslConfig == nil)
@@ -1017,7 +1049,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   return [NSString stringWithFormat: @"\nWorkers: %@", _pool];
 }
 
-- (BOOL) produceResponse: (GSMimeDocument*)aResponse
+- (BOOL) produceResponse: (WebServerResponse*)aResponse
 	  fromStaticPage: (NSString*)aPath
 		   using: (NSDictionary*)map
 {
@@ -1096,7 +1128,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   return result;
 }
 
-- (BOOL) produceResponse: (GSMimeDocument*)aResponse
+- (BOOL) produceResponse: (WebServerResponse*)aResponse
 	    fromTemplate: (NSString*)aPath
 		   using: (NSDictionary*)map
 {
@@ -1147,7 +1179,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   return result;
 }
 
-- (NSMutableDictionary*) parameters: (GSMimeDocument*)request
+- (NSMutableDictionary*) parameters: (WebServerRequest*)request
 {
   NSMutableDictionary	*params;
   NSString		*str = [[request headerNamed: @"x-http-query"] value];
@@ -1379,6 +1411,8 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     @selector(preProcessRequest:response:for:)];
   _doPostProcess = [_delegate respondsToSelector:
     @selector(postProcessRequest:response:for:)];
+  _doIncremental = [_delegate respondsToSelector:
+    @selector(incrementalRequest:for:)];
 }
 
 - (void) setDurationLogging: (BOOL)aFlag
@@ -1623,14 +1657,24 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     }
 }
 
-- (void) setUserInfo: (NSObject*)info forRequest: (GSMimeDocument*)request
+- (void) setUserInfo: (NSObject*)info forRequest: (WebServerRequest*)request
 {
-  WebServerHeader	*h;
-
-  h = [WebServerHeaderClass alloc];
-  h = [h initWithType: WSHExtra andObject: info];
-  [request addHeader: h];
-  [h release];
+  if (nil != info && NO == [info isKindOfClass: [NSObject class]])
+    {
+      [NSException raise: NSInvalidArgumentException
+                  format: @"[%@-%@] bad argument",
+        NSStringFromClass([self class]), NSStringFromSelector(_cmd)];
+    }
+  [_userInfoLock lock];
+  if (nil == info)
+    {
+      [_userInfoMap removeObjectForKey: request];
+    }
+  else
+    {
+      [_userInfoMap setObject: info forKey: request];
+    }
+  [_userInfoLock unlock];
 }
 
 - (void) setVerbose: (BOOL)aFlag
@@ -1742,15 +1786,14 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   return YES;
 }
 
-- (NSObject*) userInfoForRequest: (GSMimeDocument*)request
+- (NSObject*) userInfoForRequest: (WebServerRequest*)request
 {
-  id	o = [request headerNamed: @"mime-version"];
+  NSObject      *o;
 
-  if (object_getClass(o) == WebServerHeaderClass)
-    {
-      return [o webServerExtra];
-    }
-  return nil;
+  [_userInfoLock lock];
+  o = [[_userInfoMap objectForKey: request] retain];
+  [_userInfoLock unlock];
+  return [o autorelease];
 }
 
 @end
@@ -1940,7 +1983,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   [_lock lock];
   /* Clear the response so any completion attempt will fail.
    */
-  [(WebServerResponse*)[connection response] setWebServerConnection: nil];
+  [[connection response] setWebServerConnection: nil];
   if (NO == [connection quiet])
     {
       [self _audit: connection];
@@ -2009,21 +2052,13 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   va_end(args);
 }
 
-- (void) _process1: (WebServerConnection*)connection
+- (void) _prepareRequest: (WebServerRequest*)request
+                response: (WebServerResponse*)response
+          withConnection: (WebServerConnection*)connection
 {
   NSFileHandle		*h;
-  GSMimeDocument	*request;
-  WebServerResponse	*response;
   NSString		*str;
   NSString		*con;
-
-  [_lock lock];
-  _processingCount++;
-  [_lock unlock];
-
-  request = [connection request];
-  response = [connection response];
-  [connection setExcess: [[connection parser] excess]];
 
   /*
    * Provide information and update the shared process statistics.
@@ -2038,7 +2073,6 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	       value: str
 	  parameters: nil];
 
-  [connection setProcessing: YES];
   [connection setAgent: [[request headerNamed: @"user-agent"] value]];
 
   /*
@@ -2104,7 +2138,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     @"Basic "] == NSOrderedSame)
     {
       str = [[str substringFromIndex: 6] stringByTrimmingSpaces];
-      str = [GSMimeDocument decodeBase64String: str];
+      str = [GSMimeDocumentClass decodeBase64String: str];
       if ([str length] > 0)
 	{
 	  NSRange	r = [str rangeOfString: @":"];
@@ -2123,8 +2157,54 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	    }
 	}
     }
+}
+
+- (BOOL) _incremental: (WebServerConnection*)connection
+{
+  WebServerRequest	*request;
+  WebServerResponse	*response;
+
+  request = [connection request];
+  response = [connection response];
+  if (NO == [response prepared])
+    {
+      [self _prepareRequest: request
+                   response: response
+             withConnection: connection];
+    }
+
+  if (YES == _doIncremental)
+    {
+      return [_delegate incrementalRequest: request for: self];
+    }
+
+  return NO;
+}
+
+- (void) _process1: (WebServerConnection*)connection
+{
+  WebServerRequest	*request;
+  WebServerResponse	*response;
+
+  request = [connection request];
+  response = [connection response];
+  if (NO == [response prepared])
+    {
+      [self _prepareRequest: request
+                   response: response
+             withConnection: connection];
+    }
+
+  [_lock lock];
+  _processingCount++;
+  [_lock unlock];
 
   [response setContent: [NSDataClass data] type: @"text/plain" name: nil];
+  if (YES == [self isCompletedRequest: request])
+    {
+      [connection setExcess: [[connection parser] excess]];
+    }
+  [connection setProcessing: YES];
 
   if ([_quiet containsObject: [connection address]] == NO)
     {
@@ -2166,7 +2246,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
  */
 - (void) _process2: (WebServerConnection*)connection
 {
-  GSMimeDocument	*request;
+  WebServerRequest	*request;
   WebServerResponse	*response;
   BOOL			processed = YES;
 
@@ -2223,7 +2303,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
  */
 - (void) _process3: (WebServerConnection*)connection
 {
-  GSMimeDocument	*request;
+  WebServerRequest	*request;
   WebServerResponse	*response;
   BOOL			processed = YES;
 
@@ -2267,7 +2347,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
  */
 - (void) _process4: (WebServerResponse*)response
 {
-  GSMimeDocument	*request;
+  WebServerRequest	*request;
   WebServerConnection	*connection;
 
   [_lock lock];
@@ -2312,6 +2392,30 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   [connection release];
 }
 
+- (void) _setIncrementalBytes: (const void*)bytes
+                       length: (NSUInteger)length
+                   forRequest: (WebServerRequest*)request
+{
+  [_incrementalDataLock lock];
+  if (0 == bytes)
+    {
+      [_incrementalDataMap removeObjectForKey: request];
+    }
+  else
+    {
+      NSMutableData     *d = [_incrementalDataMap objectForKey: request];
+
+      if (nil == d)
+        {
+          d = [[NSMutableData alloc] initWithCapacity: length];
+          [_incrementalDataMap setObject: d forKey: request];
+          [d release];
+        }
+      [d appendBytes: bytes length: length];
+    }
+  [_incrementalDataLock unlock];
+}
+
 - (void) _setup
 {
   _reserved = 0;
@@ -2340,6 +2444,10 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   _connections = [NSMutableSet new];
   _perHost = [NSCountedSet new];
   _ioThreads = [NSMutableArray new];
+  _incrementalDataMap = [NSMutableDictionary new];
+  _userInfoMap = [NSMutableDictionary new];
+  _incrementalDataLock = [NSLock new];
+  _userInfoLock = [NSLock new];
 
   /* We need a timer so that the main thread can handle connection
    * timeouts.
