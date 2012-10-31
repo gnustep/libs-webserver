@@ -531,6 +531,9 @@ static Class WebServerResponseClass = Nil;
   hadHeader = NO;
   hadRequest = NO;
   incremental = NO;
+  streaming = NO;
+  chunked = NO;
+  DESTROY(outBuffer);
   DESTROY(command);
   r = [self request];
   [server _setIncrementalBytes: 0 length: 0 forRequest: r];
@@ -548,203 +551,332 @@ static Class WebServerResponseClass = Nil;
   [self setProcessing: NO];
 }
 
-- (void) respond
+- (void) respond: (NSData*)stream
 {
   NSData	*data;
 
   ticked = [NSDateClass timeIntervalSinceReferenceDate];
-  responding = YES;
-  [self setProcessing: NO];
-  if (NO == hadRequest)
-    {
-      /* We haven't actually read an entire request ... so we need to
-       * drop the network connection or we would be out of sync trying
-       * to read the next request.
-       */
-      [self setShouldClose: YES];
-    }
-  [response setHeader: @"content-transfer-encoding"
-		value: @"binary"
-	   parameters: nil];
 
-  if (YES == simple)
+  if (YES == streaming)
     {
-      /*
-       * If we had a 'simple' request with no HTTP version, we must respond
-       * with a 'simple' response ... just the raw data with no headers.
+      /* We are already streaming, so we just need to stream the new data
+       * or to end streaming if there is no new data.
        */
-      data = [response convertToData];
-      [self setResult: @""];
-    } 
+      if (nil == stream)
+        {
+          /* We are stopping streaming.
+           */
+          streaming = NO;
+          if (YES == chunked)
+            {
+              /* Terminate the chunked transfer encoding.
+               */
+              [outBuffer appendBytes: "0\r\n\r\n" length: 5];
+            }
+          chunked = NO;
+          if (NO == responding)
+            {
+              if ([outBuffer length] > 0)
+                {
+                  /* There's still data to be written ... try to do it.
+                   */
+                  responding = YES;
+                  [self performSelector: @selector(_doWrite:)
+                               onThread: ioThread->thread
+                             withObject: data
+                          waitUntilDone: NO];
+                }
+              else
+                {
+                  /* We have finished streaming data, and the last write
+                   * has already completed, so we fake another write
+                   * completion notification to get the end of streaming
+                   * cleanup done.
+                   */
+                  DESTROY(outBuffer);
+                  [self _didWrite:
+                    [NSNotification notificationWithName:
+                      GSFileHandleWriteCompletionNotification
+                      object: handle userInfo: nil]];
+                }
+            }
+        }
+      else
+        {
+          /* Continue streaming.
+           */
+          if (YES == conf->verbose && NO == quiet)
+            {
+              [server _log: @"Response continued %@ - %@", self, stream];
+            }
+          if (YES == chunked)
+            {
+              char      buf[16];
+
+              sprintf(buf, "%X\r\n", [stream length]);
+              [outBuffer appendBytes: buf length: strlen(buf)];
+            }
+          [outBuffer appendData: stream];
+          if (NO == responding)
+            {
+              NSData    *data;
+
+              responding = YES;
+              data = [outBuffer copy];
+              [outBuffer setLength: 0];
+              [self performSelector: @selector(_doWrite:)
+                           onThread: ioThread->thread
+                         withObject: data
+                      waitUntilDone: NO];
+              [data release];
+            }
+        }
+    }
   else
     {
-      NSMutableData	*out;
-      NSMutableData	*raw;
-      uint8_t		*buf;
-      NSUInteger	len;
-      NSUInteger	pos;
-      NSUInteger	contentLength;
-      NSEnumerator	*enumerator;
-      GSMimeHeader	*hdr;
-      NSString		*str;
-
-      raw = [response rawMimeData];
-      buf = [raw mutableBytes];
-      len = [raw length];
-
-      for (pos = 4; pos < len; pos++)
-	{
-	  if (strncmp((char*)&buf[pos-4], "\r\n\r\n", 4) == 0)
-	    {
-	      break;
-	    }
-	}
-      contentLength = len - pos;
-      pos -= 2;
-      [raw replaceBytesInRange: NSMakeRange(0, pos) withBytes: 0 length: 0];
-
-      out = [NSMutableDataClass dataWithCapacity: len + 1024];
-      [response deleteHeaderNamed: @"mime-version"];
-      [response deleteHeaderNamed: @"content-length"];
-      [response deleteHeaderNamed: @"content-encoding"];
-      [response deleteHeaderNamed: @"content-transfer-encoding"];
-      if (contentLength == 0)
-	{
-	  [response deleteHeaderNamed: @"content-type"];
-	}
-      str = [NSStringClass stringWithFormat: @"%u", contentLength];
-      [response setHeader: @"content-length" value: str parameters: nil];
-
-      hdr = [response headerNamed: @"http"];
-      if (hdr == nil)
-	{
-	  const char	*s;
-
-	  if (contentLength == 0)
-	    {
-	      s = "HTTP/1.1 204 No Content\r\n";
-	      [self setResult: @"HTTP/1.1 204 No Content"];
-	    }
-	  else
-	    {
-	      s = "HTTP/1.1 200 Success\r\n";
-	      [self setResult: @"HTTP/1.1 200 Success"];
-	    }
-	  [out appendBytes: s length: strlen(s)];
-	}
-      else
-	{
-	  NSString	*s = [[hdr value] stringByTrimmingSpaces];
-
-	  [self setResult: s];
-	  s = [s stringByAppendingString: @"\r\n"];
-	  [out appendData: [s dataUsingEncoding: NSASCIIStringEncoding]];
-	  [response deleteHeader: hdr];
-	  if ([s hasPrefix: @"HTTP/"] == NO)
-	    {
-	      /* Old browser ... pre HTTP 1.0 ... always close.
-	       */
-	      [self setShouldClose: YES];
-	    }
-	  else if ([[s substringFromIndex: 5] floatValue] < 1.1) 
-	    {
-	      /* This is HTTP 1.0 ...
-	       * we must be prepared to close the connection at once
-	       * unless connection keep-alive has been set.
-	       */
-	      s = [[response headerNamed: @"connection"] value]; 
-	      if (s == nil
-	        || ([s caseInsensitiveCompare: @"keep-alive"] != NSOrderedSame))
-		{
-		  [self setShouldClose: YES];
-		}
-	    }
-	  else if (NO == [self shouldClose])
-	    {
-	      /* Modern browser ... we assume the connection will be
-	       * kept open unless a 'close' has been set.
-	       */
-	      s = [[response headerNamed: @"connection"] value]; 
-	      if (nil != s)
-		{
-		  s = [s lowercaseString];
-		  if ([s compare: @"close"] == NSOrderedSame)
-		    {
-		      [self setShouldClose: YES];
-		    }
-		  else if ([s length] > 5)
-		    {
-		      NSEnumerator	*e;
-
-		      e = [[s componentsSeparatedByString: @","]
-			objectEnumerator];
-		      while (nil != (s = [e nextObject]))
-			{
-			  s = [s stringByTrimmingSpaces];
-			  if ([s compare: @"close"] == NSOrderedSame)
-			    {
-			      [self setShouldClose: YES];
-			    }
-			}
-		    }
-		}
-	    }
-	}
-
-      /* We will close this connection if the maximum number of requests
-       * or maximum request duration has been exceeded or if the keepalive
-       * limit for the tthread has been reached.
-       */
-      if (requests >= conf->maxConnectionRequests)
-	{
-	  [self setShouldClose: YES];
-	}
-      else if (duration >= conf->maxConnectionDuration)
-	{
-	  [self setShouldClose: YES];
-	}
-      else if (ioThread->keepaliveCount >= ioThread->keepaliveMax)
-	{
-	  [self setShouldClose: YES];
-	}
-
-      /* Ensure that we send a connection close if we are about to drop
-       * the connection.
-       */
-      if ([self shouldClose] == YES)
+      responding = YES;
+      [self setProcessing: NO];
+      if (NO == hadRequest)
         {
-	  [response setHeader: @"Connection"
-			value: @"close"
-		   parameters: nil];
-	}
+          /* We haven't actually read an entire request ... so we need to
+           * drop the network connection or we would be out of sync trying
+           * to read the next request.
+           */
+          [self setShouldClose: YES];
+        }
+      [response setHeader: @"content-transfer-encoding"
+                    value: @"binary"
+               parameters: nil];
 
-      enumerator = [[response allHeaders] objectEnumerator];
-      while ((hdr = [enumerator nextObject]) != nil)
-	{
-	  [out appendData: [hdr rawMimeData]];
-	}
-      if ([raw length] > 0)
-	{
-	  [out appendData: raw];
-	}
+      if (YES == simple)
+        {
+          /*
+           * If we had a 'simple' request with no HTTP version, we must respond
+           * with a 'simple' response ... just the raw data with no headers.
+           */
+          if (nil == stream)
+            {
+              data = [response convertToData];
+            }
+          else
+            {
+              streaming = YES;
+              data = stream;
+            }
+          [self setResult: @""];
+        } 
       else
-	{
-	  [out appendBytes: "\r\n" length: 2];	// Terminate headers
-	}
-      data = out;
-    }
+        {
+          NSMutableData	*out;
+          NSMutableData	*raw;
+          uint8_t	*buf;
+          NSUInteger	len;
+          NSUInteger	pos;
+          NSUInteger	contentLength;
+          NSEnumerator	*enumerator;
+          GSMimeHeader	*hdr;
+          NSString	*str;
 
-  if (YES == conf->verbose && NO == quiet)
-    {
-      [server _log: @"Response %@ - %@", self, data];
+          if (nil == stream)
+            {
+              raw = [response rawMimeData];
+              buf = [raw mutableBytes];
+              len = [raw length];
+
+              for (pos = 4; pos < len; pos++)
+                {
+                  if (strncmp((char*)&buf[pos-4], "\r\n\r\n", 4) == 0)
+                    {
+                      break;
+                    }
+                }
+              contentLength = len - pos;
+              [raw replaceBytesInRange: NSMakeRange(0, pos)
+                             withBytes: 0
+                                length: 0];
+              data = raw;
+            }
+          else
+            {
+              data = stream;
+              len = [data length] + 1024;
+            }
+          out = [NSMutableDataClass dataWithCapacity: len + 1024];
+          [response deleteHeaderNamed: @"mime-version"];
+          [response deleteHeaderNamed: @"content-length"];
+          [response deleteHeaderNamed: @"content-encoding"];
+          [response deleteHeaderNamed: @"content-transfer-encoding"];
+          if (nil != stream)
+            {
+              [response setHeader: @"transfer-encoding"
+                            value: str
+                       parameters: nil];
+              streaming = YES;
+              chunked = YES;
+            }
+          else
+            {
+              [response deleteHeaderNamed: @"transfer-encoding"];
+            }
+
+          if (NO == streaming)
+            {
+              if (0 == contentLength)
+                {
+                  [response deleteHeaderNamed: @"content-type"];
+                }
+              str = [NSStringClass stringWithFormat: @"%u", contentLength];
+              [response setHeader: @"content-length"
+                            value: str
+                       parameters: nil];
+            }
+
+          hdr = [response headerNamed: @"http"];
+          if (hdr == nil)
+            {
+              const char	*s;
+
+              if (0 == contentLength && NO == streaming)
+                {
+                  s = "HTTP/1.1 204 No Content\r\n";
+                  [self setResult: @"HTTP/1.1 204 No Content"];
+                }
+              else
+                {
+                  s = "HTTP/1.1 200 Success\r\n";
+                  [self setResult: @"HTTP/1.1 200 Success"];
+                }
+              [out appendBytes: s length: strlen(s)];
+            }
+          else
+            {
+              NSString	*s = [[hdr value] stringByTrimmingSpaces];
+
+              [self setResult: s];
+              s = [s stringByAppendingString: @"\r\n"];
+              [out appendData: [s dataUsingEncoding: NSASCIIStringEncoding]];
+              [response deleteHeader: hdr];
+              if ([s hasPrefix: @"HTTP/"] == NO)
+                {
+                  /* Old browser ... pre HTTP 1.0 ... always close.
+                   */
+                  [self setShouldClose: YES];
+                  if (YES == chunked)
+                    {
+                      [response deleteHeaderNamed: @"transfer-encoding"];
+                      chunked = NO;
+                    }
+                }
+              else if ([[s substringFromIndex: 5] floatValue] < 1.1) 
+                {
+                  /* This is HTTP 1.0 ...
+                   * we must be prepared to close the connection at once
+                   * unless connection keep-alive has been set.
+                   */
+                  s = [[response headerNamed: @"connection"] value]; 
+                  if (s == nil
+                    || ([s caseInsensitiveCompare: @"keep-alive"]
+                      != NSOrderedSame))
+                    {
+                      [self setShouldClose: YES];
+                    }
+                  if (YES == chunked)
+                    {
+                      [response deleteHeaderNamed: @"transfer-encoding"];
+                      chunked = NO;
+                    }
+                }
+              else if (NO == [self shouldClose])
+                {
+                  /* Modern browser ... we assume the connection will be
+                   * kept open unless a 'close' has been set.
+                   */
+                  s = [[response headerNamed: @"connection"] value]; 
+                  if (nil != s)
+                    {
+                      s = [s lowercaseString];
+                      if ([s compare: @"close"] == NSOrderedSame)
+                        {
+                          [self setShouldClose: YES];
+                        }
+                      else if ([s length] > 5)
+                        {
+                          NSEnumerator	*e;
+
+                          e = [[s componentsSeparatedByString: @","]
+                            objectEnumerator];
+                          while (nil != (s = [e nextObject]))
+                            {
+                              s = [s stringByTrimmingSpaces];
+                              if ([s compare: @"close"] == NSOrderedSame)
+                                {
+                                  [self setShouldClose: YES];
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+          /* We will close this connection if the maximum number of requests
+           * or maximum request duration has been exceeded or if the keepalive
+           * limit for the tthread has been reached.
+           */
+          if (requests >= conf->maxConnectionRequests)
+            {
+              [self setShouldClose: YES];
+            }
+          else if (duration >= conf->maxConnectionDuration)
+            {
+              [self setShouldClose: YES];
+            }
+          else if (ioThread->keepaliveCount >= ioThread->keepaliveMax)
+            {
+              [self setShouldClose: YES];
+            }
+
+          /* Ensure that we send a connection close if we are about to drop
+           * the connection.
+           */
+          if ([self shouldClose] == YES)
+            {
+              [response setHeader: @"Connection"
+                            value: @"close"
+                       parameters: nil];
+            }
+
+          enumerator = [[response allHeaders] objectEnumerator];
+          while ((hdr = [enumerator nextObject]) != nil)
+            {
+              [out appendData: [hdr rawMimeData]];
+            }
+          [out appendBytes: "\r\n" length: 2];	// Terminate headers
+          if ([data length] > 0)
+            {
+              if (YES == chunked)
+                {
+                  char      buf[16];
+
+                  sprintf(buf, "%X\r\n", [raw length]);
+                  [out appendBytes: buf length: strlen(buf)];
+                }
+              [out appendData: raw];
+            }
+          data = out;
+        }
+
+      [nc removeObserver: self
+                    name: NSFileHandleReadCompletionNotification
+                  object: handle];
+      if (YES == conf->verbose && NO == quiet)
+        {
+          [server _log: @"Response %@ - %@", self, data];
+        }
+      [self performSelector: @selector(_doWrite:)
+                   onThread: ioThread->thread
+                 withObject: data
+              waitUntilDone: NO];
     }
-  [nc removeObserver: self
-		name: NSFileHandleReadCompletionNotification
-	      object: handle];
-  [self performSelector: @selector(_doWrite:)
-	       onThread: ioThread->thread
-	     withObject: data
-	  waitUntilDone: NO];
 }
 
 - (WebServerResponse*) response
@@ -1033,8 +1165,7 @@ else if (YES == hadRequest) \
     [server _process1: self]; \
   }
 
-- (void) _didData: (NSData*)d
-{
+- (void) _didData: (NSData*)d {
   NSString		*method = @"";
   NSString		*query = @"";
   NSString		*path = @"";
@@ -1494,62 +1625,95 @@ else if (YES == hadRequest) \
 
   responding = NO;
   err = [[notification userInfo] objectForKey: GSFileHandleNotificationError];
-  if ([self shouldClose] == YES)
+  if ([self shouldClose] == YES && nil == outBuffer)
     {
       [self end];
       return;
     }
   else if (nil == err)
     {
-      NSTimeInterval	t = [self requestDuration: now];
-      NSData		*more;
+      if (nil == outBuffer)
+        {
+          NSTimeInterval	t = [self requestDuration: now];
+          NSData		*more;
 
-      if (t > 0.0)
-	{
-	  [self setRequestEnd: now];
-	  if (NO == quiet && YES == conf->durations)
-	    {
-	      [server _log: @"%@ end of request (duration %g)", self, t];
-	    }
-	}
+          if (t > 0.0)
+            {
+              [self setRequestEnd: now];
+              if (NO == quiet && YES == conf->durations)
+                {
+                  [server _log: @"%@ end of request (duration %g)", self, t];
+                }
+            }
+          else
+            {
+              if (NO == quiet && YES == conf->durations)
+                {
+                  [server _log: @"%@ reset", self];
+                }
+            }
+          if (NO == quiet)
+            {
+              [server _audit: self];
+            }
+          [self reset];
+
+          [self _keepalive];
+
+          more = [self excess];
+          [nc addObserver: self
+                 selector: @selector(_didRead:)
+                     name: NSFileHandleReadCompletionNotification
+                   object: handle];
+          if (nil != more)
+            {
+              /* Use pipelined data to start new request.
+               */
+              [more retain];
+              [self setExcess: nil];
+              [self _didData: more];
+              [more release];
+            }
+          else
+            {
+              /* Start reading a new request.
+               */
+              [self performSelector: @selector(_doRead)
+                           onThread: ioThread->thread
+                         withObject: nil
+                      waitUntilDone: NO];
+            }
+        }
       else
-	{
-	  if (NO == quiet && YES == conf->durations)
-	    {
-	      [server _log: @"%@ reset", self];
-	    }
-	}
-      if (NO == quiet)
-	{
-          [server _audit: self];
-	}
-      [self reset];
+        {
+          /* We are streaming data ... if there is any ready we write it now,
+           * otherwise the connection becomes idle until more data is added.
+           */
+          if ([outBuffer length] > 0)
+            {
+              NSData    *data;
 
-      [self _keepalive];
-
-      more = [self excess];
-      [nc addObserver: self
-	     selector: @selector(_didRead:)
-		 name: NSFileHandleReadCompletionNotification
-	       object: handle];
-      if (nil != more)
-	{
-	  /* Use pipelined data to start new request.
-	   */
-	  [more retain];
-	  [self setExcess: nil];
-          [self _didData: more];
-	  [more release];
-	}
-      else
-	{
-	  /* Start reading a new request.
-	   */
-	  [self performSelector: @selector(_doRead)
-		       onThread: ioThread->thread
-		     withObject: nil
-		  waitUntilDone: NO];
-	}
+              if (YES == streaming)
+                {
+                  data = [outBuffer copy];
+                  [outBuffer setLength: 0];
+                }
+              else
+                {
+                  /* Streaming is ended ... write the last data and then we
+                   * will be done.
+                   */
+                  data = outBuffer;
+                  outBuffer = nil;
+                }
+              responding = YES;
+              [self performSelector: @selector(_doWrite:)
+                           onThread: ioThread->thread
+                         withObject: data
+                      waitUntilDone: NO];
+              [data release];
+            }
+        }
     }
   else
     {

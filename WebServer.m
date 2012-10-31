@@ -909,7 +909,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	}
       else
 	{
-	  [_pool scheduleSelector: @selector(respond)
+	  [_pool scheduleSelector: @selector(respond:)
 		       onReceiver: connection
 		       withObject: nil];
 	  [connection release];
@@ -1690,6 +1690,45 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	}
       [_conf release];
       _conf = c;
+    }
+}
+
+- (BOOL) streamData: (NSData*)data withResponse: (WebServerResponse*)response
+{
+  WebServerConnection	*connection;
+
+  if (NO == [data isKindOfClass: [NSData class]] || 0 == [data length])
+    {
+      [NSException raise: NSInvalidArgumentException
+        format: @"[%@-%@] data argument is not valid for streaming",
+        NSStringFromClass([self class]), NSStringFromSelector(_cmd)];
+    }
+  if (NO == [response isKindOfClass: WebServerResponseClass])
+    {
+      [NSException raise: NSInvalidArgumentException
+        format: @"[%@-%@] argument is not a valid response object",
+        NSStringFromClass([self class]), NSStringFromSelector(_cmd)];
+    }
+
+  [_lock lock];
+  connection = [[response webServerConnection] retain];
+  [_lock unlock];
+  if (nil == connection)
+    {
+      if (YES == _conf->verbose)
+        {
+          [self _log: @"The client has already closed the connection"
+            @" for response: %@", response];
+        }
+      return NO;
+    }
+  else
+    {
+      [_pool scheduleSelector: @selector(respond:)
+                   onReceiver: connection
+                   withObject: data];
+      [connection release];
+      return YES;
     }
 }
 

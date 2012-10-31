@@ -547,7 +547,7 @@
  * <p>This may only be called in the case where a call to the delegate's
  * [(WebServerDelegate)-processRequest:response:for:] method
  * to process a request returned NO, indicating that the delegate
- * would handle the request in another thread and complete it later.
+ * would handle the request asynchronously and complete it later.
  * </p>
  * <p>In such a case, the thread handling the request in the delegate
  * <em>must</em> call this method upon completion (passing in the same
@@ -555,6 +555,10 @@
  * WebServer instance that processing of the request has been completed
  * and that it should now take over the job of sending the response to
  * the client process.
+ * </p>
+ * <p>If the -streamData:withResponse: method has been called with the
+ * supplied response object, calling this method terminated the streamed
+ * response to the client.
  * </p>
  */
 - (void) completedWithResponse: (WebServerResponse*)response;
@@ -932,6 +936,26 @@
  * This is useful for debugging and where a full audit trail is required.
  */
 - (void) setVerbose: (BOOL)aFlag;
+
+/**
+ * <p>This may only be called in the case where a call to the delegate's
+ * [(WebServerDelegate)-processRequest:response:for:] method
+ * to process a request returned NO, indicating that the delegate
+ * would handle the request asynchronously and complete it later.
+ * </p>
+ * <p>In this case the response content should be empty, and instead of
+ * sending the response in one go the server will send the response header
+ * followed by the supplied data.  Subsequent calls to this method using
+ * the same response object will send more data to the client.<br />
+ * The code which calls this method <em>must</em> terminate the sequence
+ * of calls with a call to the -completedWithResponse: method.
+ * </p>
+ * <p>The method returns YES is the data is scheduled for sending to the
+ * client, NO if the client has already dropped the connection and there
+ * is no point attempting to stream more data.
+ * </p>
+ */
+- (BOOL) streamData: (NSData*)data withResponse: (WebServerResponse*)response;
 
 /**
  * Perform substitutions replacing the markup in aTemplate with the

@@ -173,7 +173,10 @@ typedef	enum {
   BOOL			quiet;		// Suppress log of warning/debug info?
   BOOL			ssl;		// Should perform SSL negotiation?
   BOOL			responding;	// Writing to remote system
+  BOOL			streaming;	// Need to write more data?
+  BOOL                  chunked;        // Stream in chunks?
   uint32_t              incremental;    // Incremental parsing of request?
+  NSMutableData         *outBuffer;
 @public
   NSTimeInterval	ticked;
   NSTimeInterval	extended;
@@ -204,7 +207,7 @@ typedef	enum {
 - (WebServerRequest*) request;
 - (NSTimeInterval) requestDuration: (NSTimeInterval)now;
 - (void) reset;
-- (void) respond;
+- (void) respond: (NSData*)stream;
 - (WebServerResponse*) response;
 - (void) run;
 - (void) setAddress: (NSString*)aString;
