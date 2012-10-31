@@ -2159,7 +2159,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     }
 }
 
-- (BOOL) _incremental: (WebServerConnection*)connection
+- (uint32_t) _incremental: (WebServerConnection*)connection
 {
   WebServerRequest	*request;
   WebServerResponse	*response;
@@ -2175,10 +2175,15 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
   if (YES == _doIncremental)
     {
-      return [_delegate incrementalRequest: request for: self];
+      uint32_t  i = [_delegate incrementalRequest: request for: self];
+
+      if (i > 1024 * 1024)
+        {
+          i = 1024 * 1024;
+        }
     }
 
-  return NO;
+  return 0;
 }
 
 - (void) _process1: (WebServerConnection*)connection
@@ -2392,14 +2397,15 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   [connection release];
 }
 
-- (void) _setIncrementalBytes: (const void*)bytes
-                       length: (NSUInteger)length
-                   forRequest: (WebServerRequest*)request
+- (NSUInteger) _setIncrementalBytes: (const void*)bytes
+                             length: (NSUInteger)length
+                         forRequest: (WebServerRequest*)request
 {
   [_incrementalDataLock lock];
   if (0 == bytes)
     {
       [_incrementalDataMap removeObjectForKey: request];
+      length = 0;
     }
   else
     {
@@ -2412,8 +2418,10 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
           [d release];
         }
       [d appendBytes: bytes length: length];
+      length = [d length];
     }
   [_incrementalDataLock unlock];
+  return length;
 }
 
 - (void) _setup

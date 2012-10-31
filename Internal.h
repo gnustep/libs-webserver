@@ -170,10 +170,10 @@ typedef	enum {
   BOOL			simple;
   BOOL                  hadHeader;      // Header has been completely read?
   BOOL                  hadRequest;     // Request has been completely read?
-  BOOL                  incremental;    // Incremental parsing of request?
   BOOL			quiet;		// Suppress log of warning/debug info?
   BOOL			ssl;		// Should perform SSL negotiation?
   BOOL			responding;	// Writing to remote system
+  uint32_t              incremental;    // Incremental parsing of request?
 @public
   NSTimeInterval	ticked;
   NSTimeInterval	extended;
@@ -238,7 +238,7 @@ typedef	enum {
 - (void) _didConnect: (NSNotification*)notification;
 - (void) _endConnect: (WebServerConnection*)connection;
 - (NSString*) _ioThreadDescription;
-- (BOOL) _incremental: (WebServerConnection*)connection;
+- (uint32_t) _incremental: (WebServerConnection*)connection;
 - (void) _listen;
 - (void) _log: (NSString*)fmt, ...;
 - (NSString*) _poolDescription;
@@ -246,9 +246,9 @@ typedef	enum {
 - (void) _process2: (WebServerConnection*)connection;
 - (void) _removeConnection: (WebServerConnection*)connection;
 - (void) _setup;
-- (void) _setIncrementalBytes: (const void*)bytes
-                       length: (NSUInteger)length
-                   forRequest: (WebServerRequest*)request;
+- (NSUInteger) _setIncrementalBytes: (const void*)bytes
+                             length: (NSUInteger)length
+                         forRequest: (WebServerRequest*)request;
 - (NSString*) _xCountRequests;
 - (NSString*) _xCountConnections;
 - (NSString*) _xCountConnectedHosts;

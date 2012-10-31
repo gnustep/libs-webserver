@@ -1010,7 +1010,7 @@ static Class WebServerResponseClass = Nil;
 }
 
 #define PROCESS \
-if (YES == incremental) \
+if (incremental > 0) \
   { \
     NSData        *d = [parser data]; \
     const void    *b = [d bytes]; \
@@ -1018,15 +1018,19 @@ if (YES == incremental) \
  \
     if (l > bodyLength) \
       { \
-        [server _setIncrementalBytes: b + bodyLength \
-                              length: l - bodyLength \
-                          forRequest: doc]; \
+        NSUInteger buffered = [server _setIncrementalBytes: b + bodyLength \
+                                                    length: l - bodyLength \
+                                                forRequest: doc]; \
         bodyLength = l; \
-        /* Doing incremental processing ... pass it on but fall through \
-         * to read more data. \
-         */ \
-        [server _process1: self]; \
+        if (YES == hadRequest || buffered >= incremental) \
+          { \
+            [server _process1: self]; \
+          } \
       } \
+  } \
+else if (YES == hadRequest) \
+  { \
+    [server _process1: self]; \
   }
 
 - (void) _didData: (NSData*)d
@@ -1328,9 +1332,13 @@ if (YES == incremental) \
 
   if ([parser parse: d] == NO)
     {
-      if ([parser isComplete] == YES)
+      if (YES == (hadRequest = [parser isComplete]))
 	{
-          hadRequest = YES;
+          if (NO == hadHeader)
+            {
+              hadHeader = YES;
+              incremental = [server _incremental: self];
+            }
 	  requestCount++;
 	  [doc setHeader: @"x-webserver-completed"
                    value: @"YES"
@@ -1354,11 +1362,15 @@ if (YES == incremental) \
       return;
     }
 
-  if ([parser isComplete] == YES)
+  if (YES == (hadRequest = [parser isComplete]))
     {
       /* Parsing complete ... pass request on.
        */
-      hadRequest = YES;
+      if (NO == hadHeader)
+        {
+          hadHeader = YES;
+          incremental = [server _incremental: self];
+        }
       requestCount++;
       [doc setHeader: @"x-webserver-completed"
                value: @"YES"
@@ -1372,6 +1384,7 @@ if (YES == incremental) \
       if (NO == hadHeader)
         {
           hadHeader = YES;
+          incremental = [server _incremental: self];
           if (YES == [method isEqualToString: @"GET"])
             {
               /* A GET request has no body ... pass it on now.
@@ -1384,7 +1397,6 @@ if (YES == incremental) \
               PROCESS
               return;
             }
-          incremental = [server _incremental: self];
         }
       PROCESS
     }

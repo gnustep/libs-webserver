@@ -281,25 +281,24 @@
  * first call to handle a request (ie before -preProcessRequest:response:for:
  * or -processRequest:response:for:) to provide the delegate with the
  * request header information and allow it to decide whether the request
- * body should be processed incrementally (return value is YES) or not
- * (return value is NO).<br />
+ * body should be processed incrementally (return value is non-zero) or not
+ * (return value is zero).  The returned value is the treateed as a guide
+ * to how much request data should be buffered at a time.<br />
  * This method is called <em>before</em> any HTTP basic authentication
  * is done, and may (if threading is turned on) be called from a thread
  * other than the master one.<br />
  * If your delegate turns on incremental parsing for a request, then any
- * time that more incoming data is read the -processRequest:response:for:
- * method (preceded by -preProcessRequest:response:for: if it is implemented) 
- * will be called with the revised request data.   Your code can check to see
- * if the request is complete by using the -isCompletedRequest: method,
- * and can check for the latest data added to the request body using the
- * -incrementalDataForRequest: method.<br />
- * NB. If the entire incoming request is received from the network in one go,
- * the -incrementalRequest:for: method may not be called, instead the request
- * may be passed directly to your -preProcessRequest:response:for: or
- * -processRequest:response:for: method.
+ * time that more incoming data is read, the web server class will look
+ * at how much data it has and decide (based on the return value from this
+ * method) to call your  -processRequest:response:for: method (preceded
+ * by -preProcessRequest:response:for: if it is implemented) so that you 
+ * can handle the new request data.<br />
+ * Your code can check to see if the request is complete by using the
+ * -isCompletedRequest: method, and can check for the latest data added
+ * to the request body using the * -incrementalDataForRequest: method.
  */
-- (BOOL) incrementalRequest: (WebServerRequest*)request
-                        for: (WebServer*)http;
+- (uint32_t) incrementalRequest: (WebServerRequest*)request
+                            for: (WebServer*)http;
 
 /**
  * If your delegate implements this method, it will be called by the
