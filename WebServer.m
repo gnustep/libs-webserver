@@ -1092,6 +1092,10 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       type = @"application/octet-stream";
     }
   string = [type hasPrefix: @"text/"];
+  if (NO == string && [type isEqualToString: @"application/json"])
+    {
+      string = YES;     // A JSON document is actually text
+    }
 
   path = [path stringByAppendingString: @"/"];
   str = [path stringByStandardizingPath];
@@ -1108,7 +1112,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       [self _log: @"Can't read static page '%@' ('%@')", aPath, path];
       result = NO;
     }
-  else if (string == YES
+  else if (YES == string
     && (data = [NSStringClass stringWithContentsOfFile: path]) == nil)
     {
       [self _log: @"Failed to load string '%@' ('%@')", aPath, path];

@@ -1198,9 +1198,9 @@ else if (YES == hadRequest) \
       bytes = [buffer mutableBytes];
       length = [buffer length];
 
-      /*
-       * Some buggy browsers/libraries add a CR-LF after POSTing data,
-       * so if we are using a connection which has been kept alive,
+      /* Some browsers/libraries add a CR-LF after POSTing data,
+       * while others do not.
+       * If we are using a connection which has been kept alive,
        * we must eat up that initial white space.
        */
       while (length > 0 && isspace(bytes[0]))
