@@ -2,6 +2,7 @@
 
         * WebServer.m: Allow for the fact that a json document is a string
 	* WebServerConnection.m: 64bit system integer printout fix.
+        * GNUmakefile: bump version pending new release.
 
 2012-10-31 Richard Frith-Macdonald  <rfm@gnu.org>
 
