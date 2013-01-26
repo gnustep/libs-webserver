@@ -613,7 +613,7 @@ static Class WebServerResponseClass = Nil;
             {
               char      buf[16];
 
-              sprintf(buf, "%X\r\n", [stream length]);
+              sprintf(buf, "%"PRIXPTR"\r\n", [stream length]);
               [outBuffer appendBytes: buf length: strlen(buf)];
             }
           [outBuffer appendData: stream];
@@ -857,7 +857,7 @@ static Class WebServerResponseClass = Nil;
                 {
                   char      buf[16];
 
-                  sprintf(buf, "%X\r\n", [raw length]);
+                  sprintf(buf, "%"PRIXPTR"\r\n", [raw length]);
                   [out appendBytes: buf length: strlen(buf)];
                 }
               [out appendData: raw];
