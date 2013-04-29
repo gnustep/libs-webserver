@@ -397,8 +397,8 @@
   NSMutableArray	*_ioThreads;
   GSThreadPool		*_pool;
   WebServerConfig	*_conf;
-  NSArray		*_quiet;
-  NSArray		*_hosts;
+  id		        *_unused1;
+  id		        *_unused2;
   NSDictionary		*_sslConfig;
   BOOL			_accepting;
   BOOL			_doPostProcess;

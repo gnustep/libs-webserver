@@ -1903,6 +1903,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       WebServerConnection	*connection;
       NSString			*address;
       NSString			*refusal;
+      NSArray                   *hosts;
       BOOL			quiet;
       BOOL			ssl;
       IOThread			*ioThread = nil;
@@ -1948,7 +1949,8 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	{
 	  refusal = @"HTTP/1.0 403 Unable to determine client host address";
 	}
-      else if (_hosts != nil && [_hosts containsObject: address] == NO)
+      else if (nil != (hosts = [_defs arrayForKey: @"WebServerHosts"])
+        && [hosts containsObject: address] == NO)
 	{
 	  refusal = @"HTTP/1.0 403 Not a permitted client host";
 	}
@@ -1966,7 +1968,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	{
 	  refusal = nil;
 	}
-      quiet = [_quiet containsObject: address];
+      quiet = [[_defs arrayForKey: @"WebServerQuiet"] containsObject: address];
 
       /* Find the I/O thread handling the fewest connections and use that.
        */
@@ -2254,7 +2256,8 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     }
   [connection setProcessing: YES];
 
-  if ([_quiet containsObject: [connection address]] == NO)
+  if ([[_defs arrayForKey: @"WebServerQuiet"]
+    containsObject: [connection address]] == NO)
     {
       [_lock lock];
       _requests++;
@@ -2480,8 +2483,6 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   _pool = [GSThreadPool new];
   [_pool setThreads: 0];
   _defs = [[NSUserDefaults standardUserDefaults] retain];
-  _quiet = [[_defs arrayForKey: @"WebServerQuiet"] copy];
-  _hosts = [[_defs arrayForKey: @"WebServerHosts"] copy];
   _conf = [WebServerConfig new];
   _conf->reverse = [_defs boolForKey: @"ReverseHostLookup"];
   _conf->permittedMethods = [defaultPermittedMethods copy];
