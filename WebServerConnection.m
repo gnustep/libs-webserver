@@ -583,7 +583,7 @@ static Class WebServerResponseClass = Nil;
                   responding = YES;
                   [self performSelector: @selector(_doWrite:)
                                onThread: ioThread->thread
-                             withObject: data
+                             withObject: outBuffer
                           waitUntilDone: NO];
                 }
               else
@@ -709,7 +709,7 @@ static Class WebServerResponseClass = Nil;
           if (nil != stream)
             {
               [response setHeader: @"transfer-encoding"
-                            value: str
+                            value: @"chunked"
                        parameters: nil];
               streaming = YES;
               chunked = YES;
