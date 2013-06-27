@@ -1,3 +1,9 @@
+2013-06-27 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServerConnection.m: Fix subtle bug handling connections kept
+        alive when the remote end sent an extra CRLF at the end of the
+        preceding request.
+
 2013-01-26 Richard Frith-Macdonald  <rfm@gnu.org>
 
         * WebServer.m: Allow for the fact that a json document is a string

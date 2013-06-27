@@ -408,7 +408,7 @@ static Class WebServerResponseClass = Nil;
     {
       if (NO == quiet)
 	{
-	  [server _log: @"SSL accept fail on (%@).", address];
+	  [server _log: @"%@ SSL accept fail on (%@).", self, address];
 	}
       [self end];
       return;
@@ -545,7 +545,6 @@ static Class WebServerResponseClass = Nil;
   byteCount = 0;
   bodyLength = 0;
   DESTROY(buffer);
-  buffer = [[NSMutableDataClass alloc] initWithCapacity: 1024];
   [self setRequestStart: 0.0];
   [self setParser: nil];
   [self setProcessing: NO];
@@ -904,7 +903,6 @@ static Class WebServerResponseClass = Nil;
 
   if (nil == result)
     {
-      buffer = [[NSMutableDataClass alloc] initWithCapacity: 1024];
       [nc addObserver: self
 	     selector: @selector(_didRead:)
 		 name: NSFileHandleReadCompletionNotification
@@ -1165,7 +1163,8 @@ else if (YES == hadRequest) \
     [server _process1: self]; \
   }
 
-- (void) _didData: (NSData*)d {
+- (void) _didData: (NSData*)d
+{
   NSString		*method = @"";
   NSString		*query = @"";
   NSString		*path = @"";
@@ -1194,6 +1193,10 @@ else if (YES == hadRequest) \
        * Add new data to any we already have and search for the end
        * of the initial request line.
        */
+      if (nil == buffer)
+	{
+	  buffer = [[NSMutableDataClass alloc] initWithCapacity: 1024];
+	}
       [buffer appendData: d];
       bytes = [buffer mutableBytes];
       length = [buffer length];
@@ -1227,7 +1230,7 @@ else if (YES == hadRequest) \
 	{
 	  NSData	*data;
 
-	  [server _log: @"Request too long ... rejected"];
+	  [server _log: @"%@ Request too long ... rejected", self];
 	  [self setShouldClose: YES];
 	  [self setResult: @"HTTP/1.0 413 Request data too long"];
 	  [nc removeObserver: self
@@ -1348,7 +1351,8 @@ else if (YES == hadRequest) \
 		{
 		  NSData	*data;
 
-		  [server _log: @"Request query string not valid UTF8"];
+		  [server _log: @"%@ Request query string not valid UTF8",
+		    self];
 		  [self setShouldClose: YES];	// Not persistent.
 		  [self setResult: @"HTTP/1.0 413 Query string not UTF8"];
 		  data = [@"HTTP/1.0 413 Query string not UTF8\r\n\r\n"
@@ -1381,14 +1385,25 @@ else if (YES == hadRequest) \
 	      return;
 	    }
 
+	  /* Step past any trailing space in the request line.
+            */
+	  while (pos < length && isspace(bytes[pos]))
+	    {
+	      pos++;
+	    }
+
 	  /*
 	   * Any left over data is passed to the mime parser.
 	   */
 	  if (pos < length)
 	    {
-	      memmove(bytes, &bytes[pos], length - pos);
+	      memmove([buffer mutableBytes], bytes + pos, length - pos);
 	      [buffer setLength: length - pos];
-	      d = AUTORELEASE(RETAIN(buffer));
+	      d = buffer;
+	    }
+	  else
+	    {
+	      d = nil;	// Need request body to parse
 	    }
 
 	  parser = [GSMimeParser new];
@@ -1449,7 +1464,7 @@ else if (YES == hadRequest) \
     {
       NSData	*data;
 
-      [server _log: @"Request body too long ... rejected"];
+      [server _log: @"%@ Request body too long ... rejected", self];
       [self setShouldClose: YES];	// Not persistent.
       [self setResult: @"HTTP/1.0 413 Request body too long"];
       data = [@"HTTP/1.0 413 Request body too long\r\n\r\n"
@@ -1461,7 +1476,7 @@ else if (YES == hadRequest) \
       return;
     }
 
-  if ([parser parse: d] == NO)
+  if (nil != d && [parser parse: d] == NO)
     {
       if (YES == (hadRequest = [parser isComplete]))
 	{
@@ -1480,7 +1495,7 @@ else if (YES == hadRequest) \
 	{
 	  NSData	*data;
 
-	  [server _log: @"HTTP parse failure - %@", parser];
+	  [server _log: @"%@ HTTP parse failure - %@", self, parser];
           [self setShouldClose: YES];	// Not persistent.
           [self setResult: @"HTTP/1.0 400 Bad Request"];
           data = [@"HTTP/1.0 400 Bad Request\r\n\r\n"
@@ -1605,8 +1620,8 @@ else if (YES == hadRequest) \
       int		len = [d length];
       const char	*str = (const char*)[d bytes];
 
-      [server _log: @"Data read %u bytes on %@ ... '%.*s' %@",
-        len, self, len, str, d];
+      [server _log: @"%@ Data read %u bytes ... '%.*s' %@",
+        self, len, len, str, d];
     }
   [self _didData: d];
 }
@@ -1746,8 +1761,8 @@ else if (YES == hadRequest) \
       int		len = [d length];
       const char	*str = (const char*)[d bytes];
 
-      [server _log: @"Data write %u bytes on %@ ... '%.*s' %@",
-        len, self, len, str, d];
+      [server _log: @"%@ Data write %u bytes ... '%.*s' %@",
+        self, len, len, str, d];
     }
   [handle writeInBackgroundAndNotify: d];
 }
