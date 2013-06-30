@@ -102,7 +102,7 @@
     <p>If the simple threading outlined above is not sufficient for your
       appplication, a more agressive threading scheme is available.<br />
       You may call the -setIOThreads:andPool: method to ask the WebServer
-      instance to use threading internally itsself.  In this case the
+      instance to use threading internally itself.  In this case the
       low-level I/O operations will be shared across the specified number
       of I/O threads instead of occurring in the master thread (makes sense
       if you need to handle a very large number of simultaneous connections).
@@ -173,7 +173,7 @@
  *     if there was no query.</desc>
  *   <term>x-http-scheme</term>
  *   <desc>Returns the URL scheme used (http or https) to access the server.
- *     This is https if the request arrived on an ancrypted connection or if
+ *     This is https if the request arrived on an encrypted connection or if
  *     the server is configured as being behind a secure proxy.</desc>
  *   <term>x-http-version</term>
  *   <desc>The version from the HTTP request.</desc>
@@ -192,14 +192,14 @@
  *   <desc>The password from the 'authorization' header if the request
  *     supplied HTTP basic authentication.</desc>
  *   <term>x-count-requests</term>
- *   <desc>The number of requests being precessed at the point when
+ *   <desc>The number of requests being processed at the point when
  *      this request started (includes this request).</desc>
  *   <term>x-count-connections</term>
  *   <desc>The number of connections established to the WebServer at the
  *      point when this request started (including the connection this
  *      request arrived on).</desc>
  *   <term>x-count-connected-hosts</term>
- *   <desc>The number of connects hosts (IP addresses) at the point when
+ *   <desc>The number of connected hosts (IP addresses) at the point when
  *      this request started (including the host which sent this request).
  *   </desc>
  *   <term>x-count-host-connections</term>
@@ -282,7 +282,7 @@
  * or -processRequest:response:for:) to provide the delegate with the
  * request header information and allow it to decide whether the request
  * body should be processed incrementally (return value is non-zero) or not
- * (return value is zero).  The returned value is the treateed as a guide
+ * (return value is zero).  The returned value is treated as a guide
  * to how much request data should be buffered at a time.<br />
  * This method is called <em>before</em> any HTTP basic authentication
  * is done, and may (if threading is turned on) be called from a thread
