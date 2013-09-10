@@ -227,7 +227,8 @@ unescapeData(const uint8_t *bytes, NSUInteger length, uint8_t *buf)
       if (k == nil)
 	{
 	  [NSException raise: NSInvalidArgumentException
-		      format: @"Bad UTF-8 form data (key of field %d)", fields];
+		      format: @"Bad UTF-8 form data (key of field %"PRIuPTR")",
+            fields];
 	}
       RELEASE(d);
 
@@ -975,8 +976,8 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
   [_lock lock];
   result = [NSStringClass stringWithFormat:
-    @"%@ on %@(%@), %u of %u connections active,"
-    @" %u ended, %u requests, listening: %@%@%@",
+    @"%@ on %@(%@), %"PRIuPTR" of %"PRIuPTR" connections active,"
+    @" %"PRIuPTR" ended, %"PRIuPTR" requests, listening: %@%@%@",
     [super description], _port, ([self isSecure] ? @"https" : @"http"),
     [_connections count],
     _maxConnections, _handled, _requests, _accepting == YES ? @"yes" : @"no",
@@ -2113,7 +2114,8 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   [request addHeader: _xCountConnectedHosts];
   h = [connection handle];
   str = [h socketAddress];
-  str = [NSStringClass stringWithFormat: @"%u", [_perHost countForObject: str]];
+  str = [NSStringClass stringWithFormat: @"%"PRIuPTR,
+    [_perHost countForObject: str]];
   [request setHeader: @"x-count-host-connections"
 	       value: str
 	  parameters: nil];
@@ -2516,7 +2518,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   NSString	*str;
 
   [_lock lock];
-  str = [NSStringClass stringWithFormat: @"%u", _processingCount];
+  str = [NSStringClass stringWithFormat: @"%"PRIuPTR, _processingCount];
   [_lock unlock];
   return str;
 }
@@ -2526,7 +2528,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   NSString	*str;
 
   [_lock lock];
-  str = [NSStringClass stringWithFormat: @"%u", [_connections count]];
+  str = [NSStringClass stringWithFormat: @"%"PRIuPTR, [_connections count]];
   [_lock unlock];
   return str;
 }
@@ -2536,7 +2538,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   NSString	*str;
 
   [_lock lock];
-  str = [NSStringClass stringWithFormat: @"%u", [_perHost count]];
+  str = [NSStringClass stringWithFormat: @"%"PRIuPTR, [_perHost count]];
   [_lock unlock];
   return str;
 }

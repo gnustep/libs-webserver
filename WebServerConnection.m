@@ -303,7 +303,8 @@ static Class WebServerResponseClass = Nil;
 
 - (NSString*) description
 {
-  return [NSStringClass stringWithFormat: @"WebServerConnection: %08x [%@]",
+  return [NSStringClass stringWithFormat:
+    @"WebServerConnection: %"PRIxPTR" [%@]",
     [self identity], [self address]];
 }
 
@@ -724,7 +725,8 @@ static Class WebServerResponseClass = Nil;
                 {
                   [response deleteHeaderNamed: @"content-type"];
                 }
-              str = [NSStringClass stringWithFormat: @"%u", contentLength];
+              str = [NSStringClass stringWithFormat: @"%"PRIuPTR,
+                contentLength];
               [response setHeader: @"content-length"
                             value: str
                        parameters: nil];

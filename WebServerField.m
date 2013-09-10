@@ -481,7 +481,7 @@ static id null = nil;
 	  if (NO == [v isKindOfClass: [NSString class]])
 	    {
 	      [NSException raise: NSInvalidArgumentException
-			  format: @"[%@-%@] value item %u is not a string",
+                format: @"[%@-%@] value item %"PRIuPTR" is not a string",
 		NSStringFromClass([self class]), NSStringFromSelector(_cmd),
 		index];
 	    }
