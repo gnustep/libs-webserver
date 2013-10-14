@@ -1071,12 +1071,15 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       if (defaultMap == nil)
 	{
 	  defaultMap = [Alloc(NSDictionaryClass) initWithObjectsAndKeys:
+            @"application/json", @"json",
+            @"application/pdf", @"pdf",
 	    @"image/gif", @"gif",
 	    @"image/png", @"png",
 	    @"image/jpeg", @"jpeg",
 	    @"image/jpeg", @"jpg",
 	    @"text/html", @"html",
 	    @"text/plain", @"txt",
+	    @"text/css", @"xml",
 	    @"text/xml", @"xml",
 	    nil];
 	}

@@ -651,7 +651,8 @@
  * Parameters from the request data are <em>added</em> to any found in the
  * query string.<br />
  * Values provided as <code>multipart/form-data</code> are also available
- * in a more flexible format as the content of the request.
+ * in a more flexible format (see [GSMimeDocument]) as the content of
+ * the request.
  */
 - (NSMutableDictionary*) parameters: (WebServerRequest*)request;
 
