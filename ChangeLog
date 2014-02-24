@@ -10,6 +10,8 @@
 	This is an improvement (bug#41643) to allow the WebServer code to
 	be used to respond to clients which don't support folded lines as
 	they should.
+	NB. No longer fold headers by default ... more libraries support
+	long headers than support folding.
 
 2013-06-30 Sebastian Reitenbach <sebastia@l00-bugdead-prods.de>
 

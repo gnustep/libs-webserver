@@ -788,7 +788,7 @@
 
 /**
  * Sets a flag to determine whether the header lines in responses are
- * folded if they are over 78 characters (the default).<br />
+ * folded if they are over 78 characters (off by default).<br />
  * Some buggy clients don't support folding, but do accept long header
  * lines, and this compatibility setting may be used to allow such clients
  * to handle the server's responses (though this may of course break

@@ -2506,7 +2506,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   [_pool setThreads: 0];
   _defs = [[NSUserDefaults standardUserDefaults] retain];
   _conf = [WebServerConfig new];
-  _conf->foldHeaders = YES;
+  _conf->foldHeaders = NO;
   _conf->reverse = [_defs boolForKey: @"ReverseHostLookup"];
   _conf->permittedMethods = [defaultPermittedMethods copy];
   _conf->maxConnectionRequests = 100;
