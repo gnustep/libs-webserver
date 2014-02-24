@@ -108,6 +108,11 @@ static Class WebServerResponseClass = Nil;
   return [self retain];
 }
 
+- (BOOL) foldHeaders
+{
+  return foldHeaders;
+}
+
 - (NSUInteger) hash
 {
   return ((NSUInteger)self)>>2;
@@ -126,9 +131,12 @@ static Class WebServerResponseClass = Nil;
 
 - (id) initWithConnection: (WebServerConnection*)c
 {
+  NSAssert([c isKindOfClass: [WebServerConnection class]],
+    NSInvalidArgumentException);
   if (nil != (self = [super init]))
     {
       webServerConnection = c;
+      foldHeaders = [webServerConnection foldHeaders];
     }
   return self;
 }
@@ -141,6 +149,11 @@ static Class WebServerResponseClass = Nil;
 - (BOOL) prepared
 {
   return prepared;
+}
+
+- (void) setFoldHeaders: (BOOL)aFlag
+{
+  foldHeaders = (NO == aFlag) ? NO : YES;
 }
 
 - (void) setPrepared
@@ -386,6 +399,11 @@ static Class WebServerResponseClass = Nil;
 - (NSData*) excess
 {
   return excess;
+}
+
+- (BOOL) foldHeaders
+{
+  return conf->foldHeaders;
 }
 
 - (NSFileHandle*) handle
@@ -679,7 +697,14 @@ static Class WebServerResponseClass = Nil;
 
           if (nil == stream)
             {
-              raw = [response rawMimeData];
+              if (YES == [response foldHeaders])
+                {
+                  raw = [response rawMimeData];
+                }
+              else
+                {
+                  raw = [response rawMimeData: YES foldedAt: 0];
+                }
               buf = [raw mutableBytes];
               len = [raw length];
 
@@ -799,7 +824,7 @@ static Class WebServerResponseClass = Nil;
                       if ([s compare: @"close"] == NSOrderedSame)
                         {
                           [self setShouldClose: YES];
-                        }
+                        } 
                       else if ([s length] > 5)
                         {
                           NSEnumerator	*e;
@@ -847,9 +872,20 @@ static Class WebServerResponseClass = Nil;
             }
 
           enumerator = [[response allHeaders] objectEnumerator];
-          while ((hdr = [enumerator nextObject]) != nil)
+          if (YES == [response foldHeaders])
             {
-              [out appendData: [hdr rawMimeData]];
+              while ((hdr = [enumerator nextObject]) != nil)
+                {
+                  [out appendData: [hdr rawMimeData]];
+                }
+            }
+          else
+            {
+              while ((hdr = [enumerator nextObject]) != nil)
+                {
+                  [out appendData:
+                    [hdr rawMimeDataPreservingCase: NO foldedAt: 0]];
+                }
             }
           [out appendBytes: "\r\n" length: 2];	// Terminate headers
           if ([data length] > 0)

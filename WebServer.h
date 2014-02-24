@@ -787,6 +787,46 @@
 - (void) setDurationLogging: (BOOL)aFlag;
 
 /**
+ * Sets a flag to determine whether the header lines in responses are
+ * folded if they are over 78 characters (the default).<br />
+ * Some buggy clients don't support folding, but do accept long header
+ * lines, and this compatibility setting may be used to allow such clients
+ * to handle the server's responses (though this may of course break
+ * things for other clients).<br />
+ * This setting applies to any connection established after the setting
+ * is changed.<br />
+ * Because use of this setting could result in a faulty response (one
+ * with a long header) being sent to a client which correctly handles
+ * folded headers, it's also controllable individually for each response,
+ * so the same process can respond both to clients which expect folded
+ * headers and clients which expect long headers (see
+ * [WebServerResponse-setFoldHeaders:]).
+ */
+- (void) setFoldHeaders: (BOOL)aFlag;
+
+/**
+ * Sets the number of threads used to process basic I/O and the size of
+ * the thread pool used by the receiver for handling parsing of incoming
+ * requests, generation of outgoing responses, and pre/post processing
+ * of requests by the delegate.<br />
+ * This defaults to no use of threads.<br />
+ * NB. Since each thread typically uses two file descriptors to handle any
+ * inter-thread message dispatch, enabling threading will use at least two
+ * extra file descriptors per thread ... this may easily cause you
+ * to go beyound the per-process limit imposed by the operating system and
+ * you may wish to configure a smaller connection limit or tune the O/S to
+ * allow more descriptors.
+ */
+- (void) setIOThreads: (NSUInteger)threads andPool: (NSInteger)poolSize;
+
+/**
+ * Sets a flag to determine whether I/O logging is to be performed.<br />
+ * If this is YES then all incoming requests and their responses will
+ * be logged using the [(WebServerDelegate)-webLog:for:] method.
+ */
+- (void) setLogRawIO: (BOOL)aFlag;
+
+/**
  * Sets the maximum size of an uploaded request body.<br />
  * The default is 4M bytes.<br />
  * The HTTP failure response for too large a body is 413.
@@ -1004,6 +1044,10 @@
  * actually what it seems.
  */
 @interface      WebServerResponse : GSMimeDocument
+/** Behaves as [WebServer-setFoldHeaders:] but applies only to the headers
+ * in the receiver.
+ */
+- (void) setFoldHeaders: (BOOL)aFlag;
 @end
 #endif
 

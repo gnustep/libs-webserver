@@ -94,6 +94,7 @@
   BOOL                  reverse;	// should do reverse DNS lookup
   BOOL			secureProxy;	// using a secure proxy
   BOOL			logRawIO;	// log raw I/O on connection
+  BOOL                  foldHeaders;    // Whether long headers are folded
   NSUInteger		maxBodySize;
   NSUInteger		maxRequestSize;
   NSUInteger		maxConnectionRequests;
@@ -115,8 +116,11 @@
 {
   WebServerConnection	*webServerConnection;
   BOOL                  prepared;
+  BOOL                  foldHeaders;
 }
+- (BOOL) foldHeaders;
 - (BOOL) prepared;
+- (void) setFoldHeaders: (BOOL)aFlag;
 - (void) setPrepared;
 - (void) setWebServerConnection: (WebServerConnection*)c;
 - (WebServerConnection*) webServerConnection;
@@ -187,6 +191,7 @@ typedef	enum {
 - (void) end;
 - (BOOL) ended;
 - (NSData*) excess;
+- (BOOL) foldHeaders;
 - (NSFileHandle*) handle;
 - (void) handshake;
 - (BOOL) hasReset;

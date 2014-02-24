@@ -1599,9 +1599,21 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     }
 }
 
-- (void) setSubstitutionLimit: (NSUInteger)depth
+- (void) setFoldHeaders: (BOOL)aFlag
 {
-  _substitutionLimit = depth;
+  if (NO != aFlag)
+    {
+      aFlag = YES;
+    }
+  if (aFlag != _conf->foldHeaders)
+    {
+      WebServerConfig	*c;
+
+      c = [_conf copy];
+      c->foldHeaders = aFlag;
+      [_conf release];
+      _conf = c;
+    }
 }
 
 - (void) setIOThreads: (NSUInteger)threads andPool: (NSInteger)poolSize
@@ -1663,6 +1675,11 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       [_conf release];
       _conf = c;
     }
+}
+
+- (void) setSubstitutionLimit: (NSUInteger)depth
+{
+  _substitutionLimit = depth;
 }
 
 - (void) setUserInfo: (NSObject*)info forRequest: (WebServerRequest*)request
@@ -2489,6 +2506,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   [_pool setThreads: 0];
   _defs = [[NSUserDefaults standardUserDefaults] retain];
   _conf = [WebServerConfig new];
+  _conf->foldHeaders = YES;
   _conf->reverse = [_defs boolForKey: @"ReverseHostLookup"];
   _conf->permittedMethods = [defaultPermittedMethods copy];
   _conf->maxConnectionRequests = 100;
