@@ -574,18 +574,18 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       if ([pattern length] > 0)
 	{
 	  NSRange	r = [pattern rangeOfString: @"/"];
-	  uint32_t	expect;
+	  uint32_t	want;
   
 	  if (0 == r.length)
 	    {
 	      /* An IPv4 address in dot format (nnn.nnn.nnn.nnn)
 	       */
-	      parts = [address componentsSeparatedByString: @"."];
-	      expect = [[parts objectAtIndex: 0] intValue];
-	      expect = expect * 256 + [[parts objectAtIndex: 1] intValue];
-	      expect = expect * 256 + [[parts objectAtIndex: 2] intValue];
-	      expect = expect * 256 + [[parts objectAtIndex: 3] intValue];
-	      if (remote == expect)
+	      parts = [pattern componentsSeparatedByString: @"."];
+	      want = [[parts objectAtIndex: 0] intValue];
+	      want = want * 256 + [[parts objectAtIndex: 1] intValue];
+	      want = want * 256 + [[parts objectAtIndex: 2] intValue];
+	      want = want * 256 + [[parts objectAtIndex: 3] intValue];
+	      if (remote == want)
 		{
 		  return YES;
 		}
@@ -593,7 +593,6 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	  else
 	    {
 	      int           bits;
-	      uint32_t      want;
 	      uint32_t      mask;
 	      int           i;
 
