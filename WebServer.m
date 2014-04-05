@@ -870,6 +870,16 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     }
 }
 
+- (NSString*) address
+{
+  NSString      *s;
+
+  [_lock lock];
+  s = [_addr retain];
+  [_lock unlock];
+  return [s autorelease];
+}
+
 - (void) closeConnectionAfter: (WebServerResponse*)response
 {
   [_lock lock];
@@ -1281,6 +1291,16 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 		      charset: (NSString*)charset
 {
   return [self parameterString: name at: 0 from: params charset: charset];
+}
+
+- (NSString*) port
+{
+  NSString      *s;
+
+  [_lock lock];
+  s = [_port retain];
+  [_lock unlock];
+  return [s autorelease];
 }
 
 - (BOOL) setAddress: (NSString*)anAddress

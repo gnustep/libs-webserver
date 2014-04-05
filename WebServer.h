@@ -537,6 +537,11 @@
 - (BOOL) accessRequest: (WebServerRequest*)request
 	      response: (WebServerResponse*)response;
 
+/** Return the address the receiver listens for connections on, or nil
+ * if it is not listening.
+ */
+- (NSString*) address;
+
 /**
  * Instructs the server that the connection handlind the current request
  * should be closed once the response has been sent back to the client.
@@ -700,6 +705,11 @@
 - (NSString*) parameterString: (NSString*)name
 			 from: (NSDictionary*)params
 		      charset: (NSString*)charset;
+
+/** Return the port the receiver listens for connections on, or nil
+ * if it is not listening.
+ */
+- (NSString*) port;
 
 /**
  * Loads a template file from disk and places it in aResponse as content
