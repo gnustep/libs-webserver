@@ -591,6 +591,10 @@
 - (NSUInteger) decodeURLEncodedForm: (NSData*)data
 			       into: (NSMutableDictionary*)dict;
 
+/** Return this web server's delegate.
+ */
+- (id) delegate;
+
 /**         
  * Encode an application/x-www-form-urlencoded form and store its
  * representation in the supplied data object.<br />

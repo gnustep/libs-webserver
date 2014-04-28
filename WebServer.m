@@ -968,6 +968,11 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   return [[self class] decodeURLEncodedForm: data into: dict];
 }
 
+- (id) delegate
+{
+  return _delegate;
+}
+
 - (NSUInteger) encodeURLEncodedForm: (NSDictionary*)dict
 			       into: (NSMutableData*)data
 {
