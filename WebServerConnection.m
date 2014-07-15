@@ -45,6 +45,68 @@ static Class GSMimeDocumentClass = Nil;
 static Class WebServerRequestClass = Nil;
 static Class WebServerResponseClass = Nil;
 
+static char *
+rawEscape(NSData *d)
+{
+  const uint8_t *bytes = (const uint8_t*)[d bytes];
+  uint8_t       *buf;
+  NSUInteger    length = [d length];
+  NSUInteger    size = length + 1;
+  NSUInteger    index;
+  NSUInteger    pos;
+
+  for (index = 0; index < length; index++)
+    {
+      uint8_t   b = bytes[index];
+
+      if ('\n' == b) size++;
+      else if ('\r' == b) size++;
+      else if ('\t' == b) size++;
+      else if ('\\' == b) size++;
+      else if (!isprint(b)) size += 3;
+    }
+  buf = (uint8_t*)malloc(size);
+  for (pos = index = 0; index < length; index++)
+    {
+      uint8_t   b = bytes[index];
+
+      if ('\n' == b)
+        {
+          buf[pos++] = '\\';
+          buf[pos++] = 'n';
+        }
+      else if ('\r' == b)
+        {
+          buf[pos++] = '\\';
+          buf[pos++] = 'r';
+        }
+      else if ('\t' == b)
+        {
+          buf[pos++] = '\\';
+          buf[pos++] = 't';
+        }
+      else if ('\\' == b)
+        {
+          buf[pos++] = '\\';
+          buf[pos++] = '\\';
+        }
+      else if (!isprint(b))
+        {
+          sprintf((char*)&buf[pos], "\\x%02x", b);
+          pos += 4;
+        }
+      else
+        {
+          buf[pos++] = b;
+        }
+    }
+  buf[pos] = '\0';
+  d = [[[NSData alloc] initWithBytesNoCopy: buf
+                                    length: size
+                              freeWhenDone: YES] autorelease];
+  return (char*)buf;
+}
+
 @implementation	WebServerRequest
 
 + (void) initialize
@@ -1655,11 +1717,8 @@ else if (YES == hadRequest) \
 
   if (YES == conf->logRawIO && NO == quiet)
     {
-      int		len = [d length];
-      const char	*str = (const char*)[d bytes];
-
-      [server _log: @"%@ Data read %u bytes ... '%.*s' %@",
-        self, len, len, str, d];
+      [server _log: @"%@ Data read %u bytes ... '%s' %@",
+        self, (unsigned)[d length], rawEscape(d), d];
     }
   [self _didData: d];
 }
@@ -1796,12 +1855,9 @@ else if (YES == hadRequest) \
 {
   if (YES == conf->logRawIO && NO == quiet)
     {
-      int		len = [d length];
-      const char	*str = (const char*)[d bytes];
-
-      [server _log: @"%@ Data write %u bytes ... '%.*s' %@",
-        self, len, len, str, d];
-    }
+      [server _log: @"%@ Data write %u bytes ... '%s' %@",
+        self, (unsigned)[d length], rawEscape(d), d];
+   }
   [handle writeInBackgroundAndNotify: d];
 }
 
