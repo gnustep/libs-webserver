@@ -1312,6 +1312,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	       port: (NSString*)aPort
 	     secure: (NSDictionary*)secure
 {
+  CREATE_AUTORELEASE_POOL(pool);
   BOOL	ok = YES;
   BOOL	update = NO;
 
@@ -1355,6 +1356,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	{
 	  NSEnumerator		*enumerator;
 	  WebServerConnection	*connection;
+          NSDate                *limit = nil;
 
 	  [_lock lock];
 	  /* If we have been shut down (port is nil) then we want any
@@ -1363,6 +1365,10 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	  enumerator = [_connections objectEnumerator];
 	  while ((connection = [enumerator nextObject]) != nil)
 	    {
+              if (nil == limit)
+                {
+                  limit = [NSDate dateWithTimeIntervalSinceNow: 30.0];
+                }
 	      [connection shutdown];
 	    }
 	  /* We also get rid of the headers which refer to us, so that
@@ -1374,6 +1380,20 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	  DESTROY(_xCountConnectedHosts);
 
 	  [_lock unlock];
+
+          /* Wait for all connections to close.
+           */
+          while (nil != limit && [limit timeIntervalSinceNow] > 0.0)
+            {
+              [[NSRunLoop currentRunLoop] runMode: NSDefaultRunLoopMode
+                                       beforeDate: limit];
+              [_lock lock];
+              if (0 == [_connections count])
+                {
+                  limit = nil;  // No more to close
+                }
+              [_lock unlock];
+            }
 	}
       else
 	{
@@ -1429,6 +1449,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	    }
 	}
     }
+  DESTROY(pool);
   return ok;
 }
 

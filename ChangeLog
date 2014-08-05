@@ -1,3 +1,10 @@
+2014-08-04 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServer.m: Run the main run loop and wait for connections to
+	shut down when shutting down the server.
+	* GNUmakefile: bump subminor version
+	Version 1.5.3:
+
 2014-07-15 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* WebServerConnection.m: Fix minor error logging raw data ... we now
