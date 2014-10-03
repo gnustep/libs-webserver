@@ -64,10 +64,10 @@
 @interface	IOThread : NSObject
 {
 @public
-  WebServer	*server;	// The owner of this thread.
+  WebServer	*server;	// The owner of this thread (not retained).
   NSThread	*thread;	// The actual thread being used.
   NSLock	*threadLock;	// Protect ivars from changes.
-  NSTimer	*timer;		// Repeated regular timer.
+  NSTimer	*timer;		// Repeated regular timer (not retained).
   NSTimeInterval cTimeout;	// Timeout period for connections.
   GSLinkedList	*processing;	// Connections processing a request.
   GSLinkedList	*handshakes;	// Connections performing SSL handshake

@@ -2544,7 +2544,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   _connectionTimeout = 30.0;
   _lock =  [NSLock new];
   _ioMain = [IOThread new];
-  _ioMain->thread = [NSThread currentThread];
+  _ioMain->thread = [[NSThread currentThread] retain];
   _ioMain->server = self;
   _ioMain->cTimeout = _connectionTimeout;
   _pool = [GSThreadPool new];
