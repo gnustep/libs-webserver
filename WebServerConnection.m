@@ -791,7 +791,6 @@ rawEscape(NSData *d)
           out = [NSMutableDataClass dataWithCapacity: len + 1024];
           [response deleteHeaderNamed: @"mime-version"];
           [response deleteHeaderNamed: @"content-length"];
-          [response deleteHeaderNamed: @"content-encoding"];
           [response deleteHeaderNamed: @"content-transfer-encoding"];
           if (nil != stream)
             {

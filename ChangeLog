@@ -1,3 +1,8 @@
+2015-08-18 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServerConnection.mL Don't delete content-encoding header
+	 which may have been set by the application.
+
 2014-10-02 Sergei Golovin
 
 	* WebServer.m: Fix memory management error ... failure to retain
