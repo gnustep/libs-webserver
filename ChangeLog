@@ -1,7 +1,13 @@
+2015-08-19 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServerConnection.m: Don't delete close down connections just
+	because the per-thread count is exceeded ... we have a contract
+	with the client to keep those connections open.
+
 2015-08-18 Richard Frith-Macdonald  <rfm@gnu.org>
 
-	* WebServerConnection.mL Don't delete content-encoding header
-	 which may have been set by the application.
+	* WebServerConnection.m: Don't delete content-encoding header
+	which may have been set by the application.
 
 2014-10-02 Sergei Golovin
 

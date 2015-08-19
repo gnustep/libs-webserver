@@ -989,12 +989,12 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   NSString	*result;
 
   [_lock lock];
-  result = [NSStringClass stringWithFormat:
-    @"%@ on %@(%@), %"PRIuPTR" of %"PRIuPTR" connections active,"
+  result = [NSStringClass stringWithFormat: @"%@ on %@(%@),"
+    @" %"PRIuPTR" of %"PRIuPTR"(%"PRIuPTR"/host) connections active,"
     @" %"PRIuPTR" ended, %"PRIuPTR" requests, listening: %@%@%@",
     [super description], _port, ([self isSecure] ? @"https" : @"http"),
-    [_connections count],
-    _maxConnections, _handled, _requests, _accepting == YES ? @"yes" : @"no",
+    [_connections count], _maxConnections, _maxPerHost,
+    _handled, _requests, _accepting == YES ? @"yes" : @"no",
     [self _ioThreadDescription], [self _poolDescription]];
   [_lock unlock];
   return result;
@@ -1527,7 +1527,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     {
       _maxPerHost = max;
     }
-  [_pool setOperations: max];
+  [_pool setOperations: _maxConnections];
 }
 
 - (void) setMaxConnectionsPerHost: (NSUInteger)max
@@ -1541,7 +1541,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       max = _maxConnections;
     }
   _maxPerHost = max;
-  [_pool setOperations: max];
+  [_pool setOperations: _maxConnections];
 }
 
 - (void) setMaxConnectionsReject: (BOOL)reject

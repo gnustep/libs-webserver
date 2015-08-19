@@ -907,7 +907,7 @@ rawEscape(NSData *d)
 
           /* We will close this connection if the maximum number of requests
            * or maximum request duration has been exceeded or if the keepalive
-           * limit for the tthread has been reached.
+           * limit for the thread has been reached.
            */
           if (requests >= conf->maxConnectionRequests)
             {
@@ -1863,21 +1863,6 @@ else if (YES == hadRequest) \
 - (void) _keepalive
 {
   [ioThread->threadLock lock];
-  /* If we have hit the limit on keepalive connections,
-   * end older ones until we are back inside the limit.
-   */
-  while (ioThread->keepaliveCount >= ioThread->keepaliveMax)
-    {
-      WebServerConnection	*con;
-
-      con = (WebServerConnection*)ioThread->keepalives->head;
-      con->owner = nil;
-      GSLinkedListRemove(con, ioThread->keepalives);
-      ioThread->keepaliveCount--;
-      [ioThread->threadLock unlock];
-      [con end];
-      [ioThread->threadLock lock];
-    }
   if (owner != ioThread->keepalives)
     {
       GSLinkedListRemove(self, owner);
