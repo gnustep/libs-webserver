@@ -966,7 +966,7 @@ rawEscape(NSData *d)
       [nc removeObserver: self
                     name: NSFileHandleReadCompletionNotification
                   object: handle];
-      if (YES == conf->verbose && NO == quiet)
+      if (YES == conf->verbose && NO == quiet && NO == conf->logRawIO)
         {
           [server _log: @"Response %@ - %@", self, data];
         }
