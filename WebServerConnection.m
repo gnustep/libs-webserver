@@ -101,10 +101,53 @@ rawEscape(NSData *d)
         }
     }
   buf[pos] = '\0';
-  d = [[[NSData alloc] initWithBytesNoCopy: buf
-                                    length: size
-                              freeWhenDone: YES] autorelease];
   return (char*)buf;
+}
+
+static void
+debugRead(WebServer *server, WebServerConnection *c, NSData *data)
+{
+  unsigned	len = (unsigned)[data length];
+  const char	*ptr = (const char*)[data bytes];
+  int           pos;
+
+  for (pos = 0; pos < len; pos++)
+    {
+      if (0 == ptr[pos])
+        {
+          char  *esc = rawEscape(data);
+
+          [server _log: @"Read for %@ of %u bytes (escaped) - '%s'\n%@",
+            c, len, esc, data]; 
+          free(esc);
+          return;
+        }
+    }
+  [server _log: @"Read for %@ of %d bytes - '%*.*s'\n%@",
+    c, len, len, len, ptr, data]; 
+}
+
+static void
+debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
+{
+  unsigned	len = (unsigned)[data length];
+  const char	*ptr = (const char*)[data bytes];
+  int           pos;
+
+  for (pos = 0; pos < len; pos++)
+    {
+      if (0 == ptr[pos])
+        {
+          char  *esc = rawEscape(data);
+
+          [server _log: @"Read for %@ of %u bytes (escaped) - '%s'\n%@",
+            c, len, esc, data]; 
+          free(esc);
+          return;
+        }
+    }
+  [server _log: @"Write for %@ of %d bytes - '%*.*s'\n%@",
+    c, len, len, len, ptr, data]; 
 }
 
 @implementation	WebServerRequest
@@ -1716,8 +1759,7 @@ else if (YES == hadRequest) \
 
   if (YES == conf->logRawIO && NO == quiet)
     {
-      [server _log: @"%@ Data read %u bytes ... '%s' %@",
-        self, (unsigned)[d length], rawEscape(d), d];
+      debugRead(server, self, d);
     }
   [self _didData: d];
 }
@@ -1854,8 +1896,7 @@ else if (YES == hadRequest) \
 {
   if (YES == conf->logRawIO && NO == quiet)
     {
-      [server _log: @"%@ Data write %u bytes ... '%s' %@",
-        self, (unsigned)[d length], rawEscape(d), d];
+      debugWrite(server, self, d);
    }
   [handle writeInBackgroundAndNotify: d];
 }
