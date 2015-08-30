@@ -46,18 +46,60 @@ static Class WebServerRequestClass = Nil;
 static Class WebServerResponseClass = Nil;
 
 static char *
-rawEscape(NSData *d)
+base64Escape(const uint8_t *src, NSUInteger len)
 {
-  const uint8_t *bytes = (const uint8_t*)[d bytes];
-  uint8_t       *buf;
-  NSUInteger    length = [d length];
-  NSUInteger    size = length + 1;
+  uint8_t       *dst;
+  NSUInteger	dIndex = 0;
+  NSUInteger	sIndex;
+
+  dst = (uint8_t*)malloc(((len + 2) / 3) * 4 + 5);
+  dst[dIndex++] = '<';
+  dst[dIndex++] = '[';
+  for (sIndex = 0; sIndex < len; sIndex += 3)
+    {
+      static char b64[]
+        = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+      int	c0 = src[sIndex];
+      int	c1 = (sIndex+1 < len) ? src[sIndex+1] : 0;
+      int	c2 = (sIndex+2 < len) ? src[sIndex+2] : 0;
+
+      dst[dIndex++] = b64[(c0 >> 2) & 077];
+      dst[dIndex++] = b64[((c0 << 4) & 060) | ((c1 >> 4) & 017)];
+      dst[dIndex++] = b64[((c1 << 2) & 074) | ((c2 >> 6) & 03)];
+      dst[dIndex++] = b64[c2 & 077];
+    }
+
+   /* If len was not a multiple of 3, then we have encoded too
+    * many characters.  Adjust appropriately.
+    */
+   if (sIndex == len + 1)
+     {
+       /* There were only 2 bytes in that last group */
+       dst[dIndex - 1] = '=';
+     }
+   else if (sIndex == len + 2)
+     {
+       /* There was only 1 byte in that last group */
+       dst[dIndex - 1] = '=';
+       dst[dIndex - 2] = '=';
+     }
+  dst[dIndex++] = ']';
+  dst[dIndex++] = '>';
+  dst[dIndex] = '\0';
+  return (char*)dst;
+}
+
+static char *
+rawEscape(const uint8_t *src, NSUInteger len)
+{
+  uint8_t       *dst;
+  NSUInteger    size = len + 1;
   NSUInteger    index;
   NSUInteger    pos;
 
-  for (index = 0; index < length; index++)
+  for (index = 0; index < len; index++)
     {
-      uint8_t   b = bytes[index];
+      uint8_t   b = src[index];
 
       if ('\n' == b) size++;
       else if ('\r' == b) size++;
@@ -65,89 +107,95 @@ rawEscape(NSData *d)
       else if ('\\' == b) size++;
       else if (!isprint(b)) size += 3;
     }
-  buf = (uint8_t*)malloc(size);
-  for (pos = index = 0; index < length; index++)
+  dst = (uint8_t*)malloc(size);
+  for (pos = index = 0; index < len; index++)
     {
-      uint8_t   b = bytes[index];
+      uint8_t   b = src[index];
 
       if ('\n' == b)
         {
-          buf[pos++] = '\\';
-          buf[pos++] = 'n';
+          dst[pos++] = '\\';
+          dst[pos++] = 'n';
         }
       else if ('\r' == b)
         {
-          buf[pos++] = '\\';
-          buf[pos++] = 'r';
+          dst[pos++] = '\\';
+          dst[pos++] = 'r';
         }
       else if ('\t' == b)
         {
-          buf[pos++] = '\\';
-          buf[pos++] = 't';
+          dst[pos++] = '\\';
+          dst[pos++] = 't';
         }
       else if ('\\' == b)
         {
-          buf[pos++] = '\\';
-          buf[pos++] = '\\';
+          dst[pos++] = '\\';
+          dst[pos++] = '\\';
         }
       else if (!isprint(b))
         {
-          sprintf((char*)&buf[pos], "\\x%02x", b);
+          sprintf((char*)&dst[pos], "\\x%02x", b);
           pos += 4;
         }
       else
         {
-          buf[pos++] = b;
+          dst[pos++] = b;
         }
     }
-  buf[pos] = '\0';
-  return (char*)buf;
+  dst[pos] = '\0';
+  return (char*)dst;
 }
 
 static void
 debugRead(WebServer *server, WebServerConnection *c, NSData *data)
 {
-  unsigned	len = (unsigned)[data length];
-  const char	*ptr = (const char*)[data bytes];
+  int   	len = (int)[data length];
+  const uint8_t	*ptr = (const uint8_t*)[data bytes];
+  char	        *hex = base64Escape(ptr, len);
   int           pos;
 
   for (pos = 0; pos < len; pos++)
     {
       if (0 == ptr[pos])
         {
-          char  *esc = rawEscape(data);
+          char  *esc = rawEscape(ptr, len);
 
-          [server _log: @"Read for %@ of %u bytes (escaped) - '%s'\n%@",
+          [server _log: @"Read for %@ of %d bytes (escaped) - '%s'\n%s",
             c, len, esc, data]; 
           free(esc);
+          free(hex);
           return;
         }
     }
-  [server _log: @"Read for %@ of %d bytes - '%*.*s'\n%@",
-    c, len, len, len, ptr, data]; 
+  [server _log: @"Read for %@ of %d bytes - '%*.*s'\n%s",
+    c, len, len, len, (const char*)ptr, data]; 
+  free(hex);
 }
 
 static void
 debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
 {
-  unsigned	len = (unsigned)[data length];
-  const char	*ptr = (const char*)[data bytes];
+  int   	len = (int)[data length];
+  const uint8_t	*ptr = (const uint8_t*)[data bytes];
+  char	        *hex = base64Escape(ptr, len);
   int           pos;
 
   for (pos = 0; pos < len; pos++)
     {
       if (0 == ptr[pos])
         {
-          char  *esc = rawEscape(data);
+          char  *esc = rawEscape(ptr, len);
 
-          [server _log: @"Read for %@ of %u bytes (escaped) - '%s'\n%@",
-            c, len, esc, data]; 
+          [server _log: @"Read for %@ of %d bytes (escaped) - '%s'\n%s",
+            c, len, esc, hex]; 
           free(esc);
+          free(hex);
           return;
         }
     }
-  [server _log: @"Write for %@ of %d bytes - '%*.*s'\n%@",
-    c, len, len, len, ptr, data]; 
+  [server _log: @"Write for %@ of %d bytes - '%*.*s'\n%s",
+    c, len, len, len, (const char*)ptr, hex]; 
+  free(hex);
 }
 
 @implementation	WebServerRequest

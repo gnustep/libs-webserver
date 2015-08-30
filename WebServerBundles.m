@@ -28,6 +28,7 @@
 
 #import	"WebServer.h"
 #import	"WebServerBundles.h"
+#import	"Internal.h"
 
 @implementation WebServerBundles
 - (void) dealloc
