@@ -2329,7 +2329,9 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       [_lock lock];
       _requests++;
       [_lock unlock];
-      if (YES == _conf->verbose)
+      if (YES == _conf->verbose
+        && NO == _conf->logRawIO
+        && NO == [connection quiet])
 	{
 	  [self _log: @"Request %@ - %@", connection, request];
 	}
