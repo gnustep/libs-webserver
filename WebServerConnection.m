@@ -186,7 +186,7 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
         {
           char  *esc = rawEscape(ptr, len);
 
-          [server _log: @"Read for %@ of %d bytes (escaped) - '%s'\n%s",
+          [server _log: @"Write for %@ of %d bytes (escaped) - '%s'\n%s",
             c, len, esc, hex]; 
           free(esc);
           free(hex);
