@@ -2163,6 +2163,10 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   va_end(args);
 }
 
+/* This is called from the _process1: and _incremental: methods, both of
+ * which must only be called from the connection I/O thread.  That makes
+ * it safe for this method to modify the state of the connection.
+ */
 - (void) _prepareRequest: (WebServerRequest*)request
                 response: (WebServerResponse*)response
           withConnection: (WebServerConnection*)connection

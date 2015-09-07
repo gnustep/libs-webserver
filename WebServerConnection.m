@@ -428,13 +428,10 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
       r = [NSStringClass stringWithFormat: @"\"%@\"", r];
     }
 
-  if (user == nil)
+  u = user;
+  if (nil == u)
     {
       u = @"-";
-    }
-  else
-    {
-      u = user;	
     }
 
   if (requestStart == 0.0)
@@ -463,6 +460,7 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
   DESTROY(result);
   DESTROY(response);
   DESTROY(conf);
+  DESTROY(user);
   DESTROY(nc);
   [super dealloc];
 }
@@ -714,6 +712,7 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
   DESTROY(response);
   DESTROY(agent);
   DESTROY(result);
+  DESTROY(user);
   byteCount = 0;
   bodyLength = 0;
   DESTROY(buffer);
@@ -1322,6 +1321,16 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
     {
       [self run];
     }
+}
+
+- (NSString*) user
+{
+  NSString      *tmp;
+
+  [ioThread->threadLock lock];
+  tmp = RETAIN(user);
+  [ioThread->threadLock unlock];
+  return AUTORELEASE(tmp);
 }
 
 - (BOOL) verbose
