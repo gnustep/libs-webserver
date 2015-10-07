@@ -105,7 +105,7 @@ rawEscape(const uint8_t *src, NSUInteger len)
       else if ('\r' == b) size++;
       else if ('\t' == b) size++;
       else if ('\\' == b) size++;
-      else if (!isprint(b)) size += 3;
+      else if (b < 32 || b > 126) size += 3;
     }
   dst = (uint8_t*)malloc(size);
   for (pos = index = 0; index < len; index++)
@@ -132,7 +132,7 @@ rawEscape(const uint8_t *src, NSUInteger len)
           dst[pos++] = '\\';
           dst[pos++] = '\\';
         }
-      else if (!isprint(b))
+      else if (b < 32 || b > 126)
         {
           sprintf((char*)&dst[pos], "\\x%02x", b);
           pos += 4;
