@@ -151,7 +151,7 @@ debugRead(WebServer *server, WebServerConnection *c, NSData *data)
 {
   int   	len = (int)[data length];
   const uint8_t	*ptr = (const uint8_t*)[data bytes];
-  char	        *hex = base64Escape(ptr, len);
+  char	        *b64 = base64Escape(ptr, len);
   int           pos;
 
   for (pos = 0; pos < len; pos++)
@@ -161,15 +161,15 @@ debugRead(WebServer *server, WebServerConnection *c, NSData *data)
           char  *esc = rawEscape(ptr, len);
 
           [server _log: @"Read for %@ of %d bytes (escaped) - '%s'\n%s",
-            c, len, esc, hex]; 
+            c, len, esc, b64]; 
           free(esc);
-          free(hex);
+          free(b64);
           return;
         }
     }
   [server _log: @"Read for %@ of %d bytes - '%*.*s'\n%s",
-    c, len, len, len, (const char*)ptr, hex]; 
-  free(hex);
+    c, len, len, len, (const char*)ptr, b64]; 
+  free(b64);
 }
 
 static void
@@ -177,7 +177,7 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
 {
   int   	len = (int)[data length];
   const uint8_t	*ptr = (const uint8_t*)[data bytes];
-  char	        *hex = base64Escape(ptr, len);
+  char	        *b64 = base64Escape(ptr, len);
   int           pos;
 
   for (pos = 0; pos < len; pos++)
@@ -187,15 +187,15 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
           char  *esc = rawEscape(ptr, len);
 
           [server _log: @"Write for %@ of %d bytes (escaped) - '%s'\n%s",
-            c, len, esc, hex]; 
+            c, len, esc, b64]; 
           free(esc);
-          free(hex);
+          free(b64);
           return;
         }
     }
   [server _log: @"Write for %@ of %d bytes - '%*.*s'\n%s",
-    c, len, len, len, (const char*)ptr, hex]; 
-  free(hex);
+    c, len, len, len, (const char*)ptr, b64]; 
+  free(b64);
 }
 
 @implementation	WebServerRequest
