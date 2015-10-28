@@ -161,14 +161,14 @@ debugRead(WebServer *server, WebServerConnection *c, NSData *data)
           char  *esc = rawEscape(ptr, len);
 
           [server _log: @"Read for %@ of %d bytes (escaped) - '%s'\n%s",
-            c, len, esc, data]; 
+            c, len, esc, hex]; 
           free(esc);
           free(hex);
           return;
         }
     }
   [server _log: @"Read for %@ of %d bytes - '%*.*s'\n%s",
-    c, len, len, len, (const char*)ptr, data]; 
+    c, len, len, len, (const char*)ptr, hex]; 
   free(hex);
 }
 
