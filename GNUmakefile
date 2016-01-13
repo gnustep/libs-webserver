@@ -62,7 +62,7 @@ JAVA_WRAPPER_NAME = WebServer
 # Assume that the use of the gnu runtime means we have the gnustep
 # base library and can use its extensions to build WebServer stuff.
 #
-ifeq ($(OBJC_RUNTIME_LIB),gnu)
+ifeq ($(OBJC_RUNTIME_LIB),$(filter $(OBJC_RUNTIME_LIB), gnu gnugc ng))
 APPLE=0
 else
 APPLE=1

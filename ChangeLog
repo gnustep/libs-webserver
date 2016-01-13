@@ -1,3 +1,8 @@
+2016-01-14 Niels Grewe <niels.grew@halbordnung.de>
+
+	* GNUmakefile: Build correctly with the ng and gnugc
+	runtime library variants
+
 2015-09-19 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* GNUmakefile: Version 1.4.4 bugfix release
