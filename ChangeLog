@@ -1,3 +1,8 @@
+2016-01-15 Niels Grewe <niels.grew@halbordnung.de>
+
+	* WebServer.h: Ensure that the header can be used from ARC
+	  code.
+
 2016-01-14 Niels Grewe <niels.grew@halbordnung.de>
 
 	* GNUmakefile: Build correctly with the ng and gnugc

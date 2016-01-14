@@ -336,6 +336,16 @@
 
 @end
 
+/*
+ * For interoperability with ARC code, we must tag the two unused id*
+ * instance variables as not participating in ARC.
+ */
+#if __has_feature(objc_arc)
+#define UNUSED_QUAL __unsafe_unretained
+#else
+#define UNUSED_QUAL
+#endif
+
 /**
  * <p>You create an instance of the WebServer class in order to handle
  * incoming HTTP or HTTPS requests on a single port.
@@ -397,8 +407,8 @@
   NSMutableArray	*_ioThreads;
   GSThreadPool		*_pool;
   WebServerConfig	*_conf;
-  id		        *_unused1;
-  id		        *_unused2;
+  id		        UNUSED_QUAL *_unused1;
+  id		        UNUSED_QUAL *_unused2;
   NSDictionary		*_sslConfig;
   BOOL			_accepting;
   BOOL			_doPostProcess;
