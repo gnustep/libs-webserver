@@ -61,31 +61,14 @@
     }
   if (nil != (self = [super initWithName: @"" value: @"" parameters: nil]))
     {
-      if (nil != name)
-	{
-	  [name release];
-	  name = nil;
-	}
-      if (nil != value)
-	{
-	  [value release];
-	  value = nil;
-	}
       wshObject = [o retain];
+	  wshType = t;
       switch (t)
 	{
 	  case WSHCountRequests:
-	    name = @"x-count-requests";
-	    break;
-
 	  case WSHCountConnections:
-	    name = @"x-count-connections";
-	    break;
-
 	  case WSHCountConnectedHosts:
-	    name = @"x-count-connected-hosts";
 	    break;
-
 	  default:
 	    [self release];
 	    [NSException raise: NSInvalidArgumentException
@@ -96,14 +79,25 @@
   return self;
 }
 
-- (NSString*) name
+- (NSString*)name
 {
-  return name;
+  switch (wshType)
+    {
+	  case WSHCountRequests:
+		return @"x-count-requests";
+	  case WSHCountConnections:
+		return @"x-count-connections";
+	  case WSHCountConnectedHosts:
+	    return @"x-count-connected-hosts";	
+	  default:
+		return nil;
+    }
+  return nil;
 }
 
 - (NSString*) namePreservingCase: (BOOL)preserve
 {
-  return name;
+  return [self name];
 }
 
 - (id) objectForKey: (NSString*)k
@@ -170,7 +164,7 @@
 
 - (NSString*) text
 {
-  return [NSString stringWithFormat: @"%@: %@\r\n", name, [self value]];
+  return [NSString stringWithFormat: @"%@: %@\r\n", [self name], [self value]];
 }
 
 - (NSString*) value

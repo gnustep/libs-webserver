@@ -1,3 +1,11 @@
+2016-01-20 Niels Grewe <niels.grew@halbordnung.de>
+
+	* WebServerHeader.m: Fix the x-count-* headers. The WSHType
+	was never assigned to the instance variable, so -value
+	would always return nil. Also re-arrange things to not 
+	depend on the presence of the GSMimeHeader ivars, ensuring
+	compatibility with the (pure) non-fragile ABI.
+
 2016-01-15 Niels Grewe <niels.grew@halbordnung.de>
 
 	* WebServer.h: Ensure that the header can be used from ARC
