@@ -58,17 +58,10 @@ WebServer_AGSDOC_FILES +=\
 # Optional Java wrappers for the library
 JAVA_WRAPPER_NAME = WebServer
 
+# If we are not using the GNUstep foundation library,
+# we need to use its extensions to build WebServer stuff.
 #
-# Assume that the use of the gnu runtime means we have the gnustep
-# base library and can use its extensions to build WebServer stuff.
-#
-ifeq ($(OBJC_RUNTIME_LIB),$(filter $(OBJC_RUNTIME_LIB), gnu gnugc ng))
-APPLE=0
-else
-APPLE=1
-endif
-
-ifeq ($(APPLE),1)
+ifneq ($(FOUNDATION_LIB),gnu)
 ADDITIONAL_OBJC_LIBS += -lgnustep-baseadd
 WebServer_LIBRARIES_DEPEND_UPON += -lgnustep-baseadd
 endif
