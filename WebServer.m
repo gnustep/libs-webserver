@@ -1732,7 +1732,13 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   if (nil != info && NO == [info isKindOfClass: [NSObject class]])
     {
       [NSException raise: NSInvalidArgumentException
-                  format: @"[%@-%@] bad argument",
+                  format: @"[%@-%@] bad info argument",
+        NSStringFromClass([self class]), NSStringFromSelector(_cmd)];
+    }
+  if (NO == [request isKindOfClass: [WebServerRequest class]])
+    {
+      [NSException raise: NSInvalidArgumentException
+                  format: @"[%@-%@] bad request argument",
         NSStringFromClass([self class]), NSStringFromSelector(_cmd)];
     }
   [_userInfoLock lock];
@@ -2520,6 +2526,12 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
                              length: (NSUInteger)length
                          forRequest: (WebServerRequest*)request
 {
+  if (NO == [request isKindOfClass: [WebServerRequest class]])
+    {
+      [NSException raise: NSInvalidArgumentException
+                  format: @"[%@-%@] bad request argument",
+        NSStringFromClass([self class]), NSStringFromSelector(_cmd)];
+    }
   [_incrementalDataLock lock];
   if (0 == bytes)
     {
