@@ -895,6 +895,12 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
         format: @"[%@-%@] argument is not a valid response object",
         NSStringFromClass([self class]), NSStringFromSelector(_cmd)];
     }
+  if (YES == [response completing])
+    {
+      [NSException raise: NSInvalidArgumentException
+        format: @"[%@-%@] argument is already completing",
+        NSStringFromClass([self class]), NSStringFromSelector(_cmd)];
+    }
   if (YES == _doPostProcess)
     {
       [_pool scheduleSelector: @selector(_process4:)
@@ -904,12 +910,27 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   else
     {
       WebServerConnection	*connection;
+      BOOL                      wasCompleting;
 
       [_lock lock];
-      _processingCount--;
-      connection = [[response webServerConnection] retain];
+      wasCompleting = [response completing];
+      if (NO == wasCompleting)
+        {
+          [response setCompleting];
+          _processingCount--;
+          connection = [[response webServerConnection] retain];
+        }
+      [response setWebServerConnection: nil];
       [_lock unlock];
-      if (nil == connection)
+      if (YES == wasCompleting)
+        {
+          if (YES == _conf->verbose)
+            {
+              [self _log: @"Called -completedWithResponse: for a response"
+                @" which is already complete: %@", response];
+            }
+        }
+      else if (nil == connection)
 	{
           if (YES == _conf->verbose)
             {

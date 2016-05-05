@@ -251,6 +251,11 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
     }
 }
 
+- (BOOL) completing
+{
+  return completing;
+}
+
 - (id) copy
 {
   return [self retain];
@@ -302,6 +307,11 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
 - (BOOL) prepared
 {
   return prepared;
+}
+
+- (void) setCompleting
+{
+  completing = YES;
 }
 
 - (void) setFoldHeaders: (BOOL)aFlag

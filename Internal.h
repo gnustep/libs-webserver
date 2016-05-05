@@ -117,10 +117,13 @@
   WebServerConnection	*webServerConnection;
   BOOL                  prepared;
   BOOL                  foldHeaders;
+  BOOL                  completing;
 }
+- (BOOL) completing;
 - (BOOL) foldHeaders;
 - (BOOL) prepared;
 - (void) setFoldHeaders: (BOOL)aFlag;
+- (void) setCompleting;
 - (void) setPrepared;
 - (void) setWebServerConnection: (WebServerConnection*)c;
 - (WebServerConnection*) webServerConnection;

@@ -1,3 +1,10 @@
+2016-05-05 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServerConnection.m:
+	* WebServer.m:
+	* Internal.h:
+	Check to prevent a response being completed more than once.
+
 2016-01-20 Niels Grewe <niels.grew@halbordnung.de>
 
 	* WebServerHeader.m: Fix the x-count-* headers. The WSHType
