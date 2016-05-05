@@ -706,8 +706,11 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
   DESTROY(outBuffer);
   DESTROY(command);
   r = [self request];
-  [server _setIncrementalBytes: 0 length: 0 forRequest: r];
-  [server setUserInfo: nil forRequest: r];
+  if (nil != r)
+    {
+      [server _setIncrementalBytes: 0 length: 0 forRequest: r];
+      [server setUserInfo: nil forRequest: r];
+    }
   [response setWebServerConnection: nil];
   DESTROY(response);
   DESTROY(agent);
