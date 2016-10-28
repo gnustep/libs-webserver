@@ -33,6 +33,10 @@
 @implementation WebServerBundles
 - (void) dealloc
 {
+  if (_http != nil)
+    {
+      [[NSNotificationCenter defaultCenter] removeObserver: self];
+    }
   RELEASE(_http);
   RELEASE(_handlers);
   [super dealloc];

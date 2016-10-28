@@ -1,3 +1,8 @@
+2016-10-28  Wolfgang Lux  <wolfgang.lux@gmail.com>
+
+	* WebServerBundles.m (-dealloc): Unregister from notification
+	center.
+
 2016-05-19 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* GNUmakefile: Version 1.5.5 bugfix release
