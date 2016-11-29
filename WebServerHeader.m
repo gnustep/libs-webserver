@@ -79,7 +79,7 @@
   return self;
 }
 
-- (NSString*)name
+- (NSString*) name
 {
   switch (wshType)
     {

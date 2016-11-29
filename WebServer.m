@@ -1166,6 +1166,11 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   else
     {
       [aResponse setContent: data type: type name: nil];
+      if (YES == string)
+        {
+	  [[aResponse headerNamed: @"content-type"] setParameter: @"utf-8"
+							  forKey: @"charset"];
+        }
     }
   DESTROY(arp);
   return result;

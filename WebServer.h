@@ -730,6 +730,7 @@
  * Loads a template file from disk and places it in aResponse as content
  * whose mime type is determined from the file extension using the
  * provided mapping (or a simple built-in default mapping if map is nil).<br />
+ * Text responses use utf-8 enmcoding.<br />
  * If you have a dedicated web server for handling static pages (eg images)
  * it is better to use that rather than vending static pages using this
  * method.  It's unlikely that this method can be as efficient as a dedicated
