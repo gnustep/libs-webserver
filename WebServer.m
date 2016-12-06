@@ -335,13 +335,28 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 }
 
 + (NSUInteger) encodeURLEncodedForm: (NSDictionary*)dict
+                            charset: (NSString*)charset
 			       into: (NSMutableData*)data
 {
   CREATE_AUTORELEASE_POOL(arp);
   NSEnumerator		*keyEnumerator;
+  NSStringEncoding      enc;
   id			key;
   NSUInteger		valueCount = 0;
   NSMutableData		*md = [NSMutableDataClass dataWithCapacity: 100];
+
+  if (nil == charset)
+    {
+      enc = NSUTF8StringEncoding;
+    }
+  else
+    {
+      enc = [GSMimeDocument encodingFromCharset: charset];
+      if (GSUndefinedEncoding == enc)
+        {
+          enc = NSUTF8StringEncoding;
+        }
+    }
 
   keyEnumerator = [dict keyEnumerator];
   while ((key = [keyEnumerator nextObject]) != nil)
@@ -358,7 +373,11 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       else
 	{
 	  key = [key description];
-	  keyData = [key dataUsingEncoding: NSUTF8StringEncoding];
+	  keyData = [key dataUsingEncoding: enc];
+          if (nil == keyData)
+            {
+              keyData = [key dataUsingEncoding: NSUTF8StringEncoding];
+            }
 	}
       [md setLength: 0];
       escapeData([keyData bytes], [keyData length], md);
@@ -388,7 +407,11 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	  else
 	    {
 	      value = [value description];
-	      valueData = [value dataUsingEncoding: NSUTF8StringEncoding];
+	      valueData = [value dataUsingEncoding: enc];
+              if (nil == valueData)
+                {
+                  valueData = [value dataUsingEncoding: NSUTF8StringEncoding];
+                }
 	    }
 	  escapeData([valueData bytes], [valueData length], data);
 	  valueCount++;
@@ -396,6 +419,14 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     }
   RELEASE(arp);
   return valueCount;
+}
+
++ (NSUInteger) encodeURLEncodedForm: (NSDictionary*)dict
+			       into: (NSMutableData*)data
+{
+  return [self encodeURLEncodedForm: dict
+                            charset: nil
+			       into: data];
 }
 
 + (NSString*) escapeHTML: (NSString*)str
@@ -660,7 +691,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
       data = [[newPath dataUsingEncoding: NSUTF8StringEncoding] mutableCopy];
       [data appendBytes: "?" length: 1];
-      [self encodeURLEncodedForm: m into: data];
+      [self encodeURLEncodedForm: m charset: nil into: data];
       newPath = [NSString alloc];
       newPath = [newPath initWithData: data encoding: NSUTF8StringEncoding];
       [newPath autorelease];
@@ -995,9 +1026,16 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 }
 
 - (NSUInteger) encodeURLEncodedForm: (NSDictionary*)dict
+                            charset: (NSString*)charset
 			       into: (NSMutableData*)data
 {
-  return [[self class] encodeURLEncodedForm: dict into: data];
+  return [[self class] encodeURLEncodedForm: dict charset: charset into: data];
+}
+
+- (NSUInteger) encodeURLEncodedForm: (NSDictionary*)dict
+			       into: (NSMutableData*)data
+{
+  return [[self class] encodeURLEncodedForm: dict charset: nil into: data];
 }
 
 - (NSString*) escapeHTML: (NSString*)str

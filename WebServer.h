@@ -457,6 +457,13 @@
  * Same as the instance method of the same name.
  */
 + (NSUInteger) encodeURLEncodedForm: (NSDictionary*)dict
+                            charset: (NSString*)charset
+			       into: (NSMutableData*)data;
+
+/** DEPRECATED ... use +encodeURLEncodedForm:charset:into: instead.<br />
+ * Same as the instance method of the same name.
+ */
++ (NSUInteger) encodeURLEncodedForm: (NSDictionary*)dict
 			       into: (NSMutableData*)data;
 
 
@@ -614,9 +621,16 @@
  * Each value in the array may be a data object or a string.<br />
  * As a special case, a value may be a data object or a string rather
  * than an array ... this is treated like an array of one value.<br />
- * All non data keys and values are converted to data using
- * utf-8 encoding.<br />
+ * All non data keys and values are converted to data using the specified
+ * charset (or utf-8 if charset is nil/unrecognized or where the key/value
+ * cannot be represented using the specified charset).<br />
  * This method returns the number of values actually encoded.
+ */
+- (NSUInteger) encodeURLEncodedForm: (NSDictionary*)dict
+                            charset: (NSString*)charset
+			       into: (NSMutableData*)data;
+
+/** DEPRECATED ... use -encodeURLEncodedForm:charset:into: instead.<br />
  */         
 - (NSUInteger) encodeURLEncodedForm: (NSDictionary*)dict
 			       into: (NSMutableData*)data;
