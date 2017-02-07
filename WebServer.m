@@ -271,63 +271,30 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   NSUInteger	spos = 0;
   NSUInteger	dpos = [d length];
 
+  /* RFC3986 says that alphanumeric, hyphen, dot, underscore and tilde
+   * are the only characters that should not be escaped in a URL.
+   */
+
   [d setLength: dpos + 3 * length];
   dst = (uint8_t *)[d mutableBytes];
   while (spos < length)
     {
       uint8_t		c = bytes[spos++];
-      NSUInteger	hi;
-      NSUInteger	lo;
 
-      switch (c)
+      if (isalnum(c) || '-' == c || '.' == c || '_' == c || '~' == c)
+        {
+          dst[dpos++] = c;
+        }
+      else
 	{
-	  case ' ':
-	  case '!':
-	  case '"':
-	  case '#':
-	  case '$':
-	  case '%':
-	  case '&':
-	  case '(':
-	  case ')':
-	  case '*':
-	  case '+':
-	  case ',':
-	  case '/':
-	  case ':':
-	  case ';':
-	  case '<':
-	  case '=':
-	  case '>':
-	  case '?':
-	  case '@':
-	  case '[':
-	  case '\'':
-	  case '\\':
-	  case ']':
-	  case '{':
-	  case '}':
-	    dst[dpos++] = '%';
-	    hi = (c & 0xf0) >> 4;
-	    dst[dpos++] = (hi > 9) ? 'A' + hi - 10 : '0' + hi;
-	    lo = (c & 0x0f);
-	    dst[dpos++] = (lo > 9) ? 'A' + lo - 10 : '0' + lo;
-	    break;
+          uint8_t	hi;
+          uint8_t	lo;
 
-	  default:
-	    if (c < ' ' || c > 127)
-	      {
-		dst[dpos++] = '%';
-		hi = (c & 0xf0) >> 4;
-		dst[dpos++] = (hi > 9) ? 'A' + hi - 10 : '0' + hi;
-		lo = (c & 0x0f);
-		dst[dpos++] = (lo > 9) ? 'A' + lo - 10 : '0' + lo;
-	      }
-	    else
-	      {
-		dst[dpos++] = c;
-	      }
-	    break;
+          dst[dpos++] = '%';
+          hi = (c & 0xf0) >> 4;
+          dst[dpos++] = (hi > 9) ? 'A' + hi - 10 : '0' + hi;
+          lo = (c & 0x0f);
+          dst[dpos++] = (lo > 9) ? 'A' + lo - 10 : '0' + lo;
 	}
     }
   [d setLength: dpos];
