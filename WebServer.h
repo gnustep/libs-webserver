@@ -793,11 +793,16 @@
  * If anAddress is nil or empty, the receiver will listen on
  * all available network interfaces.<br />
  * If secure is nil then the receiver listens on aPort for HTTP requests.<br />
- * If secure is not nil, the receiver listens for HTTPS instead.<br />
- * If secure is a dictionary containing <code>CertificateFile</code>,
- * <code>KeyFile</code> and <code>Password</code> then the server will
- * use the specified certificate and key files (which it will access
- * using the password).<br />
+ * If secure is a dictionary, it must either contain <code>Proxy</code>
+ * with the value set to <code>YES</code> (to configure the receiver to
+ * accept HTTP connections but treat them as coming via a secure proxy),
+ * or it must contain <code>CertificateFile</code>,
+ * <code>KeyFile</code> and <code>Password</code> to configure the server
+ * to use the specified certificate and key files (which it will access
+ * using the password) to support HTTPS rather than HTTP.<br />
+ * If the dictionary also contains <code>HSTS</code> then this must be a
+ * non-negative integer value specifying the number of seconds to set
+ * in the Strict-Transport-Security header (defaults to 7 days).<br />
  * The <em>secure</em> dictionary may also contain other dictionaries
  * keyed on IP addresses, and if the address that an incoming connection
  * arrived on matches the key of a dictionary, that dictionary is used

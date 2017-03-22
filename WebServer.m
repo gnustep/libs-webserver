@@ -1345,6 +1345,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 {
   CREATE_AUTORELEASE_POOL(pool);
   BOOL	ok = YES;
+  BOOL  proxy = NO;
   BOOL	update = NO;
 
   if ([anAddress length] == 0)
@@ -1363,6 +1364,22 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     {
       update = YES;
     }
+
+  if ([secure objectForKey: @"HSTS"] != nil)
+    {
+      NSUInteger        seconds;
+
+      seconds = (NSUInteger)[[secure objectForKey: @"HSTS"] integerValue];
+      [self setStrictTransportSecurity: seconds];
+    }
+
+  if (YES == [[secure objectForKey: @"Proxy"] boolValue])
+    {
+      proxy = YES;
+      secure = nil;
+    }
+  [self setSecureProxy: proxy];
+
   if ((secure == nil && _sslConfig != nil)
     || (secure != nil && [secure isEqual: _sslConfig] == NO))
     {
