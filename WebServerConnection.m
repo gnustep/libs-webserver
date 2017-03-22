@@ -1084,8 +1084,20 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
 {
   if (nil == response)
     {
+      NSUInteger        seconds = [server strictTransportSecurity];
+
       response = [WebServerResponse allocWithZone: NSDefaultMallocZone()];
       response = [response initWithConnection: self];
+      if (seconds > 0)
+        {
+          NSString      *value;
+
+          value = [NSString stringWithFormat: @"max-age=%lu",
+            (unsigned long)seconds];
+	  [response setHeader: @"Strict-Transport-Security"
+                        value: value
+                   parameters: nil];
+        }
     }
   return response;
 }

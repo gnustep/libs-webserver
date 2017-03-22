@@ -1649,6 +1649,11 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     }
 }
 
+- (void) setStrictTransportSecurity: (NSUInteger)seconds
+{
+  _strictTransportSecurity = seconds;
+}
+
 - (void) setConnectionTimeout: (NSTimeInterval)aDelay
 {
   if (aDelay != _connectionTimeout)
@@ -1837,6 +1842,11 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       [connection release];
       return YES;
     }
+}
+
+- (NSUInteger) strictTransportSecurity
+{
+  return _strictTransportSecurity;
 }
 
 - (BOOL) substituteFrom: (NSString*)aTemplate
@@ -2617,6 +2627,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   _userInfoMap = [NSMutableDictionary new];
   _incrementalDataLock = [NSLock new];
   _userInfoLock = [NSLock new];
+  _strictTransportSecurity = 604800;    // Default is 7 days
 
   /* We need a timer so that the main thread can handle connection
    * timeouts.

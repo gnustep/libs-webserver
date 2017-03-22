@@ -440,6 +440,7 @@
   NSMutableDictionary   *_userInfoMap;
   NSLock                *_incrementalDataLock;
   NSMutableDictionary   *_incrementalDataMap;
+  NSUInteger            _strictTransportSecurity;
   void			*_reserved;
 }
 
@@ -974,6 +975,16 @@
 - (void) setSecureProxy: (BOOL)aFlag;
 
 /**
+ * Specifies the number of seconds HSTS is to be turned on for when responding
+ * to a request on a secure connection (including via a secure proxy).<br />
+ * The Strict-Transport-Security header is automatically set in the response
+ * to any incoming request (but code handling the request may alter that).<br />
+ * The default setting is 7 days (604800 seconds), while a setting of zero
+ * turns off HSTS.
+ */
+- (void) setStrictTransportSecurity: (NSUInteger)seconds;
+
+/**
  * Sets the maximum recursion depth allowed for substitutions into
  * templates.  This defaults to 4.
  */
@@ -1037,6 +1048,13 @@
  * </p>
  */
 - (BOOL) streamData: (NSData*)data withResponse: (WebServerResponse*)response;
+
+/**
+ * Returns the number of seconds set for HSTS for this server.<br />
+ * This will be zero if the server is not using a secure connection or
+ * if HSTS has been disabled by the -setStrictTransportSecurity: method.
+ */
+- (NSUInteger) strictTransportSecurity;
 
 /**
  * Perform substitutions replacing the markup in aTemplate with the
