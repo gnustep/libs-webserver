@@ -1128,7 +1128,8 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
     }
   else
     {
-      NSString	*body;
+      NSUInteger        seconds = [server strictTransportSecurity];
+      NSString	        *body;
 
       [self setShouldClose: YES];
 
@@ -1139,7 +1140,7 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
            */
 	  [server _alert: result];
 	  body = [result stringByAppendingString:
-	    @"\r\nRetry-After: 120\r\n\r\n"];
+	    @"\r\nRetry-After: 120"];
 	}
       else
 	{
@@ -1147,8 +1148,16 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
 	    {
 	      [server _log: result];
 	    }
-	  body = [result stringByAppendingString: @"\r\n\r\n"];
         }
+
+      if (seconds > 0)
+        {
+          body = [result stringByAppendingFormat:
+            @"\r\nStrict-Transport-Security: max-age=%lu\r\n\r\n",
+            (unsigned long)seconds];
+        }
+
+      body = [result stringByAppendingString: @"\r\n\r\n"];
       [self performSelector: @selector(_doWrite:)
 		   onThread: ioThread->thread
 		 withObject: [body dataUsingEncoding: NSASCIIStringEncoding]
