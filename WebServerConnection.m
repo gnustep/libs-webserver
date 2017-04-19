@@ -1098,6 +1098,12 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
                         value: value
                    parameters: nil];
         }
+      if (nil != conf->frameOptions)
+        {
+	  [response setHeader: @"X-Frame-Options"
+                        value: conf->frameOptions
+                   parameters: nil];
+        }
     }
   return response;
 }

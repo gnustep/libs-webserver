@@ -1,3 +1,8 @@
+2017-04-19 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	New WebServerFrameOptions user default (DENY if not set) to sert a
+	default X-Frame-Options header value for use by all responses.
+
 2016-10-28  Wolfgang Lux  <wolfgang.lux@gmail.com>
 
 	* WebServerBundles.m (-dealloc): Unregister from notification

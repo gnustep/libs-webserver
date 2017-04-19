@@ -100,6 +100,7 @@
   NSUInteger		maxConnectionRequests;
   NSTimeInterval	maxConnectionDuration;
   NSSet			*permittedMethods;
+  NSString              *frameOptions;
 }
 @end
 
