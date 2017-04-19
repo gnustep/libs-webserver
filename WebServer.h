@@ -370,7 +370,11 @@
  *   If this is not defined, the value <code>DENY</code> is used to prevent
  *   responses from being presented inside frames.<br />
  *   If this is defined as an empty string, no X-Frame-Options header is set
- *   (unless application code explicitly sets the header in the response).
+ *   (unless application code explicitly sets the header in the response).<br />
+ *   Unless you use this option (or your application code explicitly
+ *   sets/removes the header), all responses will have the frame option DENY,
+ *   which will at least tend to keep security auditors who are afraid of
+ *   click-jacking attacks happy, even if it serves no other purpose.
  *   </desc>
  *   <term>WebServerHosts</term>
  *   <desc>An array of host IP addresses to list the hosts permitted to
