@@ -28,6 +28,7 @@
 #import <Foundation/NSLock.h>
 #import <Foundation/NSSet.h>
 #import <Foundation/NSThread.h>
+#import <Foundation/NSUserDefaults.h>
 
 #define WEBSERVERINTERNAL       1
 
@@ -460,6 +461,7 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
 {
   [handle closeFile];
   DESTROY(ioThread);
+  DESTROY(frameOpts);
   DESTROY(handle);
   DESTROY(excess);
   DESTROY(address);
@@ -629,6 +631,18 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
 
   if ((self = [super init]) != nil)
     {
+      NSString  *o;
+
+      if (nil == (o = [[NSUserDefaults standardUserDefaults]
+        stringForKey: @"WebServerFrameOptions"]))
+        {
+          frameOpts = @"DENY";
+        }
+      else if ([o length] > 0)
+        {
+          frameOpts = [o copy];
+        }
+
       nc = [[NSNotificationCenter defaultCenter] retain];
       server = svr;
       identity = ++connectionIdentity;
@@ -1098,10 +1112,10 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
                         value: value
                    parameters: nil];
         }
-      if (nil != conf->frameOptions)
+      if (nil != frameOpts)
         {
 	  [response setHeader: @"X-Frame-Options"
-                        value: conf->frameOptions
+                        value: frameOpts
                    parameters: nil];
         }
     }

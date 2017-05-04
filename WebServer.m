@@ -2615,8 +2615,6 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
 - (void) _setup
 {
-  NSString      *s;
-
   _reserved = 0;
   _nc = [[NSNotificationCenter defaultCenter] retain];
   _connectionTimeout = 30.0;
@@ -2636,14 +2634,6 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   _conf->maxConnectionDuration = 10.0;
   _conf->maxBodySize = 4*1024*1024;
   _conf->maxRequestSize = 8*1024;
-  if (nil == (s = [_defs stringForKey: @"WebServerFrameOptions"]))
-    {
-      _conf->frameOptions = @"DENY";
-    }
-  else if ([s length] > 0)
-    {
-      _conf->frameOptions = [s copy];
-    }
   _maxPerHost = 32;
   _maxConnections = 128;
   _substitutionLimit = 4;
@@ -2710,7 +2700,6 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 - (void) dealloc
 {
   [permittedMethods release];
-  [frameOptions release];
   [super dealloc];
 }
 @end

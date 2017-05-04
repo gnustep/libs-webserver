@@ -100,7 +100,6 @@
   NSUInteger		maxConnectionRequests;
   NSTimeInterval	maxConnectionDuration;
   NSSet			*permittedMethods;
-  NSString              *frameOptions;
 }
 @end
 
@@ -185,6 +184,7 @@ typedef	enum {
   BOOL                  chunked;        // Stream in chunks?
   uint32_t              incremental;    // Incremental parsing of request?
   NSMutableData         *outBuffer;
+  NSString              *frameOpts;
 @public
   NSTimeInterval	ticked;
   NSTimeInterval	extended;
