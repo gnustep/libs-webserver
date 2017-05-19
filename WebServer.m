@@ -2047,30 +2047,106 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	}
       else
 	{
-	  NSString	*address = [hdl socketLocalAddress];
-	  NSDictionary	*primary = [_sslConfig objectForKey: address];
-	  NSString	*certificateFile;
-	  NSString	*keyFile;
-	  NSString	*password;
+          NSMutableDictionary   *options = [NSMutableDictionary dictionary];
+	  NSString	        *address = [hdl socketLocalAddress];
+	  NSDictionary	        *primary = [_sslConfig objectForKey: address];
+	  NSString	        *s;
 
-	  certificateFile = [primary objectForKey: @"CertificateFile"];
-	  if (certificateFile == nil)
-	    {
-	      certificateFile = [_sslConfig objectForKey: @"CertificateFile"];
-	    }
-	  keyFile = [primary objectForKey: @"KeyFile"];
-	  if (keyFile == nil)
-	    {
-	      keyFile = [_sslConfig objectForKey: @"KeyFile"];
-	    }
-	  password = [primary objectForKey: @"Password"];
-	  if (password == nil)
-	    {
-	      password = [_sslConfig objectForKey: @"Password"];
-	    }
-	  [hdl sslSetCertificate: certificateFile
-		      privateKey: keyFile
-		       PEMpasswd: password];
+	  if (nil == (s = [primary objectForKey: @"CAFile"]))
+            {
+              s = [_sslConfig objectForKey: @"CAFile"];
+            }
+          if (nil != s)
+            {
+              [options setObject: s forKey: GSTLSCAFile];
+            }
+
+	  if (nil == (s = [primary objectForKey: @"CertificateFile"]))
+            {
+              s = [_sslConfig objectForKey: @"CertificateFile"];
+            }
+          if (nil != s)
+            {
+              [options setObject: s forKey: GSTLSCertificateFile];
+            }
+
+	  if (nil == (s = [primary objectForKey: @"CertificateKeyFile"]))
+            {
+              if (nil == (s = [_sslConfig objectForKey: @"CertificateKeyFile"]))
+                {
+                  if (nil == (s = [primary objectForKey: @"KeyFile"]))
+                    {
+                      s = [_sslConfig objectForKey: @"KeyFile"];
+                    }
+                }
+            }
+          if (nil != s)
+            {
+              [options setObject: s forKey: GSTLSCertificateKeyFile];
+            }
+
+	  if (nil == (s = [primary objectForKey: @"CertificateKeyPassword"]))
+            {
+              if (nil
+                == (s = [_sslConfig objectForKey: @"CertificateKeyPassword"]))
+                {
+                  if (nil == (s = [primary objectForKey: @"KeyPassword"]))
+                    {
+                      s = [_sslConfig objectForKey: @"KeyPassword"];
+                    }
+                }
+            }
+          if (nil != s)
+            {
+              [options setObject: s forKey: GSTLSCertificateKeyPassword];
+            }
+
+	  if (nil == (s = [primary objectForKey: @"Debug"]))
+            {
+              s = [_sslConfig objectForKey: @"Debug"];
+            }
+          if (nil != s)
+            {
+              [options setObject: s forKey: GSTLSDebug];
+            }
+
+	  if (nil == (s = [primary objectForKey: @"Priority"]))
+            {
+              s = [_sslConfig objectForKey: @"Priority"];
+            }
+          if (nil != s)
+            {
+              [options setObject: s forKey: GSTLSPriority];
+            }
+
+	  if (nil == (s = [primary objectForKey: @"RemoteHosts"]))
+            {
+              s = [_sslConfig objectForKey: @"RemoteHosts"];
+            }
+          if (nil != s)
+            {
+              [options setObject: s forKey: GSTLSRemoteHosts];
+            }
+
+	  if (nil == (s = [primary objectForKey: @"RevokeFile"]))
+            {
+              s = [_sslConfig objectForKey: @"RevokeFile"];
+            }
+          if (nil != s)
+            {
+              [options setObject: s forKey: GSTLSRevokeFile];
+            }
+
+	  if (nil == (s = [primary objectForKey: @"Verify"]))
+            {
+              s = [_sslConfig objectForKey: @"Verify"];
+            }
+          if (nil != s)
+            {
+              [options setObject: s forKey: GSTLSVerify];
+            }
+
+	  [hdl sslSetOptions: options];
 	  ssl = YES;
 	}
 

@@ -1689,6 +1689,24 @@ else if (YES == hadRequest) \
 		   value: version
 	      parameters: nil];
 
+          if (YES == ssl && [handle respondsToSelector: @selector(issuer)])
+            {
+              NSString  *s;
+
+              if (nil != (s = [handle performSelector: @selector(issuer)]))
+                {
+                  [doc setHeader: @"x-cert-issuer"
+                           value: s
+                      parameters: nil];
+                }
+              if (nil != (s = [handle performSelector: @selector(owner)]))
+                {
+                  [doc setHeader: @"x-cert-owner"
+                           value: s
+                      parameters: nil];
+                }
+            }
+
 	  if (pos >= length)
 	    {
 	      // Needs more data.
