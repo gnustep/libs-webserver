@@ -600,6 +600,10 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
    */
   [ioThread->threadLock lock];
   ticked = [NSDateClass timeIntervalSinceReferenceDate];
+  if (owner == ioThread->keepalives)
+    {
+      ioThread->keepaliveCount--;
+    }
   GSLinkedListRemove(self, owner);
   GSLinkedListInsertAfter(self, ioThread->readwrites,
     ioThread->readwrites->tail);
@@ -1228,6 +1232,10 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
 	{
 	  if (nil != owner)
 	    {
+              if (owner == ioThread->keepalives)
+                {
+                  ioThread->keepaliveCount--;
+                }
 	      GSLinkedListRemove(self, owner);
 	    }
 	  GSLinkedListInsertAfter(self, ioThread->processing,
@@ -1240,6 +1248,10 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
 	{
 	  if (nil != owner)
 	    {
+              if (owner == ioThread->keepalives)
+                {
+                  ioThread->keepaliveCount--;
+                }
 	      GSLinkedListRemove(self, owner);
 	    }
 	  GSLinkedListInsertAfter(self, ioThread->readwrites,

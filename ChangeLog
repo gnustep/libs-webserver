@@ -1,5 +1,13 @@
 2017-04-19 Richard Frith-Macdonald  <rfm@gnu.org>
 
+	* WebServerConnection.m:
+	Fix counter of keepalive per thread so we always decrement the
+	count when removing a connection from list of keepalives.
+	Fixes a bug where connection keepalive would stop working after
+	a while and all connections would be closed after one request.
+
+2017-04-19 Richard Frith-Macdonald  <rfm@gnu.org>
+
 	New WebServerFrameOptions user default (DENY if not set) to sert a
 	default X-Frame-Options header value for use by all responses.
 
