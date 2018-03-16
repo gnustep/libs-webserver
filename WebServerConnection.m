@@ -352,11 +352,6 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
     }
 }
 
-- (NSString*) address
-{
-  return address;
-}
-
 - (NSString*) audit
 {
   NSString	*h;
@@ -464,7 +459,10 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
   DESTROY(frameOpts);
   DESTROY(handle);
   DESTROY(excess);
-  DESTROY(address);
+  DESTROY(locAddr);
+  DESTROY(remAddr);
+  DESTROY(locPort);
+  DESTROY(remPort);
   DESTROY(buffer);
   DESTROY(parser);
   DESTROY(command);
@@ -480,8 +478,8 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
 - (NSString*) description
 {
   return [NSStringClass stringWithFormat:
-    @"WebServerConnection: %"PRIxPTR" [%@]",
-    [self identity], [self address]];
+    @"WebServerConnection: %"PRIxPTR" [%@:%@ <-- %@:%@]",
+    [self identity], locAddr, locPort, remAddr, remPort];
 }
 
 /* Must be called on the IO thread.
@@ -590,7 +588,7 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
     {
       if (NO == quiet)
 	{
-	  [server _log: @"%@ SSL accept fail on (%@).", self, address];
+	  [server _log: @"%@ SSL accept fail on (%@).", self, locAddr];
 	}
       [self end];
       return;
@@ -654,7 +652,10 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
       duration = 0.0;
       requests = 0;
       ASSIGN(handle, hdl);
-      address = [adr copy];
+      ASSIGN(locAddr, [hdl socketLocalAddress]);
+      ASSIGN(locPort, [hdl socketLocalService]);
+      ASSIGN(remAddr, adr);
+      ASSIGN(remPort, [hdl socketService]);
       conf = [c retain];
       quiet = q;
       ssl = s;
@@ -679,6 +680,16 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
   return ioThread;
 }
 
+- (NSString*) localAddress
+{
+  return locAddr;
+}
+
+- (NSString*) localPort
+{
+  return locPort;
+}
+
 - (NSUInteger) moreBytes: (NSUInteger)count
 {
   byteCount += count;
@@ -698,6 +709,16 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
 - (BOOL) quiet
 {
   return quiet;
+}
+
+- (NSString*) remoteAddress
+{
+  return remAddr;
+}
+
+- (NSString*) remotePort
+{
+  return remPort;
 }
 
 - (WebServerRequest*) request
@@ -1198,11 +1219,6 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
   return 0.0;
 }
 
-- (void) setAddress: (NSString*)aString
-{
-  ASSIGN(address, aString);
-}
-
 - (void) setAgent: (NSString*)aString
 {
   ASSIGN(agent, aString);
@@ -1341,7 +1357,7 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
 
   if (YES == conf->reverse && nil == result)
     {
-      host = [NSHost hostWithAddress: address];
+      host = [NSHost hostWithAddress: remAddr];
       if (nil == host)
 	{
 	  result = @"HTTP/1.0 403 Bad client host";

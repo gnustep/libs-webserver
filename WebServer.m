@@ -2240,7 +2240,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       [self _audit: connection];
       _handled++;
     }
-  [_perHost removeObject: [connection address]];
+  [_perHost removeObject: [connection remoteAddress]];
   [_connections removeObject: connection];
   [_lock unlock];
   [self _listen];
@@ -2311,9 +2311,8 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
                 response: (WebServerResponse*)response
           withConnection: (WebServerConnection*)connection
 {
-  NSFileHandle		*h;
-  NSString		*str;
-  NSString		*con;
+  NSString	*str;
+  NSString	*con;
 
   /*
    * Provide information and update the shared process statistics.
@@ -2321,8 +2320,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   [request addHeader: _xCountRequests];
   [request addHeader: _xCountConnections];
   [request addHeader: _xCountConnectedHosts];
-  h = [connection handle];
-  str = [h socketAddress];
+  str = [connection remoteAddress];
   str = [NSStringClass stringWithFormat: @"%"PRIuPTR,
     [_perHost countForObject: str]];
   [request setHeader: @"x-count-host-connections"
@@ -2377,16 +2375,16 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
    * Provide more information about the connection.
    */
   [request setHeader: @"x-local-address"
-	       value: [h socketLocalAddress]
+	       value: [connection localAddress]
 	  parameters: nil];
   [request setHeader: @"x-local-port"
-	       value: [h socketLocalService]
+	       value: [connection localPort]
 	  parameters: nil];
   [request setHeader: @"x-remote-address"
-	       value: [h socketAddress]
+	       value: [connection remoteAddress]
 	  parameters: nil];
   [request setHeader: @"x-remote-port"
-	       value: [h socketService]
+	       value: [connection remotePort]
 	  parameters: nil];
 
   str = [[request headerNamed: @"authorization"] value];
@@ -2468,7 +2466,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   [connection setProcessing: YES];
 
   if ([[_defs arrayForKey: @"WebServerQuiet"]
-    containsObject: [connection address]] == NO)
+    containsObject: [connection remoteAddress]] == NO)
     {
       [_lock lock];
       _requests++;

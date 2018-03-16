@@ -185,11 +185,14 @@ typedef	enum {
   uint32_t              incremental;    // Incremental parsing of request?
   NSMutableData         *outBuffer;
   NSString              *frameOpts;
+  NSString              *locAddr;       // local IP address
+  NSString              *remAddr;       // remote IP address
+  NSString              *locPort;       // local IP port
+  NSString              *remPort;       // remote IP port
 @public
   NSTimeInterval	ticked;
   NSTimeInterval	extended;
 }
-- (NSString*) address;
 - (NSString*) audit;
 - (NSTimeInterval) connectionDuration: (NSTimeInterval)now;
 - (void) end;
@@ -209,17 +212,20 @@ typedef	enum {
 		  ssl: (BOOL)s
 	      refusal: (NSString*)r;
 - (IOThread*) ioThread;
+- (NSString*) localAddress;
+- (NSString*) localPort;
 - (NSUInteger) moreBytes: (NSUInteger)count;
 - (GSMimeParser*) parser;
 - (BOOL) processing;
 - (BOOL) quiet;
+- (NSString*) remoteAddress;
+- (NSString*) remotePort;
 - (WebServerRequest*) request;
 - (NSTimeInterval) requestDuration: (NSTimeInterval)now;
 - (void) reset;
 - (void) respond: (NSData*)stream;
 - (WebServerResponse*) response;
 - (void) run;
-- (void) setAddress: (NSString*)aString;
 - (void) setAgent: (NSString*)aString;
 - (void) setConnectionStart: (NSTimeInterval)when;
 - (void) setExcess: (NSData*)d;
