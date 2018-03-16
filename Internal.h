@@ -189,12 +189,16 @@ typedef	enum {
   NSString              *remAddr;       // remote IP address
   NSString              *locPort;       // local IP port
   NSString              *remPort;       // remote IP port
+  NSString              *descIn;        // Cached description (incoming)
+  NSString              *descOut;       // Cached description (outgoing)
 @public
   NSTimeInterval	ticked;
   NSTimeInterval	extended;
 }
 - (NSString*) audit;
 - (NSTimeInterval) connectionDuration: (NSTimeInterval)now;
+- (NSString*) description;
+- (NSString*) descriptionOut;
 - (void) end;
 - (BOOL) ended;
 - (NSData*) excess;

@@ -162,14 +162,14 @@ debugRead(WebServer *server, WebServerConnection *c, NSData *data)
           char  *esc = rawEscape(ptr, len);
 
           [server _log: @"Read for %@ of %d bytes (escaped) - '%s'\n%s",
-            c, len, esc, b64]; 
+            [c description], len, esc, b64]; 
           free(esc);
           free(b64);
           return;
         }
     }
   [server _log: @"Read for %@ of %d bytes - '%*.*s'\n%s",
-    c, len, len, len, (const char*)ptr, b64]; 
+    [c description], len, len, len, (const char*)ptr, b64]; 
   free(b64);
 }
 
@@ -188,14 +188,14 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
           char  *esc = rawEscape(ptr, len);
 
           [server _log: @"Write for %@ of %d bytes (escaped) - '%s'\n%s",
-            c, len, esc, b64]; 
+            [c descriptionOut], len, esc, b64]; 
           free(esc);
           free(b64);
           return;
         }
     }
   [server _log: @"Write for %@ of %d bytes - '%*.*s'\n%s",
-    c, len, len, len, (const char*)ptr, b64]; 
+    [c descriptionOut], len, len, len, (const char*)ptr, b64]; 
   free(b64);
 }
 
@@ -472,14 +472,21 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
   DESTROY(conf);
   DESTROY(user);
   DESTROY(nc);
+  DESTROY(descIn);
+  DESTROY(descOut);
   [super dealloc];
 }
 
 - (NSString*) description
 {
-  return [NSStringClass stringWithFormat:
-    @"WebServerConnection: %"PRIxPTR" [%@:%@ <-- %@:%@]",
-    [self identity], locAddr, locPort, remAddr, remPort];
+  return descIn;
+}
+
+/* A modified description for use in outgoing operations.
+ */
+- (NSString*) descriptionOut
+{
+  return descOut;
 }
 
 /* Must be called on the IO thread.
@@ -656,6 +663,12 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
       ASSIGN(locPort, [hdl socketLocalService]);
       ASSIGN(remAddr, adr);
       ASSIGN(remPort, [hdl socketService]);
+      descIn = [[NSStringClass alloc] initWithFormat:
+        @"WebServerConnection: %"PRIxPTR" [%@:%@ <-- %@:%@]",
+        identity, locAddr, locPort, remAddr, remPort];
+      descOut = [[NSStringClass alloc] initWithFormat:
+        @"WebServerConnection: %"PRIxPTR" [%@:%@ --> %@:%@]",
+        identity, locAddr, locPort, remAddr, remPort];
       conf = [c retain];
       quiet = q;
       ssl = s;
@@ -829,7 +842,7 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
            */
           if (YES == conf->verbose && NO == quiet)
             {
-              [server _log: @"Response continued %@ - %@", self, stream];
+              [server _log: @"Response continued %@ - %@", descOut, stream];
             }
           if (YES == chunked)
             {
@@ -1110,7 +1123,7 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
                   object: handle];
       if (YES == conf->verbose && NO == quiet && NO == conf->logRawIO)
         {
-          [server _log: @"Response %@ - %@", self, data];
+          [server _log: @"Response %@ - %@", descOut, data];
         }
       [self performSelector: @selector(_doWrite:)
                    onThread: ioThread->thread
