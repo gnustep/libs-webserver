@@ -210,7 +210,6 @@ typedef	enum {
 - (id) initWithHandle: (NSFileHandle*)hdl
 	     onThread: (IOThread*)t
 		  for: (WebServer*)svr
-	      address: (NSString*)adr
 	       config: (WebServerConfig*)c
 		quiet: (BOOL)q
 		  ssl: (BOOL)s

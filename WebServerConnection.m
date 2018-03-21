@@ -630,7 +630,6 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
 - (id) initWithHandle: (NSFileHandle*)hdl
 	     onThread: (IOThread*)t
 		  for: (WebServer*)svr
-	      address: (NSString*)adr
 	       config: (WebServerConfig*)c
 		quiet: (BOOL)q
 		  ssl: (BOOL)s
@@ -661,7 +660,7 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
       ASSIGN(handle, hdl);
       ASSIGN(locAddr, [hdl socketLocalAddress]);
       ASSIGN(locPort, [hdl socketLocalService]);
-      ASSIGN(remAddr, adr);
+      ASSIGN(remAddr, [hdl socketAddress]);
       ASSIGN(remPort, [hdl socketService]);
       descIn = [[NSStringClass alloc] initWithFormat:
         @"WebServerConnection: %"PRIxPTR" [%@:%@ <-- %@:%@]",

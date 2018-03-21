@@ -2154,6 +2154,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       if (nil == address)
 	{
 	  refusal = @"HTTP/1.0 403 Unable to determine client host address";
+          address = @"unknown";
 	}
       else if (nil != (hosts = [_defs arrayForKey: @"WebServerHosts"])
         && [hosts containsObject: address] == NO)
@@ -2202,7 +2203,6 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       connection = [connection initWithHandle: hdl
 				     onThread: ioThread
 					  for: self
-				      address: address
 				       config: _conf
 					quiet: quiet
 					  ssl: ssl
