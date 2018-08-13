@@ -191,6 +191,12 @@
  *   <term>x-http-password</term>
  *   <desc>The password from the 'authorization' header if the request
  *     supplied HTTP basic authentication.</desc>
+ *   <term>x-cert-issuer</term>
+ *   <desc>The certificate issuer (RFC4514) if the request connection was
+ *     authenticated with a TLS/SSL certificate.</desc>
+ *   <term>x-cert-owner</term>
+ *   <desc>The certificate subject/owner (RFC4514) if the request connection
+ *     was authenticated with a TLS/SSL certificate.</desc>
  *   <term>x-count-requests</term>
  *   <desc>The number of requests being processed at the point when
  *      this request started (includes this request).</desc>
