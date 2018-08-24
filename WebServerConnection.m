@@ -1729,17 +1729,17 @@ else if (YES == hadRequest) \
 		   value: version
 	      parameters: nil];
 
-          if (YES == ssl && [handle respondsToSelector: @selector(issuer)])
+          if (YES == ssl && [handle respondsToSelector: @selector(sslIssuer)])
             {
               NSString  *s;
 
-              if (nil != (s = [handle performSelector: @selector(issuer)]))
+              if (nil != (s = [handle performSelector: @selector(sslIssuer)]))
                 {
                   [doc setHeader: @"x-cert-issuer"
                            value: s
                       parameters: nil];
                 }
-              if (nil != (s = [handle performSelector: @selector(owner)]))
+              if (nil != (s = [handle performSelector: @selector(sslOwner)]))
                 {
                   [doc setHeader: @"x-cert-owner"
                            value: s
