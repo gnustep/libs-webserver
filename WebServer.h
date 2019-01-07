@@ -193,10 +193,12 @@
  *     supplied HTTP basic authentication.</desc>
  *   <term>x-cert-issuer</term>
  *   <desc>The certificate issuer (RFC4514) if the request connection was
- *     authenticated with a TLS/SSL certificate.</desc>
+ *     authenticated with a TLS/SSL certificate or if a secure proxy is in
+ *     use and the proxy set this header.</desc>
  *   <term>x-cert-owner</term>
  *   <desc>The certificate subject/owner (RFC4514) if the request connection
- *     was authenticated with a TLS/SSL certificate.</desc>
+ *     was authenticated with a TLS/SSL certificate or if a secure proxy is in
+ *     use and the proxy set this header.</desc>
  *   <term>x-count-requests</term>
  *   <desc>The number of requests being processed at the point when
  *      this request started (includes this request).</desc>
@@ -818,7 +820,9 @@
  * or it must contain <code>CertificateFile</code>,
  * <code>KeyFile</code> and <code>Password</code> to configure the server
  * to use the specified certificate and key files (which it will access
- * using the password) to support HTTPS rather than HTTP.<br />
+ * using the password) to support HTTPS rather than HTTP. Alternatively
+ * both may be specified (if the connections are coming from a secure proxy
+ * and the connection between the proxy and the server is also secure.<br />
  * If the dictionary also contains <code>HSTS</code> then this must be a
  * non-negative integer value specifying the number of seconds to set
  * in the Strict-Transport-Security header (defaults to 7 days).<br />

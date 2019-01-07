@@ -1729,6 +1729,12 @@ else if (YES == hadRequest) \
 		   value: version
 	      parameters: nil];
 
+          if (NO == conf->secureProxy)
+            {
+              [doc deleteHeaderNamed: @"x-cert-issuer"];
+              [doc deleteHeaderNamed: @"x-cert-owner"];
+            }
+
           if (YES == ssl && [handle respondsToSelector: @selector(sslIssuer)])
             {
               NSString  *s;
