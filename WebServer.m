@@ -2403,15 +2403,33 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
       if (nil != (s = [handle performSelector: @selector(sslIssuer)]))
         {
-          [request setHeader: @"x-cert-issuer"
-                       value: s
-                  parameters: nil];
+          if (nil == [request headerNamed: @"x-cert-issuer"])
+            {
+              [request setHeader: @"x-cert-issuer"
+                           value: s
+                      parameters: nil];
+            }
+          else
+            {
+              [request setHeader: @"x-cert-issuer-proxy"
+                           value: s
+                      parameters: nil];
+            }
         }
       if (nil != (s = [handle performSelector: @selector(sslOwner)]))
         {
-          [request setHeader: @"x-cert-owner"
-                       value: s
-                  parameters: nil];
+          if (nil == [request headerNamed: @"x-cert-owner"])
+            {
+              [request setHeader: @"x-cert-owner"
+                           value: s
+                      parameters: nil];
+            }
+          else
+            {
+              [request setHeader: @"x-cert-owner-proxy"
+                           value: s
+                      parameters: nil];
+            }
         }
     }
 

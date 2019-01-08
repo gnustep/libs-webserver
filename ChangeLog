@@ -5,7 +5,10 @@
 	Ensure that x-cert-issuer and x-cert-owner headers passed in the
 	incoming request are removed unless the process is configured to
 	know that it is using a trusted proxy.  This prevents spoofing of
-	client certificate information.
+	client certificate information.  When configured to use a secure
+	proxy, headers provided by the proxy take precedence and the values
+	from the TLS session between the proxy and the server are provides
+	in additional headers.
 
 2018-08-24 Richard Frith-Macdonald  <rfm@gnu.org>
 
