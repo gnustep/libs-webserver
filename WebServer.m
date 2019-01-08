@@ -1345,7 +1345,6 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 {
   CREATE_AUTORELEASE_POOL(pool);
   BOOL	ok = YES;
-  BOOL  proxy = NO;
   BOOL	update = NO;
 
   if ([anAddress length] == 0)
@@ -1373,12 +1372,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       [self setStrictTransportSecurity: seconds];
     }
 
-  if (YES == [[secure objectForKey: @"Proxy"] boolValue])
-    {
-      proxy = YES;
-      secure = nil;
-    }
-  [self setSecureProxy: proxy];
+  [self setSecureProxy: [[secure objectForKey: @"Proxy"] boolValue]];
 
   if ((secure == nil && _sslConfig != nil)
     || (secure != nil && [secure isEqual: _sslConfig] == NO))
@@ -2311,6 +2305,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
                 response: (WebServerResponse*)response
           withConnection: (WebServerConnection*)connection
 {
+  NSFileHandle  *handle = [connection handle];
   NSString	*str;
   NSString	*con;
 
@@ -2386,6 +2381,30 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   [request setHeader: @"x-remote-port"
 	       value: [connection remotePort]
 	  parameters: nil];
+
+  if (NO == _conf->secureProxy)
+    {
+      [request deleteHeaderNamed: @"x-cert-issuer"];
+      [request deleteHeaderNamed: @"x-cert-owner"];
+    }
+
+  if ([handle respondsToSelector: @selector(sslIssuer)])
+    {
+      NSString  *s;
+
+      if (nil != (s = [handle performSelector: @selector(sslIssuer)]))
+        {
+          [request setHeader: @"x-cert-issuer"
+                       value: s
+                  parameters: nil];
+        }
+      if (nil != (s = [handle performSelector: @selector(sslOwner)]))
+        {
+          [request setHeader: @"x-cert-owner"
+                       value: s
+                  parameters: nil];
+        }
+    }
 
   str = [[request headerNamed: @"authorization"] value];
   if ([str length] > 6 && [[str substringToIndex: 6] caseInsensitiveCompare:

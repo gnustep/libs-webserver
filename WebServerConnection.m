@@ -1729,30 +1729,6 @@ else if (YES == hadRequest) \
 		   value: version
 	      parameters: nil];
 
-          if (NO == conf->secureProxy)
-            {
-              [doc deleteHeaderNamed: @"x-cert-issuer"];
-              [doc deleteHeaderNamed: @"x-cert-owner"];
-            }
-
-          if (YES == ssl && [handle respondsToSelector: @selector(sslIssuer)])
-            {
-              NSString  *s;
-
-              if (nil != (s = [handle performSelector: @selector(sslIssuer)]))
-                {
-                  [doc setHeader: @"x-cert-issuer"
-                           value: s
-                      parameters: nil];
-                }
-              if (nil != (s = [handle performSelector: @selector(sslOwner)]))
-                {
-                  [doc setHeader: @"x-cert-owner"
-                           value: s
-                      parameters: nil];
-                }
-            }
-
 	  if (pos >= length)
 	    {
 	      // Needs more data.
