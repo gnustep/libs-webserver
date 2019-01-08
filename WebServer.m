@@ -2140,8 +2140,17 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
               [options setObject: s forKey: GSTLSVerify];
             }
 
-	  [hdl sslSetOptions: options];
-	  ssl = YES;
+          if (nil == [options objectForKey: GSTLSCertificateFile])
+            {
+              /* No certificate supplied;  this is not a secure connection
+               */
+              ssl = NO;
+            }
+          else
+            {
+              [hdl sslSetOptions: options];
+              ssl = YES;
+            }
 	}
 
       address = [hdl socketAddress];
