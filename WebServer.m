@@ -1080,6 +1080,10 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     }
   return YES;
 }
+- (BOOL) isTrusted
+{
+  return _conf->secureProxy;
+}
 
 - (NSString*) _poolDescription
 {
@@ -2391,7 +2395,50 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	       value: [connection remotePort]
 	  parameters: nil];
 
-  if (NO == _conf->secureProxy)
+  if (YES == _conf->secureProxy)
+    {
+      NSString  *s;
+
+      /* Find the protocol of the request coming in to the proxy.
+       * The proxy may provide that in the X-Forwarded-Proto header.
+       */
+      s = [[request headerNamed: @"x-forwarded-proto"] value];
+      if (nil != s)
+        {
+          [request setHeader: @"x-http-scheme"
+                       value: s
+                  parameters: nil];
+        }
+
+      s = [[request headerNamed: @"forwarded"] value];
+      if (nil != s)
+        {
+          NSRange       r = [s rangeOfString: @"proto"];
+
+          /* The value from 'Forwarded' overrided that from 'X-Forwarded-Proto'
+           */
+          if (r.length > 0)
+            {
+              s = [s substringFromIndex: NSMaxRange(r)];
+              s = [s stringByTrimmingSpaces];
+              if ([s hasPrefix: @"="])
+                {
+                  s = [s substringFromIndex: 1];
+                  s = [s stringByTrimmingSpaces];
+                  r = [s rangeOfString: @";"];
+                  if (r.length > 0)
+                    {
+                      s = [s substringToIndex: r.location];
+                    }
+                  s = [s stringByReplacingString: @"\"" withString: @""];
+                  [request setHeader: @"x-http-scheme"
+                               value: s
+                          parameters: nil];
+                }
+            }
+        }
+    }
+  else
     {
       [request deleteHeaderNamed: @"x-cert-issuer"];
       [request deleteHeaderNamed: @"x-cert-owner"];

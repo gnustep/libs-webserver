@@ -702,6 +702,12 @@
 - (BOOL) isSecure;
 
 /**
+ * Returns YES if the server is running behiond a secure proxy inside
+ * a demilitarised zone (DMZ).
+ */
+- (BOOL) isTrusted;
+
+/**
  * Extracts request parameters from the HTTP query string and from the
  * request body (if it was application/x-www-form-urlencoded or
  * multipart/form-data) and return the extracted parameters as a
@@ -1003,8 +1009,10 @@
 - (void) setRoot: (NSString*)aPath;
 
 /** Configures a flag to say whether the receiver is running behind a
- * secure proxy and all connections are to be considered as having come
- * in via https.
+ * secure proxy (in a DMZ) and all connections are to be considered as
+ * having come in via https.<br />
+ * If this is not set, requests are not trusted and some headers may be
+ * deleted from them.
  */
 - (void) setSecureProxy: (BOOL)aFlag;
 

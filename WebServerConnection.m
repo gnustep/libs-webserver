@@ -1723,7 +1723,7 @@ else if (YES == hadRequest) \
 		   value: query
 	      parameters: nil];
 	  [doc setHeader: @"x-http-scheme"
-		   value: ((conf->secureProxy || ssl) ? @"https" : @"http")
+		   value: (ssl ? @"https" : @"http")
 	      parameters: nil];
 	  [doc setHeader: @"x-http-version"
 		   value: version

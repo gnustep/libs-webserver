@@ -1,3 +1,10 @@
+2019-01-11 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServer.h: Add -isTrusted method
+	* WebServer.m: Add -isTrusted and change code to set x-http-scheme
+	based on Forwarded or X-Forwarded-Proto if the request is trusted
+	to be from a secure proxy, rather than assuming it's https.
+
 2019-01-08 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* WebServer.m:
