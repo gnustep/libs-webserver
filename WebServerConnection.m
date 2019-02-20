@@ -209,6 +209,35 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
     }
 }
 
+- (NSString*) address
+{
+  NSString      *address;
+
+  /* The originating (client) address should be the
+   * last address in the forwarding list.  If that's
+   * not provided we must be connected directly to
+   * the internet, and can use x-remote-address instead.
+   */
+  address = [[self headerNamed: @"x-forwarded-for"] value];
+  if (nil != address)
+    {
+      NSEnumerator      *e;
+
+      e = [[address componentsSeparatedByString: @","] reverseObjectEnumerator];
+      address = [[e nextObject] stringByTrimmingSpaces];
+      while (nil != address && [address length] == 0)
+        {
+          address = [[e nextObject] stringByTrimmingSpaces];
+        }
+    }
+  if ([address length] == 0)
+    {
+      address = [[self headerNamed: @"x-remote-address"] value];
+      address = [address stringByTrimmingSpaces];
+    }
+  return address;
+}
+
 - (id) copy
 {
   return [self retain];

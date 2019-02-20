@@ -1136,6 +1136,11 @@
  * actually what it seems.
  */
 @interface      WebServerRequest : GSMimeDocument
+/** Convenience method returning the address of the client.<br />
+ * This is taken from the x-forwarded-for header if possible, but from the
+ * x-remote-address header if the request was not forwarded through a proxy.
+ */
+- (NSString*) address;
 @end
 
 /** Do not attempt to subclass the WebServerResponse class to add instance
