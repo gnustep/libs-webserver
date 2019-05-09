@@ -1040,7 +1040,7 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
               else if ([[s substringFromIndex: 5] floatValue] < 1.1) 
                 {
                   /* This is HTTP 1.0 ...
-                   * we must be prepared to close the connection at once
+                   * we must be ready to close the connection at once
                    * unless connection keep-alive has been set.
                    */
                   s = [[response headerNamed: @"connection"] value]; 

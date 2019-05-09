@@ -1,4 +1,11 @@
-2019-02-20 Richard Frith-Macdonald  <rfm@gnu.org>
+2019-05-09 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* Internal.h:
+	* WebServer.m:
+	* WebServerConnection.m:
+	* WebServerHeader.m:
+	Fix bug adding the same header twice to an incoming request.
+
 2019-01-11 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* WebServer.h: Add -address method for WebServerRequest

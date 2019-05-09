@@ -62,7 +62,7 @@
   if (nil != (self = [super initWithName: @"" value: @"" parameters: nil]))
     {
       wshObject = [o retain];
-	  wshType = t;
+      wshType = t;
       switch (t)
 	{
 	  case WSHCountRequests:
@@ -83,14 +83,14 @@
 {
   switch (wshType)
     {
-	  case WSHCountRequests:
-		return @"x-count-requests";
-	  case WSHCountConnections:
-		return @"x-count-connections";
-	  case WSHCountConnectedHosts:
-	    return @"x-count-connected-hosts";	
-	  default:
-		return nil;
+      case WSHCountRequests:
+	return @"x-count-requests";
+      case WSHCountConnections:
+	return @"x-count-connections";
+      case WSHCountConnectedHosts:
+	return @"x-count-connected-hosts";	
+      default:
+	return nil;
     }
   return nil;
 }

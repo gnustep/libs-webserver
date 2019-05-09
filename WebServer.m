@@ -2325,9 +2325,9 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   /*
    * Provide information and update the shared process statistics.
    */
-  [request addHeader: _xCountRequests];
-  [request addHeader: _xCountConnections];
-  [request addHeader: _xCountConnectedHosts];
+  [request setHeader: _xCountRequests];
+  [request setHeader: _xCountConnections];
+  [request setHeader: _xCountConnectedHosts];
   str = [connection remoteAddress];
   str = [NSStringClass stringWithFormat: @"%"PRIuPTR,
     [_perHost countForObject: str]];
@@ -2504,6 +2504,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	    }
 	}
     }
+  [response setPrepared: YES];
 }
 
 - (uint32_t) _incremental: (WebServerConnection*)connection

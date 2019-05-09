@@ -115,7 +115,7 @@
 @interface	WebServerResponse : GSMimeDocument
 {
   WebServerConnection	*webServerConnection;
-  BOOL                  prepared;
+  BOOL                  prepared;	// request/response pair is set up
   BOOL                  foldHeaders;
   BOOL                  completing;
 }
