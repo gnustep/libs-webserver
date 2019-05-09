@@ -2504,7 +2504,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	    }
 	}
     }
-  [response setPrepared: YES];
+  [response setPrepared];
 }
 
 - (uint32_t) _incremental: (WebServerConnection*)connection
