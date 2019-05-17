@@ -50,6 +50,20 @@ static NSSet	*defaultPermittedMethods = nil;
 
 #define	Alloc(X)	[(X) allocWithZone: defaultMallocZone]
 
+static void
+untrusted(WebServerRequest *request, NSString *key, NSMutableArray **array)
+{
+  if (nil != [[request headerNamed: key] value])
+    {
+      if (nil == *array)
+	{
+	  *array = [NSMutableArray array];
+	}
+      [*array addObject: key];
+      [request deleteHeaderNamed: key];
+    }
+}
+
 @implementation	WebServer
 
 + (void) initialize
@@ -2440,8 +2454,17 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     }
   else
     {
-      [request deleteHeaderNamed: @"x-cert-issuer"];
-      [request deleteHeaderNamed: @"x-cert-owner"];
+      NSMutableArray	*a = nil;
+
+      untrusted(request, @"x-cert-issuer", &a);
+      untrusted(request, @"x-cert-owner", &a);
+
+      if (nil != a)
+	{
+	  [self _log: @"Secure Proxy configuration not set;"
+	    @" Removed untrusted header information %@ from %@",
+	    a, request];
+	}
     }
 
   if ([handle respondsToSelector: @selector(sslIssuer)])
