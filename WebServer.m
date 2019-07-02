@@ -151,11 +151,16 @@ unescapeData(const uint8_t *bytes, NSUInteger length, uint8_t *buf)
 + (NSURL*) baseURLForRequest: (WebServerRequest*)request
 {
   NSString	*scheme = [[request headerNamed: @"x-http-scheme"] value];
-  NSString	*host = [[request headerNamed: @"host"] value];
+  NSString	*host = [[request headerNamed: @"x-forwarded-host"] value];
   NSString	*path = [[request headerNamed: @"x-http-path"] value];
   NSString	*query = [[request headerNamed: @"x-http-query"] value];
   NSString	*str;
   NSURL		*url;
+
+  if (nil == host)
+    {
+      host = [[request headerNamed: @"host"] value];
+    }
 
   /* An HTTP/1.1 request MUST contain the host header, but older requests
    * may not ... in which case we have to use our local IP address and port.
