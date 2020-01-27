@@ -418,13 +418,20 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
       c = [NSStringClass stringWithFormat: @"\"%@\"", c];
     }
 
-  if (nil == remAddr)
+  if (nil == address)
     {
-      h = @"-";
+      if (nil == remAddr)
+	{
+          h = @"-";		// unknown ... should never happen
+	}
+      else
+	{
+	  h = remAddr;		// where the connection came from
+	}
     }
   else
     {
-      h = remAddr;
+      h = address;		// ip of originating system
     }
 
   if (agent == nil)
@@ -467,14 +474,6 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
   if (nil == u)
     {
       u = @"-";
-    }
-
-  /* If the request was proxied, include the originating host as part of
-   * the username.
-   */
-  if (address != nil && NO == [address isEqual: remAddr])
-    {
-      u = [u stringByAppendingFormat: @"@%@", address];
     }
 
   if (requestStart == 0.0)

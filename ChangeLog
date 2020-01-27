@@ -4,7 +4,8 @@
 	* WebServer.h:
 	* WebServer.m:
 	* WebServerConnection.m:
-	Fix logging of remote IP address
+	Fix logging of remote IP address (of last request including proxied
+	information if possible).
 
 2019-05-17 Richard Frith-Macdonald  <rfm@gnu.org>
 
