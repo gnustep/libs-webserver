@@ -150,8 +150,8 @@ unescapeData(const uint8_t *bytes, NSUInteger length, uint8_t *buf)
 
 + (NSURL*) baseURLForRequest: (WebServerRequest*)request
 {
+  NSString	*host = [request address];
   NSString	*scheme = [[request headerNamed: @"x-http-scheme"] value];
-  NSString	*host = [[request headerNamed: @"x-forwarded-host"] value];
   NSString	*path = [[request headerNamed: @"x-http-path"] value];
   NSString	*query = [[request headerNamed: @"x-http-query"] value];
   NSString	*str;
@@ -2353,8 +2353,6 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   [request setHeader: @"x-count-host-connections"
 	       value: str
 	  parameters: nil];
-
-  [connection setAgent: [[request headerNamed: @"user-agent"] value]];
 
   /*
    * If the client specified that the connection should close, we don't

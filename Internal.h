@@ -104,6 +104,7 @@
 @end
 
 @interface	WebServerRequest : GSMimeDocument
+- (NSString*) address;
 @end
 
 /* We need to ensure that our map table holds response information safely
@@ -229,7 +230,6 @@ typedef	enum {
 - (void) respond: (NSData*)stream;
 - (WebServerResponse*) response;
 - (void) run;
-- (void) setAgent: (NSString*)aString;
 - (void) setConnectionStart: (NSTimeInterval)when;
 - (void) setExcess: (NSData*)d;
 - (void) setParser: (GSMimeParser*)aParser;

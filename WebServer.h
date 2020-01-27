@@ -327,8 +327,6 @@
  *   <desc>the address of the client host making the request</desc>
  *   <term>ident</term>
  *   <desc>not currently implemented ... '-' as placeholder</desc>
- *   <term>ident</term>
- *   <desc>not currently implemented ... '-' as placeholder</desc>
  *   <term>user</term>
  *   <desc>the remote user name from the authorization header, or '-'</desc>
  *   <term>timestamp</term>

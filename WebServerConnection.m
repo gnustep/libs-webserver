@@ -418,13 +418,13 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
       c = [NSStringClass stringWithFormat: @"\"%@\"", c];
     }
 
-  if (nil == address)
+  if (nil == remAddr)
     {
       h = @"-";
     }
   else
     {
-      h = address;	
+      h = remAddr;
     }
 
   if (agent == nil)
@@ -469,6 +469,14 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
       u = @"-";
     }
 
+  /* If the request was proxied, include the originating host as part of
+   * the username.
+   */
+  if (address != nil && NO == [address isEqual: remAddr])
+    {
+      u = [u stringByAppendingFormat: @"@%@", address];
+    }
+
   if (requestStart == 0.0)
     {
       d = [NSDateClass date];
@@ -488,6 +496,7 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
   DESTROY(frameOpts);
   DESTROY(handle);
   DESTROY(excess);
+  DESTROY(address);
   DESTROY(locAddr);
   DESTROY(remAddr);
   DESTROY(locPort);
@@ -803,6 +812,7 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
     }
   [response setWebServerConnection: nil];
   DESTROY(response);
+  DESTROY(address);
   DESTROY(agent);
   DESTROY(result);
   DESTROY(user);
@@ -1258,11 +1268,6 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
       return now - connectionStart;
     }
   return 0.0;
-}
-
-- (void) setAgent: (NSString*)aString
-{
-  ASSIGN(agent, aString);
 }
 
 - (void) setConnectionStart: (NSTimeInterval)when
@@ -1757,6 +1762,9 @@ else if (YES == hadRequest) \
 	  [doc setHeader: @"x-http-version"
 		   value: version
 	      parameters: nil];
+
+	  ASSIGN(address, [doc address]);
+	  ASSIGN(agent, [[doc headerNamed: @"user-agent"] value]);
 
 	  if (pos >= length)
 	    {
