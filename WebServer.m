@@ -2065,8 +2065,8 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       else
 	{
           NSMutableDictionary   *options = [NSMutableDictionary dictionary];
-	  NSString	        *address = [hdl socketLocalAddress];
-	  NSDictionary	        *primary = [_sslConfig objectForKey: address];
+	  NSString	        *locAddr = [hdl socketLocalAddress];
+	  NSDictionary	        *primary = [_sslConfig objectForKey: locAddr];
 	  NSString	        *s;
 
 	  if (nil == (s = [primary objectForKey: @"CAFile"]))
@@ -2238,7 +2238,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
       [_connections addObject: connection];
       [connection release];	// Retained in _connections map
-      [_perHost addObject: address];
+      [_perHost addObject: [connection remoteAddress]];
       [_lock unlock];
 
       /* Ensure we always have an 'accept' in progress unless we are already

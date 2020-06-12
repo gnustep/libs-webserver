@@ -696,9 +696,25 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
       requests = 0;
       ASSIGN(handle, hdl);
       ASSIGN(locAddr, [hdl socketLocalAddress]);
+      if (nil == locAddr)
+	{
+	  locAddr = @"unknown";
+	}
       ASSIGN(locPort, [hdl socketLocalService]);
+      if (nil == locPort)
+	{
+	  locPort = @"unknown";
+	}
       ASSIGN(remAddr, [hdl socketAddress]);
+      if (nil == remAddr)
+	{
+	  remAddr = @"unknown";
+	}
       ASSIGN(remPort, [hdl socketService]);
+      if (nil == remPort)
+	{
+	  remPort = @"unknown";
+	}
       descIn = [[NSStringClass alloc] initWithFormat:
         @"WebServerConnection: %"PRIxPTR" [%@:%@ <-- %@:%@]",
         identity, locAddr, locPort, remAddr, remPort];
