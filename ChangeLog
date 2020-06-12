@@ -1,3 +1,7 @@
+2016-06-12 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* GNUmakefile: Version 1.5.6 bugfix release
+
 2020-06-12 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* WebServer.m:
