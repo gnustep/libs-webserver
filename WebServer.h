@@ -151,12 +151,11 @@
 @class	NSThread;
 @class	NSUserDefaults;
 
-/**
- * This protocol is implemented by a delegate of a WebServer instance
+/** This protocol is implemented by a delegate of a WebServer instance
  * in order to allow the delegate to process requests which arrive
  * at the server.
  */
-@protocol	WebServerDelegate
+@protocol	WebServerDelegate <NSObject>
 
 /**
  * Process the HTTP request whose headers and data are provided in
@@ -248,13 +247,20 @@
 		    for: (WebServer*)http;
 @end
 
-
 /** This is an informal protocol documenting optional methods which will
  * be used if implemented by the delegate.
  */
 @interface	NSObject(WebServerDelegate)
 
-/* If your delegate implements this method, it will be called before the
+/** Informs the handler (if any) associated with the response that the
+ * server has written the response to the network.  The timeInterval
+ * is measured between the point when the server started reading the
+ * request and the point at which it finished writing the response.
+ */
+- (void) completedResponse: (WebServerResponse*)response
+		  duration: (NSTimeInterval)timeInterval;
+
+/** If your delegate implements this method, it will be called before the
  * first call to handle a request (ie before -preProcessRequest:response:for:
  * or -processRequest:response:for:) to provide the delegate with the
  * request header information and allow it to decide whether the request
@@ -1151,6 +1157,16 @@
  * in the receiver.
  */
 - (void) setFoldHeaders: (BOOL)aFlag;
+
+/** Sets additional information attached to the response which may then be
+ * retrieved with the -userInfo method.
+ */
+- (void) setUserInfo: (NSObject*)info;
+
+/** Returns the obect previously set with the -setUserInfo: method or nil
+ * if nothing has been set.
+ */
+- (NSObject*) userInfo;
 @end
 #endif
 

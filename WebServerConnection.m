@@ -296,6 +296,12 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
   return [self retain];
 }
 
+- (void) dealloc
+{
+  DESTROY(userInfo);
+  DEALLOC
+}
+
 - (BOOL) foldHeaders
 {
   return foldHeaders;
@@ -354,9 +360,19 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
   prepared = YES;
 }
 
+- (void) setUserInfo: (NSObject*)info
+{
+  ASSIGN(userInfo, info);
+}
+
 - (void) setWebServerConnection: (WebServerConnection*)c
 {
   webServerConnection = c;
+}
+
+- (NSObject*) userInfo
+{
+  return userInfo;
 }
 
 - (WebServerConnection*) webServerConnection
@@ -1993,6 +2009,7 @@ else if (YES == hadRequest) \
           NSTimeInterval	t = [self requestDuration: now];
           NSData		*more;
 
+	  [server _completedResponse: response duration: t];
           if (t > 0.0)
             {
               [self setRequestEnd: now];

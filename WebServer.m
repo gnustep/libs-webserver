@@ -227,7 +227,7 @@ unescapeData(const uint8_t *bytes, NSUInteger length, uint8_t *buf)
 	  keyEnd++;
 	}
 
-      if (escape == YES)
+      if (escape)
 	{
 	  buf = NSZoneMalloc(NSDefaultMallocZone(), keyEnd - keyStart);
 	  buflen = unescapeData(&bytes[keyStart], keyEnd - keyStart, buf);
@@ -352,7 +352,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       NSEnumerator	*valueEnumerator;
       id		value;
 
-      if ([key isKindOfClass: NSDataClass] == YES)
+      if ([key isKindOfClass: NSDataClass])
 	{
 	  keyData = key;
 	}
@@ -386,7 +386,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	    }
 	  [data appendData: keyData];
 	  [data appendBytes: "=" length: 1];
-	  if ([value isKindOfClass: NSDataClass] == YES)
+	  if ([value isKindOfClass: NSDataClass])
 	    {
 	      valueData = value;
 	    }
@@ -481,7 +481,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	}
     }
 
-  if (escape == YES)
+  if (escape)
     {
       unichar	*to;
       NSUInteger	j = 0;
@@ -795,11 +795,11 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
            */
           s = [[[s componentsSeparatedByString: @";"] objectAtIndex: 0]
             stringByTrimmingSpaces];
-          if ([s isEqualToString: @"text/html"] == YES
-            || [s isEqualToString: @"text/xhtml"] == YES
-            || [s isEqualToString: @"application/xhtml+xml"] == YES
-            || [s isEqualToString: @"application/vnd.wap.xhtml+xml"] == YES
-            || [s isEqualToString: @"text/vnd.wap.wml"] == YES)
+          if ([s isEqualToString: @"text/html"]
+            || [s isEqualToString: @"text/xhtml"]
+            || [s isEqualToString: @"application/xhtml+xml"]
+            || [s isEqualToString: @"application/vnd.wap.xhtml+xml"]
+            || [s isEqualToString: @"text/vnd.wap.wml"])
             {
               type = s;
 	      break;
@@ -1039,7 +1039,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     @" %"PRIuPTR" ended, %"PRIuPTR" requests, listening: %@%@%@",
     [super description], _port, ([self isSecure] ? @"https" : @"http"),
     [_connections count], _maxConnections, _maxPerHost,
-    _handled, _requests, _accepting == YES ? @"yes" : @"no",
+    _handled, _requests, _accepting ? @"yes" : @"no",
     [self _ioThreadDescription], [self _poolDescription]];
   [_lock unlock];
   return result;
@@ -1243,7 +1243,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 			      using: map
 			       into: m
 			      depth: 0];
-      if (result == YES)
+      if (result)
 	{
 	  [aResponse setContent: m type: @"text/html" name: nil];
 	  [[aResponse headerNamed: @"content-type"] setParameter: @"utf-8"
@@ -1269,12 +1269,12 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     }
 
   str = [[request headerNamed: @"content-type"] value];
-  if ([str isEqualToString: @"application/x-www-form-urlencoded"] == YES)
+  if ([str isEqualToString: @"application/x-www-form-urlencoded"])
     {
       data = [request convertToData];
       [self decodeURLEncodedForm: data into: params];
     }
-  else if ([str isEqualToString: @"multipart/form-data"] == YES)
+  else if ([str isEqualToString: @"multipart/form-data"])
     {
       NSArray	*contents = [request content];
       NSUInteger	count = [contents count];
@@ -1403,7 +1403,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       update = YES;
     }
 
-  if (update == YES)
+  if (update)
     {
       ASSIGNCOPY(_sslConfig, secure);
       if (_listener != nil)
@@ -1611,7 +1611,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
 - (void) setMaxConnectionsReject: (BOOL)reject
 {
-  _reject = (reject == YES) ? 1 : 0;
+  _reject = (reject ? 1 : 0);
 }
 
 - (void) setMaxKeepalives: (NSUInteger)max
@@ -1995,7 +1995,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   va_list	args;
 
   va_start(args, fmt);
-  if ([_delegate respondsToSelector: @selector(webAlert:for:)] == YES)
+  if ([_delegate respondsToSelector: @selector(webAlert:for:)])
     {
       NSString	*s;
 
@@ -2026,6 +2026,14 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	{
 	  fprintf(stderr, "%s\r\n", [msg UTF8String]);
 	} 
+    }
+}
+
+- (void) _completedResponse: (WebServerResponse*)r duration: (NSTimeInterval)t
+{
+  if ([_delegate respondsToSelector: @selector(completedResponse:duration:)])
+    {
+      [_delegate completedResponse: r duration: t];
     }
 }
 
@@ -2319,7 +2327,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   va_list	args;
 
   va_start(args, fmt);
-  if ([_delegate respondsToSelector: @selector(webLog:for:)] == YES)
+  if ([_delegate respondsToSelector: @selector(webLog:for:)])
     {
       NSString	*s;
 
@@ -2638,7 +2646,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   NS_DURING
     {
       [connection setTicked: _ticked];
-      if ([self accessRequest: request response: response] == YES)
+      if ([self accessRequest: request response: response])
 	{
 	  processed = [_delegate preProcessRequest: request
 				          response: response
@@ -2656,7 +2664,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     }
   NS_ENDHANDLER
 
-  if (processed == YES)
+  if (processed)
     {
       /* Request was completed at the pre-processing stage ... don't process
        */
@@ -2715,7 +2723,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     }
   NS_ENDHANDLER
 
-  if (processed == YES)
+  if (processed)
     {
       [self completedWithResponse: response];
     }

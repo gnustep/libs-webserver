@@ -116,6 +116,7 @@
 @interface	WebServerResponse : GSMimeDocument
 {
   WebServerConnection	*webServerConnection;
+  NSObject		*userInfo;
   BOOL                  prepared;	// request/response pair is set up
   BOOL                  foldHeaders;
   BOOL                  completing;
@@ -126,7 +127,9 @@
 - (void) setFoldHeaders: (BOOL)aFlag;
 - (void) setCompleting;
 - (void) setPrepared;
+- (void) setUserInfo: (NSObject*)info;
 - (void) setWebServerConnection: (WebServerConnection*)c;
+- (NSObject*) userInfo;
 - (WebServerConnection*) webServerConnection;
 @end
 
@@ -256,6 +259,7 @@ typedef	enum {
 @interface	WebServer (Internal)
 - (void) _alert: (NSString*)fmt, ...;
 - (void) _audit: (WebServerConnection*)connection;
+- (void) _completedResponse: (WebServerResponse*)r duration: (NSTimeInterval)t;
 - (void) _didConnect: (NSNotification*)notification;
 - (void) _endConnect: (WebServerConnection*)connection;
 - (NSString*) _ioThreadDescription;
