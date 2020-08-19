@@ -557,6 +557,7 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
   else
     {
       NSFileHandle	*h;
+      NSTimeInterval	r;
 
       [handshakeTimer invalidate];
       handshakeTimer = nil;
@@ -573,19 +574,20 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
 
       [self setExcess: nil];
       ticked = [NSDateClass timeIntervalSinceReferenceDate];
+      r = [self requestDuration: ticked];
+      if (r > 0.0)
+	{
+	  [self setRequestEnd: ticked];
+	  [server _completedResponse: response duration: r];
+	}
+
       if (NO == quiet)
 	{
-	  NSTimeInterval	r = [self requestDuration: ticked];
-
-	  if (r > 0.0)
+	  if (r > 0.0 && conf->durations)
 	    {
-	      [self setRequestEnd: ticked];
-	      if (YES == conf->durations)
-		{
-		  [server _log: @"%@ end of request (duration %g)", self, r];
-		}
+	      [server _log: @"%@ end of request (duration %g)", self, r];
 	    }
-	  if (YES == conf->verbose)
+	  if (conf->verbose)
 	    {
 	      NSTimeInterval	s = [self connectionDuration: ticked];
 
@@ -2009,10 +2011,10 @@ else if (YES == hadRequest) \
           NSTimeInterval	t = [self requestDuration: now];
           NSData		*more;
 
-	  [server _completedResponse: response duration: t];
           if (t > 0.0)
             {
               [self setRequestEnd: now];
+	      [server _completedResponse: response duration: t];
               if (NO == quiet && YES == conf->durations)
                 {
                   [server _log: @"%@ end of request (duration %g)", self, t];
