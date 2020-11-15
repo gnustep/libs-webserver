@@ -853,8 +853,12 @@
  * Typically a failure will be due to an invalid address or port being
  * specified ...  a port may not already be in use and may not be in the
  * range up to 1024 (unless running as the super-user).<br />
- * Call this with a nil/empty port argument to shut the server down as soon as
- * all current connections are closed (and refuse new incoming connections).
+ * Call this with a nil/empty port argument to shut the server down as soon
+ * as all current connections are closed (and refuse new incoming
+ * connections).<br />
+ * NB. Changing of this configuration must only occur in the master thread
+ * so this method, if called from another thread, will need to perform some
+ * internal operations in the master thread before it returns.
  */
 - (BOOL) setAddress: (NSString*)anAddress
 	       port: (NSString*)aPort

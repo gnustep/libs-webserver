@@ -1362,13 +1362,15 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   return [s autorelease];
 }
 
-- (BOOL) setAddress: (NSString*)anAddress
-	       port: (NSString*)aPort
-	     secure: (NSDictionary*)secure
+/* For internal use ... must be called in the main I/O thread.
+ */
+- (void) _setupIO: (NSArray*)a
 {
-  CREATE_AUTORELEASE_POOL(pool);
-  BOOL	ok = YES;
-  BOOL	update = NO;
+  ENTER_POOL
+  NSString	*anAddress = [a objectAtIndex: 0];
+  NSString	*aPort = [a objectAtIndex: 1];
+  NSDictionary	*secure = [a objectAtIndex: 2];
+  BOOL		update = NO;
 
   if ([anAddress length] == 0)
     {
@@ -1385,6 +1387,10 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   if (aPort != _port && [aPort isEqual: _port] == NO)
     {
       update = YES;
+    }
+  if (NO == [secure isKindOfClass: [NSDictionary class]])
+    {
+      secure = nil;
     }
 
   if ([secure objectForKey: @"HSTS"] != nil)
@@ -1501,7 +1507,6 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 		}
 	      DESTROY(_addr);
 	      DESTROY(_port);
-	      ok = NO;
 	    }
 	  else
 	    {
@@ -1514,7 +1519,38 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	    }
 	}
     }
-  DESTROY(pool);
+  LEAVE_POOL
+}
+ 
+- (BOOL) setAddress: (NSString*)anAddress
+	       port: (NSString*)aPort
+	     secure: (NSDictionary*)secure
+{
+  BOOL		ok = YES;
+
+  ENTER_POOL
+  NSArray	*a;
+
+  a = [NSArray arrayWithObjects:
+    ((nil == anAddress) ? @"" : anAddress), 
+    ((nil == aPort) ? @"" : aPort), 
+    ((nil == secure) ? (id)@"" : (id)secure), 
+    nil];
+
+  [self performSelector: @selector(_setupIO:)
+	       onThread: _ioMain->thread
+	     withObject: a
+	  waitUntilDone: YES];
+
+  if ([aPort length] == 0)
+    {
+      aPort = nil;
+    }
+  if (nil != aPort && nil == _listener)
+    {
+      ok = NO;	// Failed to listen on port
+    }
+  LEAVE_POOL
   return ok;
 }
 
