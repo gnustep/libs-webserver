@@ -1732,12 +1732,27 @@ else if (YES == hadRequest) \
 
 	  if (nil == [conf->permittedMethods member: method])
 	    {
-	      NSData	*data;
+	      NSData		*data;
+	      NSEnumerator	*e = [conf->permittedMethods objectEnumerator];
+	      NSMutableString	*s;
+	      NSString		*n;
 
 	      [self setShouldClose: YES];	// Not persistent.
-	      [self setResult: @"HTTP/1.0 501 Method not implemented"];
-	      data = [@"HTTP/1.0 501 method not implemented\r\n\r\n"
-		dataUsingEncoding: NSASCIIStringEncoding];
+	      [self setResult: @"HTTP/1.0 405 Method Not Allowed"];
+	      s = AUTORELEASE([@"HTTP/1.0 405 method not allowed" mutableCopy]);
+	      if ((n = [e nextObject]) != nil)
+		{
+		  [s appendString: @"\r\nAllow: "];
+		  [s appendString: n];
+		}
+	      while ((n = [e nextObject]) != nil)
+		{
+		  [s appendString: @", "];
+		  [s appendString: n];
+		}
+	      [s appendString: @"\r\n\r\n"];
+	      data = [s dataUsingEncoding: NSASCIIStringEncoding
+		     allowLossyConversion: YES];
 	      [self performSelector: @selector(_doWrite:)
 			   onThread: ioThread->thread
 			 withObject: data

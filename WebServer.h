@@ -1001,7 +1001,8 @@
 
 /** Sets the HTTP methods which may be used by the server.<br />
  * Any incoming request using a method not listed in the permitted set is
- * rejected with an HTTP 501 response.<br />
+ * rejected with an HTTP 405 response and an Allow header saying which
+ * methods ARE allowed.<br />
  * The default set contains only the GET and POST methods.
  */
 - (void) setPermittedMethods: (NSSet*)s;
