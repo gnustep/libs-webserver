@@ -1744,11 +1744,11 @@ else if (YES == hadRequest) \
 		{
 		  [s appendString: @"\r\nAllow: "];
 		  [s appendString: n];
-		}
-	      while ((n = [e nextObject]) != nil)
-		{
-		  [s appendString: @", "];
-		  [s appendString: n];
+		  while ((n = [e nextObject]) != nil)
+		    {
+		      [s appendString: @", "];
+		      [s appendString: n];
+		    }
 		}
 	      [s appendString: @"\r\n\r\n"];
 	      data = [s dataUsingEncoding: NSASCIIStringEncoding
