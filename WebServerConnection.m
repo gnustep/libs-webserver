@@ -1011,6 +1011,8 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
             }
           else
             {
+	      raw = nil;
+	      contentLength = 0;
               data = stream;
               len = [data length] + 1024;
             }
@@ -1258,7 +1260,7 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
   else
     {
       NSUInteger        seconds = [server strictTransportSecurity];
-      NSString	        *body;
+      NSString	        *body = result;
 
       [self setShouldClose: YES];
 
@@ -1268,7 +1270,7 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
            * Tell the remote end to back-off and log an alert.
            */
 	  [server _alert: result];
-	  body = [result stringByAppendingString:
+	  body = [body stringByAppendingString:
 	    @"\r\nRetry-After: 120"];
 	}
       else
@@ -1281,12 +1283,12 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
 
       if (seconds > 0)
         {
-          body = [result stringByAppendingFormat:
+          body = [body stringByAppendingFormat:
             @"\r\nStrict-Transport-Security: max-age=%lu\r\n\r\n",
             (unsigned long)seconds];
         }
 
-      body = [result stringByAppendingString: @"\r\n\r\n"];
+      body = [body stringByAppendingString: @"\r\n\r\n"];
       [self performSelector: @selector(_doWrite:)
 		   onThread: ioThread->thread
 		 withObject: [body dataUsingEncoding: NSASCIIStringEncoding]

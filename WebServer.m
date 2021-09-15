@@ -926,7 +926,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     }
   else
     {
-      WebServerConnection	*connection;
+      WebServerConnection	*connection = nil;
       BOOL                      wasCompleting;
 
       [_lock lock];
