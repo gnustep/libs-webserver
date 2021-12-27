@@ -257,6 +257,7 @@ typedef	enum {
 @end
 
 @interface	WebServer (Internal)
+- (BOOL) _addConnectedHost: (NSString*)host;
 - (void) _alert: (NSString*)fmt, ...;
 - (void) _audit: (WebServerConnection*)connection;
 - (void) _completedResponse: (WebServerResponse*)r duration: (NSTimeInterval)t;

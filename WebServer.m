@@ -2026,6 +2026,25 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
 @implementation	WebServer (Private)
 
+
+/* Add the connection host returning YES if this causes the server to
+ * exceed the per-host limit.  This is used only where the connection
+ * is from a trusted proxy.
+ */
+- (BOOL) _addConnectedHost: (NSString*)host
+{
+  BOOL	excessive = NO;
+
+  [_lock lock];
+  [_perHost addObject: host];
+  if (_maxPerHost > 0 && [_perHost countForObject: host] > _maxPerHost)
+    {
+      excessive = YES;
+    }
+  [_lock unlock];
+  return excessive;
+}
+
 - (void) _alert: (NSString*)fmt, ...
 {
   va_list	args;
@@ -2236,7 +2255,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	{
 	  refusal =  @"HTTP/1.0 503 Too many existing connections";
 	}
-      else if (_maxPerHost > 0
+      else if (_maxPerHost > 0 && NO == [self isTrusted]
 	&& [_perHost countForObject: address] >= _maxPerHost)
 	{
 	  refusal = @"HTTP/1.0 503 Too many existing connections from host";
@@ -2310,7 +2329,20 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       [self _audit: connection];
       _handled++;
     }
-  [_perHost removeObject: [connection remoteAddress]];
+  if ([self isTrusted])
+    {
+      /* As we are behind a trusted proxy, we use the address provided by
+       * that proxy to count connections per host.
+       */
+      [_perHost removeObject: [connection address]];
+    }
+  else
+    {
+      /* Tracking connections per host uses the actual remote host provided
+       * by the TCP/IP connection.
+       */
+      [_perHost removeObject: [connection remoteAddress]];
+    }
   [_connections removeObject: connection];
   [_lock unlock];
   [self _listen];

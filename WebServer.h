@@ -706,7 +706,7 @@
 - (BOOL) isSecure;
 
 /**
- * Returns YES if the server is running behiond a secure proxy inside
+ * Returns YES if the server is running behind a secure proxy inside
  * a demilitarised zone (DMZ).
  */
 - (BOOL) isTrusted;
