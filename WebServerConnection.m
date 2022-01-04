@@ -397,6 +397,11 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
     }
 }
 
+- (NSString*) address
+{
+  return address;
+}
+
 - (NSString*) audit
 {
   NSString	*h;
@@ -1525,6 +1530,38 @@ else if (YES == hadRequest) \
     [server _process1: self]; \
   }
 
+- (BOOL) _checkHostLimit
+{
+  /* When a connection is from a trusted proxy, we do per-host counting by
+   * originating host (header information from the proxy) rather than the
+   * address of the remote end of the TCP/IP connection.
+   */
+  if ([server isTrusted])
+    {
+      ASSIGN(address, [(WebServerRequest*)[parser mimeDocument] address]);
+
+      if (YES == [server _addConnectedHost: address]) 
+        {
+	  NSData	*data;
+
+	  [server _log:
+	    @"%@ Too many existing connections from host. rejected", self];
+	  [self setShouldClose: YES];	// Not persistent.
+	  [self setResult:
+	    @"HTTP/1.0 503 Too many existing connections from host"];
+	  data = [@"HTTP/1.0 413 Request body too long\r\n\r\n"
+	    @"HTTP/1.0 503 Too many existing connections from host\r\n\r\n"
+	    dataUsingEncoding: NSASCIIStringEncoding];
+	  [self performSelector: @selector(_doWrite:)
+		       onThread: ioThread->thread
+		     withObject: data
+		  waitUntilDone: NO];
+	  return YES;
+        }
+    }
+  return NO;
+}
+
 - (void) _didData: (NSData*)d
 {
   NSString		*method = @"";
@@ -1835,34 +1872,6 @@ else if (YES == hadRequest) \
     }
   method = [[doc headerNamed: @"x-http-method"] value];
 
-  /* When a connection is from a trusted proxy, we do per-host counting by
-   * originating host (header information from the proxy) rather than the
-   * address of the remote end of the TCP/IP connection.
-   */
-  if ([server isTrusted])
-    {
-      NSString	*host = [doc address];
-
-      if (YES == [server _addConnectedHost: host]) 
-        {
-	  NSData	*data;
-
-	  [server _log:
-	    @"%@ Too many existing connections from host. rejected", self];
-	  [self setShouldClose: YES];	// Not persistent.
-	  [self setResult:
-	    @"HTTP/1.0 503 Too many existing connections from host"];
-	  data = [@"HTTP/1.0 413 Request body too long\r\n\r\n"
-	    @"HTTP/1.0 503 Too many existing connections from host\r\n\r\n"
-	    dataUsingEncoding: NSASCIIStringEncoding];
-	  [self performSelector: @selector(_doWrite:)
-		       onThread: ioThread->thread
-		     withObject: data
-		  waitUntilDone: NO];
-	  return;
-        }
-    }
-
   /* Abandon request if the total data read is too long.
    * NB.  If we are doing incremental parsing then no length is too great
    * and it's the responsibility of the higher level application to end
@@ -1888,6 +1897,10 @@ else if (YES == hadRequest) \
     {
       if (YES == (hadRequest = [parser isComplete]))
 	{
+	  if ([self _checkHostLimit])
+	    {
+	      return;	// refused
+	    }
           if (NO == hadHeader)
             {
               hadHeader = YES;
@@ -1918,10 +1931,12 @@ else if (YES == hadRequest) \
 
   if (YES == (hadRequest = [parser isComplete]))
     {
-
-
-      /* Parsing complete ... pass request on.
+      /* Parsing complete ... pass request on unless we hit the host limit
        */
+      if ([self _checkHostLimit])
+	{
+	  return;	// refused
+	}
       if (NO == hadHeader)
         {
           hadHeader = YES;
@@ -1939,6 +1954,10 @@ else if (YES == hadRequest) \
     {
       if (NO == hadHeader)
         {
+	  if ([self _checkHostLimit])
+	    {
+	      return;	// refused
+	    }
           hadHeader = YES;
           incremental = [server _incremental: self];
           if (YES == [method isEqualToString: @"GET"])

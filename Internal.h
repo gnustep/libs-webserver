@@ -157,7 +157,7 @@ typedef	enum {
   WebServer		*server;
   WebServerResponse	*response;
   WebServerConfig	*conf;
-  NSString		*address;	// Client address
+  NSString		*address;	// Client address (for host limiting)
   NSString		*command;	// Command sent by client
   NSString		*agent;		// User-Agent header
   NSString		*result;	// Result sent back
@@ -199,6 +199,7 @@ typedef	enum {
   NSTimeInterval	ticked;
   NSTimeInterval	extended;
 }
+- (NSString*) address;
 - (NSString*) audit;
 - (NSTimeInterval) connectionDuration: (NSTimeInterval)now;
 - (NSString*) description;
