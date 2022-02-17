@@ -1363,6 +1363,11 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
   [ioThread->threadLock unlock];
 }
 
+- (void) setQuiet: (BOOL)aFlag
+{
+  quiet = (aFlag ? YES : NO);
+}
+
 - (void) setRequestEnd: (NSTimeInterval)when
 {
   NSTimeInterval	ti = when - requestStart;
@@ -1530,17 +1535,19 @@ else if (YES == hadRequest) \
     [server _process1: self]; \
   }
 
-- (BOOL) _checkHostLimit
+- (BOOL) _checkProxying
 {
   /* When a connection is from a trusted proxy, we do per-host counting by
    * originating host (header information from the proxy) rather than the
    * address of the remote end of the TCP/IP connection.
+   * We must perform that check only using the initial request on the
+   * connection.
    */
-  if ([server isTrusted])
+  if (0 == requestCount && [server isTrusted])
     {
       ASSIGN(address, [(WebServerRequest*)[parser mimeDocument] address]);
 
-      if (YES == [server _addConnectedHost: address]) 
+      if (YES == [server _addConnection: self]) 
         {
 	  NSData	*data;
 
@@ -1897,7 +1904,7 @@ else if (YES == hadRequest) \
     {
       if (YES == (hadRequest = [parser isComplete]))
 	{
-	  if ([self _checkHostLimit])
+	  if ([self _checkProxying])
 	    {
 	      return;	// refused
 	    }
@@ -1931,9 +1938,9 @@ else if (YES == hadRequest) \
 
   if (YES == (hadRequest = [parser isComplete]))
     {
-      /* Parsing complete ... pass request on unless we hit the host limit
+      /* Parsing complete ...
        */
-      if ([self _checkHostLimit])
+      if ([self _checkProxying])
 	{
 	  return;	// refused
 	}
@@ -1954,7 +1961,7 @@ else if (YES == hadRequest) \
     {
       if (NO == hadHeader)
         {
-	  if ([self _checkHostLimit])
+	  if ([self _checkProxying])
 	    {
 	      return;	// refused
 	    }

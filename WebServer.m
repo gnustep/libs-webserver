@@ -1099,6 +1099,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     }
   return YES;
 }
+
 - (BOOL) isTrusted
 {
   return _conf->secureProxy;
@@ -2031,15 +2032,20 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
  * exceed the per-host limit.  This is used only where the connection
  * is from a trusted proxy.
  */
-- (BOOL) _addConnectedHost: (NSString*)host
+- (BOOL) _addConnection: (WebServerConnection*)conn
 {
-  BOOL	excessive = NO;
+  NSString	*host = [conn address];
+  BOOL		excessive = NO;
 
   [_lock lock];
   [_perHost addObject: host];
   if (_maxPerHost > 0 && [_perHost countForObject: host] > _maxPerHost)
     {
       excessive = YES;
+    }
+  if ([[_defs arrayForKey: @"WebServerQuiet"] containsObject: host])
+    {
+      [conn setQuiet: YES];
     }
   [_lock unlock];
   return excessive;

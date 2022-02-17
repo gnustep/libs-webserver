@@ -238,6 +238,7 @@ typedef	enum {
 - (void) setExcess: (NSData*)d;
 - (void) setParser: (GSMimeParser*)aParser;
 - (void) setProcessing: (BOOL)aFlag;
+- (void) setQuiet: (BOOL)aFlag;
 - (void) setRequestEnd: (NSTimeInterval)when;
 - (void) setRequestStart: (NSTimeInterval)when;
 - (void) setResult: (NSString*)aString;
@@ -258,7 +259,7 @@ typedef	enum {
 @end
 
 @interface	WebServer (Internal)
-- (BOOL) _addConnectedHost: (NSString*)host;
+- (BOOL) _addConnection: (WebServerConnection*)conn;
 - (void) _alert: (NSString*)fmt, ...;
 - (void) _audit: (WebServerConnection*)connection;
 - (void) _completedResponse: (WebServerResponse*)r duration: (NSTimeInterval)t;

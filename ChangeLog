@@ -1,13 +1,17 @@
-2022-01-04 Richard Frith-Macdonald  <rfm@gnu.org>
+2022-02-17 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* Internal.h:
 	* WebServer.h:
 	* WebServer.m:
 	* WebServerConnection.m:
-	Alter the behavior of the maximum connections per hst limit so that,
-	if the server is running behind a trusted proxy, we use the host
-	information from the headers rather than the TCP/IP address of the
-	connection.
+	Changes when running behind a trusted proxy (if the WebServer instance
+	is configured with Proxy=YES in the Secure dictionary, or has had the
+	-setSecureProxy: called to say it is behind a proxy).
+	Alter the behavior of the maximum connections per host limit so that
+	we use the host information from the headers rather than the TCP/IP
+	address of the connection.
+	Similarly, if the host address from the headers is listed in the
+	WebServerQuiet configuration, refrain from logging the connection. 
 
 2021-09-15 Richard Frith-Macdonald  <rfm@gnu.org>
 
