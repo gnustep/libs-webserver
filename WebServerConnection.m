@@ -399,7 +399,18 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
 
 - (NSString*) address
 {
-  return address;
+  if (address)
+    {
+      return address;
+    }
+  else if (remAddr)
+    {
+      return remAddr;
+    }
+  else
+    {
+      return @"-";
+    }
 }
 
 - (NSString*) audit
@@ -439,21 +450,7 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
       c = [NSStringClass stringWithFormat: @"\"%@\"", c];
     }
 
-  if (nil == address)
-    {
-      if (nil == remAddr)
-	{
-          h = @"-";		// unknown ... should never happen
-	}
-      else
-	{
-	  h = remAddr;		// where the connection came from
-	}
-    }
-  else
-    {
-      h = address;		// ip of originating system
-    }
+  h = [self address];
 
   if (agent == nil)
     {
@@ -1546,7 +1543,7 @@ else if (YES == hadRequest) \
   if (0 == requestCount && [server isTrusted])
     {
       ASSIGN(address, [(WebServerRequest*)[parser mimeDocument] address]);
-
+NSLog(@"Checking '%@'", address);
       if (YES == [server _addConnection: self]) 
         {
 	  NSData	*data;
@@ -1857,7 +1854,6 @@ else if (YES == hadRequest) \
 		   value: version
 	      parameters: nil];
 
-	  ASSIGN(address, [doc address]);
 	  ASSIGN(agent, [[doc headerNamed: @"user-agent"] value]);
 
 	  if (pos >= length)
