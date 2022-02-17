@@ -259,7 +259,7 @@ typedef	enum {
 @end
 
 @interface	WebServer (Internal)
-- (BOOL) _addConnection: (WebServerConnection*)conn;
+- (BOOL) _adjustConnection: (WebServerConnection*)conn;
 - (void) _alert: (NSString*)fmt, ...;
 - (void) _audit: (WebServerConnection*)connection;
 - (void) _completedResponse: (WebServerResponse*)r duration: (NSTimeInterval)t;

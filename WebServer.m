@@ -2028,16 +2028,18 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 @implementation	WebServer (Private)
 
 
-/* Add the connection host returning YES if this causes the server to
- * exceed the per-host limit.  This is used only where the connection
- * is from a trusted proxy.
+/* Addjust the connection based in its initial request, returning YES
+ * if this causes the server to exceed the per-host limit.  This is
+ * used only where the connection is from a trusted proxy.
  */
-- (BOOL) _addConnection: (WebServerConnection*)conn
+- (BOOL) _adjustConnection: (WebServerConnection*)conn
 {
   NSString	*host = [conn address];
+  NSString	*rem = [conn remoteAddress];
   BOOL		excessive = NO;
 
   [_lock lock];
+  [_perHost removeObject: rem];
   [_perHost addObject: host];
   if (_maxPerHost > 0 && [_perHost countForObject: host] > _maxPerHost)
     {
@@ -2262,7 +2264,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	  refusal =  @"HTTP/1.0 503 Too many existing connections";
 	}
       else if (_maxPerHost > 0 && NO == [self isTrusted]
-	&& [_perHost countForObject: address] >= _maxPerHost)
+	&& [_perHost countForObject: [self address]] >= _maxPerHost)
 	{
 	  refusal = @"HTTP/1.0 503 Too many existing connections from host";
 	}
@@ -2335,20 +2337,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       [self _audit: connection];
       _handled++;
     }
-  if ([self isTrusted])
-    {
-      /* As we are behind a trusted proxy, we use the address provided by
-       * that proxy to count connections per host.
-       */
-      [_perHost removeObject: [connection address]];
-    }
-  else
-    {
-      /* Tracking connections per host uses the actual remote host provided
-       * by the TCP/IP connection.
-       */
-      [_perHost removeObject: [connection remoteAddress]];
-    }
+  [_perHost removeObject: [connection address]];
   [_connections removeObject: connection];
   [_lock unlock];
   [self _listen];
@@ -2429,7 +2418,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   [request setHeader: _xCountRequests];
   [request setHeader: _xCountConnections];
   [request setHeader: _xCountConnectedHosts];
-  str = [connection remoteAddress];
+  str = [connection address];
   str = [NSStringClass stringWithFormat: @"%"PRIuPTR,
     [_perHost countForObject: str]];
   [request setHeader: @"x-count-host-connections"

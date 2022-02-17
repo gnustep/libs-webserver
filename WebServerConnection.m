@@ -1543,8 +1543,8 @@ else if (YES == hadRequest) \
   if (0 == requestCount && [server isTrusted])
     {
       ASSIGN(address, [(WebServerRequest*)[parser mimeDocument] address]);
-NSLog(@"Checking '%@'", address);
-      if (YES == [server _addConnection: self]) 
+
+      if (YES == [server _adjustConnection: self]) 
         {
 	  NSData	*data;
 
