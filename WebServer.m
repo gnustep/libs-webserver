@@ -2264,7 +2264,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	  refusal =  @"HTTP/1.0 503 Too many existing connections";
 	}
       else if (_maxPerHost > 0 && NO == [self isTrusted]
-	&& [_perHost countForObject: [self address]] >= _maxPerHost)
+	&& [_perHost countForObject: _addr] >= _maxPerHost)
 	{
 	  refusal = @"HTTP/1.0 503 Too many existing connections from host";
 	}
