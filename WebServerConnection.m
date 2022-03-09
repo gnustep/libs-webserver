@@ -1604,6 +1604,28 @@ else if (YES == hadRequest) \
       bytes = [buffer mutableBytes];
       length = [buffer length];
 
+      /* 0x16 is a TLS session header, and is not a legal character in a
+       * method name.
+       */
+      if (length > 0 && 0x16 == bytes[0])
+	{
+	  NSData	*data;
+
+	  [server _log: @"%@ Request may be encrypted", self];
+	  [self setShouldClose: YES];
+	  [self setResult: @"HTTP/1.0 400 Bad Request (HTTPS to HTTP server?)"];
+	  [nc removeObserver: self
+			name: NSFileHandleReadCompletionNotification
+		      object: handle];
+	  data = [@"HTTP/1.0 400 Bad Request (HTTPS to HTTP server?)\r\n\r\n"
+	    dataUsingEncoding: NSASCIIStringEncoding];
+	  [self performSelector: @selector(_doWrite:)
+		       onThread: ioThread->thread
+		     withObject: data
+		  waitUntilDone: NO];
+	  return;
+	}
+
       /* Some browsers/libraries add a CR-LF after POSTing data,
        * while others do not.
        * If we are using a connection which has been kept alive,

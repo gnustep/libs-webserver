@@ -1,3 +1,10 @@
+2022-03-09 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServerConnection.m: Return 400 error if the request starts with
+	a 0x16 byte ... that's not part of th method name and is probably the
+	start of a TLS session header for handshake with the remote end trying
+	to use HTTPS when the server is confgured to use HTTP.
+
 2022-02-17 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* Internal.h:
