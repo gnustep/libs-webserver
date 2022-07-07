@@ -2013,6 +2013,11 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   return YES;
 }
 
+- (GSThreadPool*) threadPool
+{
+  return _pool;
+}
+
 - (NSObject*) userInfoForRequest: (WebServerRequest*)request
 {
   NSObject      *o;

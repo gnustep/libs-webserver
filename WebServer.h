@@ -1130,6 +1130,10 @@
 		   into: (NSMutableString*)result
 		  depth: (NSUInteger)depth;
 
+/** Returns the thread pool used by this instance.
+ */
+- (GSThreadPool*) threadPool;
+
 /**
  * Retrieves additional user information (previously set using the
  * -setUserInfo:forRequest: method) from a request.
