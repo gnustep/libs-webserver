@@ -1032,13 +1032,36 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 - (NSString*) description
 {
   NSString	*result;
+  NSUInteger	active;
+  NSUInteger	idle;
+  NSUInteger 	count;
 
   [_lock lock];
+
+  idle = _ioMain->keepaliveCount;
+  count = [_ioThreads count];
+  while (count-- > 0)
+    {
+      IOThread	*tmp = [_ioThreads objectAtIndex: count];
+
+      idle += tmp->keepaliveCount;
+    }
+  count = [_connections count];
+  if (count > idle)
+    {
+      active = count - idle;
+    }
+  else
+    {
+      active = 0;
+    }
+
   result = [NSStringClass stringWithFormat: @"%@ on %@(%@),"
     @" %"PRIuPTR" of %"PRIuPTR"(%"PRIuPTR"/host) connections active,"
-    @" %"PRIuPTR" ended, %"PRIuPTR" requests, listening: %@%@%@",
+    @" %"PRIuPTR" idle, %"PRIuPTR" ended, %"PRIuPTR " requests,"
+    @" listening: %@%@%@",
     [super description], _port, ([self isSecure] ? @"https" : @"http"),
-    [_connections count], _maxConnections, _maxPerHost,
+    active, _maxConnections, _maxPerHost, idle,
     _handled, _requests, _accepting ? @"yes" : @"no",
     [self _ioThreadDescription], [self _poolDescription]];
   [_lock unlock];
@@ -1657,9 +1680,9 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
   /* Set the maximum number of keepalives per thread to be as specified
    */
-  if (0 == max || max > 1000)
+  if (max > 1000)
     {
-      max = 100;
+      max = 1000;
     }
   [_lock lock];
   _ioMain->keepaliveMax = max;
@@ -3010,7 +3033,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       handshakes = [GSLinkedList new];
       readwrites = [GSLinkedList new];
       keepalives = [GSLinkedList new];
-      keepaliveMax = 100;
+      keepaliveMax = 0;
       threadLock = [NSLock new];
     }
   return self;

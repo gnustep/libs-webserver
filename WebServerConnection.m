@@ -1147,7 +1147,8 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
             {
               [self setShouldClose: YES];
             }
-          else if (ioThread->keepaliveCount >= ioThread->keepaliveMax)
+          else if (ioThread->keepaliveMax > 0
+	    && ioThread->keepaliveCount >= ioThread->keepaliveMax)
             {
               [self setShouldClose: YES];
             }

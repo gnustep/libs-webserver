@@ -986,8 +986,10 @@
  * Sets the maximum number of connections in each I/O thread which are
  * to be kept in a 'keepalive' state waiting for a new request once a
  * request completes.<br />
- * The permitted range is currently from 1 to 1000, with settings outside
- * that range being treated as the default value (100).
+ * The permitted range is currently from 0 to 1000, with settings being
+ * limited to that range.  The default value is 0, which means that the
+ * number of idle connections per thread is unlimited (though the total
+ * number of connections and number per host is still constrained).
  */
 - (void) setMaxKeepalives: (NSUInteger)max;
 

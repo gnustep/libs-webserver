@@ -1,3 +1,12 @@
+2022-07-08 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServer.h:
+	* WebServer.m:
+	* WebServerConnection.m:
+	Make the default number of idle connections per thread be unlimited
+	and made the -description method report the number of idle connectios
+	in total.
+
 2022-07-07 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* WebServer.h:
