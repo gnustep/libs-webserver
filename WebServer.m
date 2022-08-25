@@ -2917,6 +2917,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   _ioMain->server = self;
   _ioMain->cTimeout = _connectionTimeout;
   _pool = [GSThreadPool new];
+  [_pool setPoolName: @"websvr"];
   [_pool setThreads: 0];
   _defs = [[NSUserDefaults standardUserDefaults] retain];
   _conf = [WebServerConfig new];
