@@ -1816,6 +1816,8 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     }
   if (threads != [_ioThreads count])
     {
+      unsigned  c;
+
       while ([_ioThreads count] > threads)
 	{
 	  IOThread	*t = [_ioThreads lastObject];
@@ -1823,16 +1825,45 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	  [t->timer invalidate];
 	  [_ioThreads removeObjectIdenticalTo: t];
 	}
-      while ([_ioThreads count] < threads)
+      while ((c = [_ioThreads count]) < threads)
 	{
 	  IOThread	*t = [IOThread new];
+          IOThread      *e[c];
+          NSThread      *thread;
+          unsigned      n = c + 1;
 
+          [_ioThreads getObjects: e];
+          for (;;)
+            {
+              int       j;
+
+              for (j = 0; j < c; j++)
+                {
+                  if (e[j]->number == n)
+                    {
+                      break;
+                    }
+                }
+              if (j < c)
+                {
+                  n--;  // Try another
+                }
+              else
+                {
+                  break;
+                }
+            }
+
+	  t->number = n;
 	  t->server = self;
 	  t->cTimeout = _connectionTimeout;
 	  t->keepaliveMax = _ioMain->keepaliveMax;
-          [NSThread detachNewThreadSelector: @selector(run)  
-				   toTarget: t
-				 withObject: nil];
+          thread = [[NSThread alloc] initWithTarget: t
+                                           selector: @selector(run)  
+                                             object: nil];
+          [thread setName: [NSString stringWithFormat: @"websvrio-%u", n]];
+          [thread start];
+          [thread autorelease];
 	  [_ioThreads addObject: t];
 	  [t release];
 	}

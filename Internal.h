@@ -75,6 +75,7 @@
   GSLinkedList	*keepalives;	// Connections waiting for a new request.
   uint16_t	keepaliveCount;	// Number of connections in keepalive.
   uint16_t	keepaliveMax;	// Maximum connections kept alive.
+  unsigned      number;         // The identifier for this thread.
 }
 - (void) run;
 - (void) timeout: (NSTimer*)t;
