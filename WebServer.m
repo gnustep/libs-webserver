@@ -1031,10 +1031,13 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
 - (NSString*) description
 {
-  NSString	*result;
-  NSUInteger	active;
-  NSUInteger	idle;
-  NSUInteger 	count;
+  NSString	        *result;
+  NSUInteger	        active;
+  NSUInteger	        idle;
+  NSUInteger 	        count;
+  NSEnumerator          *e;
+  NSString              *h;
+  NSMutableString       *byHost;
 
   [_lock lock];
 
@@ -1056,12 +1059,28 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       active = 0;
     }
 
+  /* Build count of connections by host
+   */
+  byHost = [NSMutableString stringWithCapacity: 50 * count];
+  [byHost appendString: @"("];
+  e = [_perHost objectEnumerator];
+  while (nil != (h = [e nextObject]))
+    {
+      if ([byHost length] > 1)
+        {
+          [byHost appendString: @","];
+        }
+      [byHost appendFormat: @"%@:%"PRIuPTR, h, [_perHost countForObject: h]];
+    }
+  [byHost appendString: @")"];
+
   result = [NSStringClass stringWithFormat: @"%@ on %@(%@),"
-    @" %"PRIuPTR" of %"PRIuPTR"(%"PRIuPTR"/host) connections active,"
-    @" %"PRIuPTR" idle, %"PRIuPTR" ended, %"PRIuPTR " requests,"
+    @"\n  %"PRIuPTR" %@ of %"PRIuPTR" (%"PRIuPTR"/host) connections,"
+    @"\n  %"PRIuPTR" active, %"PRIuPTR" idle, %"PRIuPTR" ended,"
+    @" %"PRIuPTR " requests,"
     @" listening: %@%@%@",
     [super description], _port, ([self isSecure] ? @"https" : @"http"),
-    active, _maxConnections, _maxPerHost, idle,
+    count, byHost, _maxConnections, _maxPerHost, active, idle,
     _handled, _requests, _accepting ? @"yes" : @"no",
     [self _ioThreadDescription], [self _poolDescription]];
   [_lock unlock];
@@ -2087,28 +2106,29 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 @implementation	WebServer (Private)
 
 
-/* Addjust the connection based in its initial request, returning YES
- * if this causes the server to exceed the per-host limit.  This is
- * used only where the connection is from a trusted proxy.
+/* Adjust the per-host connection count, returning YES
+ * if this causes the server to exceed the per-host limit.
+ * This is used only where the connection is from a
+ * trusted proxy.
  */
-- (BOOL) _adjustConnection: (WebServerConnection*)conn
+- (BOOL) _connection: (WebServerConnection*)conn
+  changedAddressFrom: (NSString*)oldAddress
 {
-  NSString	*host = [conn address];
-  NSString	*rem = [conn remoteAddress];
+  NSString      *newAddress = [conn address];
   BOOL		excessive = NO;
 
   [_lock lock];
-  [_perHost removeObject: rem];
-  [_perHost addObject: host];
-  if (_maxPerHost > 0 && [_perHost countForObject: host] > _maxPerHost)
+  [_perHost removeObject: oldAddress];
+  [_perHost addObject: newAddress];
+  if (_maxPerHost > 0
+    && [_perHost countForObject: newAddress] > _maxPerHost)
     {
       excessive = YES;
     }
-  if ([[_defs arrayForKey: @"WebServerQuiet"] containsObject: host])
-    {
-      [conn setQuiet: YES];
-    }
+  [conn setQuiet:
+    [[_defs arrayForKey: @"WebServerQuiet"] containsObject: newAddress]];
   [_lock unlock];
+
   return excessive;
 }
 
@@ -2323,7 +2343,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	  refusal =  @"HTTP/1.0 503 Too many existing connections";
 	}
       else if (_maxPerHost > 0 && NO == [self isTrusted]
-	&& [_perHost countForObject: _addr] >= _maxPerHost)
+	&& [_perHost countForObject: address] >= _maxPerHost)
 	{
 	  refusal = @"HTTP/1.0 503 Too many existing connections from host";
 	}
@@ -2332,6 +2352,11 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	  refusal = nil;
 	}
       quiet = [[_defs arrayForKey: @"WebServerQuiet"] containsObject: address];
+
+      /* Record the new connection by the remote host IP address.
+       * This may be adjusted as requests arrive for a proxied connection.
+       */
+      [_perHost addObject: address];
 
       /* Find the I/O thread handling the fewest connections and use that.
        */
@@ -2365,10 +2390,8 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 				      refusal: refusal];
       [connection setTicked: _ticked];
       [connection setConnectionStart: _ticked];
-
       [_connections addObject: connection];
       [connection release];	// Retained in _connections map
-      [_perHost addObject: [connection remoteAddress]];
       [_lock unlock];
 
       /* Ensure we always have an 'accept' in progress unless we are already

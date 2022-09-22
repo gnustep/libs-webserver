@@ -735,6 +735,12 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
 	{
 	  remPort = @"unknown";
 	}
+      /* The address for counting hosts is initially the same as the
+       * IP address of the remote end of the incoming connection.
+       * It may be changed by the forwarding header of the first
+       * incoming request (if we are behind a trusted proxy).
+       */ 
+      ASSIGN(address, remAddr);
       descIn = [[NSStringClass alloc] initWithFormat:
         @"WebServerConnection: %"PRIxPTR" [%@:%@ <-- %@:%@]",
         identity, locAddr, locPort, remAddr, remPort];
@@ -847,7 +853,6 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
     }
   [response setWebServerConnection: nil];
   DESTROY(response);
-  DESTROY(address);
   DESTROY(agent);
   DESTROY(result);
   DESTROY(user);
@@ -1538,30 +1543,38 @@ else if (YES == hadRequest) \
   /* When a connection is from a trusted proxy, we do per-host counting by
    * originating host (header information from the proxy) rather than the
    * address of the remote end of the TCP/IP connection.
-   * We must perform that check only using the initial request on the
-   * connection.
+   * We must therefore inform the server of the change in connections from
+   * each address.
    */
-  if (0 == requestCount && [server isTrusted])
+  if ([server isTrusted])
     {
-      ASSIGN(address, [(WebServerRequest*)[parser mimeDocument] address]);
+      NSString  *newAddress;
 
-      if (YES == [server _adjustConnection: self]) 
+      newAddress = [(WebServerRequest*)[parser mimeDocument] address];
+      if (NO == [newAddress isEqual: address])
         {
-	  NSData	*data;
+          NSString      *oldAddress = AUTORELEASE(address);
 
-	  [server _log:
-	    @"%@ Too many existing connections from host. rejected", self];
-	  [self setShouldClose: YES];	// Not persistent.
-	  [self setResult:
-	    @"HTTP/1.0 503 Too many existing connections from host"];
-	  data = [@"HTTP/1.0 413 Request body too long\r\n\r\n"
-	    @"HTTP/1.0 503 Too many existing connections from host\r\n\r\n"
-	    dataUsingEncoding: NSASCIIStringEncoding];
-	  [self performSelector: @selector(_doWrite:)
-		       onThread: ioThread->thread
-		     withObject: data
-		  waitUntilDone: NO];
-	  return YES;
+          address = [newAddress copy];
+          if (YES == [server _connection: self
+                      changedAddressFrom: oldAddress]) 
+            {
+              NSData	*data;
+
+              [server _log:
+                @"%@ Too many existing connections from host. rejected", self];
+              [self setShouldClose: YES];	// Not persistent.
+              [self setResult:
+                @"HTTP/1.0 503 Too many existing connections from host"];
+              data = [
+                @"HTTP/1.0 503 Too many existing connections from host\r\n\r\n"
+                dataUsingEncoding: NSASCIIStringEncoding];
+              [self performSelector: @selector(_doWrite:)
+                           onThread: ioThread->thread
+                         withObject: data
+                      waitUntilDone: NO];
+              return YES;
+            }
         }
     }
   return NO;

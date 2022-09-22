@@ -260,10 +260,11 @@ typedef	enum {
 @end
 
 @interface	WebServer (Internal)
-- (BOOL) _adjustConnection: (WebServerConnection*)conn;
 - (void) _alert: (NSString*)fmt, ...;
 - (void) _audit: (WebServerConnection*)connection;
 - (void) _completedResponse: (WebServerResponse*)r duration: (NSTimeInterval)t;
+- (BOOL) _connection: (WebServerConnection*)conn
+  changedAddressFrom: (NSString*)oldAddress;
 - (void) _didConnect: (NSNotification*)notification;
 - (void) _endConnect: (WebServerConnection*)connection;
 - (NSString*) _ioThreadDescription;
