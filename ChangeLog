@@ -1,3 +1,10 @@
+2022-10-18 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServerConnection.m:
+	Catch the possible case where we are configured to be behind a trusted
+	proxy but we are not getting the headers the proxy should provide to
+	let us know who sent the request.
+
 2022-09-22 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* Internal.h:

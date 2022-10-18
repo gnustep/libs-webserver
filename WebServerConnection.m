@@ -1551,7 +1551,7 @@ else if (YES == hadRequest) \
       NSString  *newAddress;
 
       newAddress = [(WebServerRequest*)[parser mimeDocument] address];
-      if (NO == [newAddress isEqual: address])
+      if (newAddress != nil && NO == [newAddress isEqual: address])
         {
           NSString      *oldAddress = AUTORELEASE(address);
 
