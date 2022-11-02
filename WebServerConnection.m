@@ -1580,9 +1580,9 @@ else if (YES == hadRequest) \
         @"%@ Requests for %@ blocked until %@. rejected", self, a, b];
       [self setShouldClose: YES];	// Not persistent.
       [self setResult:
-        @"HTTP/1.0 503 Remote host is temporarily blocked"];
+        @"HTTP/1.0 429 Too Many Requests"];
       data = [
-        @"HTTP/1.0 503 Remote host is temporarily blocked\r\n\r\n"
+        @"HTTP/1.0 429 Too Many Requests\r\n\r\n"
         dataUsingEncoding: NSASCIIStringEncoding];
       [self performSelector: @selector(_doWrite:)
                    onThread: ioThread->thread

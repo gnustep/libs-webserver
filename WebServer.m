@@ -2199,20 +2199,13 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   [_lock lock];
   if (ti > 0.0)
     {
-      NSDate            *old = [_blocked objectForKey: address];
-      NSTimeInterval    since = ti + [NSDate timeIntervalSinceReferenceDate];
+      NSDate    *when = [NSDate dateWithTimeIntervalSinceNow: ti];
 
-      if (nil == old || since > [old timeIntervalSinceReferenceDate])
+      if (nil == _blocked)
         {
-          NSDate        *when;
-
-          when = [NSDate dateWithTimeIntervalSinceReferenceDate: since];
-          if (nil == _blocked)
-            {
-              _blocked = [NSMutableDictionary new];
-            }
-          [_blocked setObject: when forKey: address];
+          _blocked = [NSMutableDictionary new];
         }
+      [_blocked setObject: when forKey: address];
     }
   else
     {

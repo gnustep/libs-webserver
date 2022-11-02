@@ -596,7 +596,7 @@
 
 /** If greater than zero, the returned value is the number of seconds for
  * which the server should block subsequent requests from the offending
- * address.  Blocked requests will get a 503 response.
+ * address.  Blocked requests will get a 429 response.
  */
 - (NSTimeInterval) blockOnAuthenticationFailure;
 
@@ -821,10 +821,10 @@
 		   using: (NSDictionary*)map;
 
 /** Sets the time for which requests from the same host should be blocked
- * if a request from the host attempts to aquthenticate and fails.<br />
+ * if a request from the host attempts to authenticate and fails.<br />
  * The default is 1 second but setting a value of zero or less turns this
  * feature off.  The -[WebServerResponse block:] method may be used to
- * set a longer timeout in response to a particular request.
+ * set a different timeout in response to a particular request.
  */
 - (void) setBlockOnAuthenticationFailure: (NSTimeInterval)ti;
 
@@ -1183,8 +1183,9 @@
 /** Blocks (for the time interval specified) further incoming requests
  * from the same source as the one we are responding to.  A ti value of
  * zero or less cancels any existing blocking.  A ti value more than zero
- * establishes a new blocking unless there is already one in place which
- * extends further into the future.
+ * establishes a new blocking.<br />
+ * Subsequent requests from the blocked source will be responded to with
+ * a 429 status code.
  */ 
 - (void) block: (NSTimeInterval)ti;
 

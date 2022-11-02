@@ -5,7 +5,7 @@
 	* WebServer.m:
 	* WebServerConnection.m:
 	Implement a lockout mechanism to help deal with DoS attacks.
-	The -[WebServerResponse block:] method can be used to plock subsequent
+	The -[WebServerResponse block:] method can be used to block subsequent
 	requests from an IP address for a period of time.
 	The -[WebServer setBlockOnAuthenticationFailure:] method controls
 	automatic blocking after a failed authentication attempt (default 1
