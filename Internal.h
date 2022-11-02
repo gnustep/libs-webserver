@@ -182,6 +182,7 @@ typedef	enum {
   BOOL			simple;
   BOOL                  hadHeader;      // Header has been completely read?
   BOOL                  hadRequest;     // Request has been completely read?
+  BOOL                  autoBlock;      // May perform auth fail blocking.
   BOOL			quiet;		// Suppress log of warning/debug info?
   BOOL			ssl;		// Should perform SSL negotiation?
   BOOL			responding;	// Writing to remote system
@@ -202,6 +203,7 @@ typedef	enum {
 }
 - (NSString*) address;
 - (NSString*) audit;
+- (void) block: (NSTimeInterval)ti;
 - (NSTimeInterval) connectionDuration: (NSTimeInterval)now;
 - (NSString*) description;
 - (NSString*) descriptionOut;
@@ -262,6 +264,8 @@ typedef	enum {
 @interface	WebServer (Internal)
 - (void) _alert: (NSString*)fmt, ...;
 - (void) _audit: (WebServerConnection*)connection;
+- (void) _blockAddress: (NSString*)address forInterval: (NSTimeInterval)ti;
+- (NSDate*) _blocked: (NSString*)address;
 - (void) _completedResponse: (WebServerResponse*)r duration: (NSTimeInterval)t;
 - (BOOL) _connection: (WebServerConnection*)conn
   changedAddressFrom: (NSString*)oldAddress;

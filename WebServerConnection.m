@@ -281,6 +281,11 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
     }
 }
 
+- (void) block: (NSTimeInterval)ti
+{
+  [webServerConnection block: ti];
+}
+
 - (BOOL) completing
 {
   return completing;
@@ -504,6 +509,15 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
     }
   return [NSStringClass stringWithFormat: @"%@ - %@ [%@] %@ %@ %@",
     h, u, d, c, a, r];
+}
+
+- (void) block: (NSTimeInterval)ti
+{
+  /* We are setting the blocking now, so we shuld not autoblock
+   * until the next request which fails authentication.
+   */
+  autoBlock = NO;
+  [server _blockAddress: [self address] forInterval: ti];
 }
 
 - (void) dealloc
@@ -840,6 +854,7 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
   simple = NO;
   hadHeader = NO;
   hadRequest = NO;
+  autoBlock = NO;
   incremental = NO;
   streaming = NO;
   chunked = NO;
@@ -947,6 +962,9 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
     }
   else
     {
+      GSMimeHeader	*hdr;
+      NSTimeInterval    ti;
+
       responding = YES;
       [self setProcessing: NO];
       if (NO == hadRequest)
@@ -960,6 +978,19 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
       [response setHeader: @"content-transfer-encoding"
                     value: @"binary"
                parameters: nil];
+
+      hdr = [response headerNamed: @"http"];
+
+      /* If the request had an Authorization but the response is asking for
+       * authorisation again (401) then this is a failed authentication
+       * attempt.
+       */
+      if (autoBlock
+        && (ti = [server blockOnAuthenticationFailure]) > 0.0
+        && [[hdr value] rangeOfString: @" 401 "].length > 0)
+        {
+          [self block: ti];
+        }
 
       if (YES == simple)
         {
@@ -987,7 +1018,6 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
           NSUInteger	pos;
           NSUInteger	contentLength;
           NSEnumerator	*enumerator;
-          GSMimeHeader	*hdr;
           NSString	*str;
 
           if (nil == stream)
@@ -1053,8 +1083,7 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
                        parameters: nil];
             }
 
-          hdr = [response headerNamed: @"http"];
-          if (hdr == nil)
+          if (nil == hdr)
             {
               const char	*s;
 
@@ -1538,6 +1567,41 @@ else if (YES == hadRequest) \
     [server _process1: self]; \
   }
 
+- (BOOL) _checkBlocked
+{
+  NSString      *a = [self address];
+  NSDate        *b = [server _blocked: a];
+
+  if (b)
+    {
+      NSData	*data;
+
+      [server _log:
+        @"%@ Requests for %@ blocked until %@. rejected", self, a, b];
+      [self setShouldClose: YES];	// Not persistent.
+      [self setResult:
+        @"HTTP/1.0 503 Remote host is temporarily blocked"];
+      data = [
+        @"HTTP/1.0 503 Remote host is temporarily blocked\r\n\r\n"
+        dataUsingEncoding: NSASCIIStringEncoding];
+      [self performSelector: @selector(_doWrite:)
+                   onThread: ioThread->thread
+                 withObject: data
+              waitUntilDone: NO];
+      return YES;
+    }
+  if ([[self request] headerNamed: @"authorization"])
+    {
+      /* This request contains an authorization header, so if the
+       * authentication fails and -[WebServer blockOnAuthenticationFailure]
+       * is grater than zero, the address sending the request should
+       * be automatically blocked.
+       */
+      autoBlock = YES;
+    }
+  return NO;
+}
+
 - (BOOL) _checkProxying
 {
   /* When a connection is from a trusted proxy, we do per-host counting by
@@ -1936,12 +2000,12 @@ else if (YES == hadRequest) \
     {
       if (YES == (hadRequest = [parser isComplete]))
 	{
-	  if ([self _checkProxying])
-	    {
-	      return;	// refused
-	    }
           if (NO == hadHeader)
             {
+              if ([self _checkProxying] || [self _checkBlocked])
+                {
+                  return;	// refused
+                }
               hadHeader = YES;
               incremental = [server _incremental: self];
             }
@@ -1972,12 +2036,12 @@ else if (YES == hadRequest) \
     {
       /* Parsing complete ...
        */
-      if ([self _checkProxying])
-	{
-	  return;	// refused
-	}
       if (NO == hadHeader)
         {
+          if ([self _checkProxying] || [self _checkBlocked])
+            {
+              return;	// refused
+            }
           hadHeader = YES;
           incremental = [server _incremental: self];
         }
@@ -1993,7 +2057,7 @@ else if (YES == hadRequest) \
     {
       if (NO == hadHeader)
         {
-	  if ([self _checkProxying])
+	  if ([self _checkProxying] || [self _checkBlocked])
 	    {
 	      return;	// refused
 	    }

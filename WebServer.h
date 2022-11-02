@@ -436,6 +436,7 @@
   NSLock		*_lock;
   IOThread		*_ioMain;
   NSMutableArray	*_ioThreads;
+  NSMutableDictionary	*_blocked;
   GSThreadPool		*_pool;
   WebServerConfig	*_conf;
   id		        UNUSED_QUAL *_unused1;
@@ -472,6 +473,7 @@
   NSMutableDictionary   *_incrementalDataMap;
   NSUInteger            _strictTransportSecurity;
   NSString              *_frameOptions;
+  NSTimeInterval        _authBlock;
   void			*_reserved;
 }
 
@@ -591,6 +593,12 @@
  * if it is not listening.
  */
 - (NSString*) address;
+
+/** If greater than zero, the returned value is the number of seconds for
+ * which the server should block subsequent requests from the offending
+ * address.  Blocked requests will get a 503 response.
+ */
+- (NSTimeInterval) blockOnAuthenticationFailure;
 
 /**
  * Instructs the server that the connection handlind the current request
@@ -811,6 +819,14 @@
 - (BOOL) produceResponse: (WebServerResponse*)aResponse
 	    fromTemplate: (NSString*)aPath
 		   using: (NSDictionary*)map;
+
+/** Sets the time for which requests from the same host should be blocked
+ * if a request from the host attempts to aquthenticate and fails.<br />
+ * The default is 1 second but setting a value of zero or less turns this
+ * feature off.  The -[WebServerResponse block:] method may be used to
+ * set a longer timeout in response to a particular request.
+ */
+- (void) setBlockOnAuthenticationFailure: (NSTimeInterval)ti;
 
 /**
  * Sets the time after which an idle connection should be shut down.<br />
@@ -1164,6 +1180,14 @@
  * actually what it seems.
  */
 @interface      WebServerResponse : GSMimeDocument
+/** Blocks (for the time interval specified) further incoming requests
+ * from the same source as the one we are responding to.  A ti value of
+ * zero or less cancels any existing blocking.  A ti value more than zero
+ * establishes a new blocking unless there is already one in place which
+ * extends further into the future.
+ */ 
+- (void) block: (NSTimeInterval)ti;
+
 /** Behaves as [WebServer-setFoldHeaders:] but applies only to the headers
  * in the receiver.
  */

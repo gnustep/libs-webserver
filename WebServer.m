@@ -897,6 +897,11 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   return [s autorelease];
 }
 
+- (NSTimeInterval) blockOnAuthenticationFailure
+{
+  return _authBlock;
+}
+
 - (void) closeConnectionAfter: (WebServerResponse*)response
 {
   [_lock lock];
@@ -979,6 +984,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 {
   [self setAddress: nil port: nil secure: nil];
   [self setIOThreads: 0 andPool: 0];
+  DESTROY(_blocked);
   DESTROY(_nc);
   DESTROY(_defs);
   DESTROY(_root);
@@ -1597,6 +1603,18 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   return ok;
 }
 
+- (void) setBlockOnAuthenticationFailure: (NSTimeInterval)ti
+{
+  if (ti > 0.0)
+    {
+      _authBlock = ti;
+    }
+  else
+    {
+      _authBlock = 0.0;
+    }
+}
+
 - (void) setDelegate: (id)anObject
 {
   _delegate = anObject;
@@ -2169,6 +2187,60 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	  fprintf(stderr, "%s\r\n", [msg UTF8String]);
 	} 
     }
+}
+
+- (void) _blockAddress: (NSString*)address forInterval: (NSTimeInterval)ti
+{
+  if (NO == [address isKindOfClass: [NSString class]]
+    || [address isEqualToString: @"_"])
+    {
+      return;
+    }
+  [_lock lock];
+  if (ti > 0.0)
+    {
+      NSDate            *old = [_blocked objectForKey: address];
+      NSTimeInterval    since = ti + [NSDate timeIntervalSinceReferenceDate];
+
+      if (nil == old || since > [old timeIntervalSinceReferenceDate])
+        {
+          NSDate        *when;
+
+          when = [NSDate dateWithTimeIntervalSinceReferenceDate: since];
+          if (nil == _blocked)
+            {
+              _blocked = [NSMutableDictionary new];
+            }
+          [_blocked setObject: when forKey: address];
+        }
+    }
+  else
+    {
+      [_blocked removeObjectForKey: address];
+    }
+  [_lock unlock];
+}
+
+- (NSDate*) _blocked: (NSString*)address
+{
+  NSDate        *d;
+
+  [_lock lock];
+  d = [_blocked objectForKey: address];
+  if (d)
+    {
+      if ([d timeIntervalSinceNow] > 0.0)
+        {
+          d = RETAIN(d);
+        }
+      else
+        {
+          d = nil;
+          [_blocked removeObjectForKey: address];
+        }
+    }
+  [_lock unlock];
+  return AUTORELEASE(d);
 }
 
 - (void) _completedResponse: (WebServerResponse*)r duration: (NSTimeInterval)t
@@ -2993,6 +3065,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   _incrementalDataLock = [NSLock new];
   _userInfoLock = [NSLock new];
   _strictTransportSecurity = 604800;    // Default is 7 days
+  _authBlock = 1.0;
 
   /* We need a timer so that the main thread can handle connection
    * timeouts.
