@@ -2196,6 +2196,12 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     {
       return;
     }
+  /* For a bad time interval, we use the value set for authentication failures.
+   */
+  if (ti < 0.0)
+    {
+      ti = _authBlock;
+    }
   [_lock lock];
   if (ti > 0.0)
     {

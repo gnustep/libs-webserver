@@ -1,3 +1,10 @@
+2022-11-03 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServer.h:
+	* WebServer.m:
+	If -block: is called with a negative argument, it now uses the value
+	returned by -blockOnAuthenticationFailure.
+
 2022-11-01 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* WebServer.h:

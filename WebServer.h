@@ -596,7 +596,9 @@
 
 /** If greater than zero, the returned value is the number of seconds for
  * which the server should block subsequent requests from the offending
- * address.  Blocked requests will get a 429 response.
+ * address, otherwise (returned value is zero) bocking is not performed
+ * when an authentication attem,pt fails.<br />
+ * Blocked requests will get a 429 response.
  */
 - (NSTimeInterval) blockOnAuthenticationFailure;
 
@@ -823,7 +825,8 @@
 /** Sets the time for which requests from the same host should be blocked
  * if a request from the host attempts to authenticate and fails.<br />
  * The default is 1 second but setting a value of zero or less turns this
- * feature off.  The -[WebServerResponse block:] method may be used to
+ * feature off (sets the blocking interval to zero).<br />
+ * The -[WebServerResponse block:] method may be used to
  * set a different timeout in response to a particular request.
  */
 - (void) setBlockOnAuthenticationFailure: (NSTimeInterval)ti;
@@ -1181,11 +1184,13 @@
  */
 @interface      WebServerResponse : GSMimeDocument
 /** Blocks (for the time interval specified) further incoming requests
- * from the same source as the one we are responding to.  A ti value of
- * zero or less cancels any existing blocking.  A ti value more than zero
- * establishes a new blocking.<br />
+ * from the same source as the one we are responding to.<<br />
+ * A ti value more than zero establishes a new blocking.<br />
+ * A ti value of zero cancels any existing blocking.<br />
+ * A ti value of less than zero is ignored and the value returned by
+ * the -[WebServer blockOnAuthenticationFailure] method is used instead.<br />
  * Subsequent requests from the blocked source will be responded to with
- * a 429 status code.
+ * a 429 status code until the blocking expires.
  */ 
 - (void) block: (NSTimeInterval)ti;
 
