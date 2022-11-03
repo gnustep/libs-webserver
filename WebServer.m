@@ -3063,7 +3063,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   _userInfoMap = [NSMutableDictionary new];
   _incrementalDataLock = [NSLock new];
   _userInfoLock = [NSLock new];
-  _strictTransportSecurity = 604800;    // Default is 7 days
+  _strictTransportSecurity = 31536000;  // Default is 1 year
   _authBlock = 1.0;
 
   /* We need a timer so that the main thread can handle connection

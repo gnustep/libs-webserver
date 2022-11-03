@@ -860,7 +860,7 @@
  * and the connection between the proxy and the server is also secure.<br />
  * If the dictionary also contains <code>HSTS</code> then this must be a
  * non-negative integer value specifying the number of seconds to set
- * in the Strict-Transport-Security header (defaults to 7 days).<br />
+ * in the Strict-Transport-Security header (defaults to 1 year).<br />
  * The <em>secure</em> dictionary may also contain other dictionaries
  * keyed on IP addresses, and if the address that an incoming connection
  * arrived on matches the key of a dictionary, that dictionary is used
@@ -1051,7 +1051,7 @@
  * to a request on a secure connection (including via a secure proxy).<br />
  * The Strict-Transport-Security header is automatically set in the response
  * to any incoming request (but code handling the request may alter that).<br />
- * The default setting is 7 days (604800 seconds), while a setting of zero
+ * The default setting is 1 year (31536000 seconds), while a setting of zero
  * turns off HSTS.
  */
 - (void) setStrictTransportSecurity: (NSUInteger)seconds;

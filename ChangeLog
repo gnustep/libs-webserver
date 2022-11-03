@@ -2,6 +2,12 @@
 
 	* WebServer.h:
 	* WebServer.m:
+	Set max age for strict transport secuiryt to 1 year by default.
+
+2022-11-03 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServer.h:
+	* WebServer.m:
 	If -block: is called with a negative argument, it now uses the value
 	returned by -blockOnAuthenticationFailure.
 
