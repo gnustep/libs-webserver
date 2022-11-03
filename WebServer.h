@@ -1184,7 +1184,7 @@
  */
 @interface      WebServerResponse : GSMimeDocument
 /** Blocks (for the time interval specified) further incoming requests
- * from the same source as the one we are responding to.<<br />
+ * from the same source as the one we are responding to.<br />
  * A ti value more than zero establishes a new blocking.<br />
  * A ti value of zero cancels any existing blocking.<br />
  * A ti value of less than zero is ignored and the value returned by
