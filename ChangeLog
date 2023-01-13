@@ -1,8 +1,12 @@
+2023-01-13 Richard Frith-Macdonald  <rfm@gnu.org>
+
+        * GNUmakefile: bump version to 1.6.0 for release
+
 2022-11-03 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* WebServer.h:
 	* WebServer.m:
-	Set max age for strict transport secuiryt to 1 year by default.
+	Set max age for strict transport security to 1 year by default.
 
 2022-11-03 Richard Frith-Macdonald  <rfm@gnu.org>
 
