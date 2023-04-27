@@ -843,7 +843,7 @@
 - (void) setDelegate: (id)anObject;
 
 /**
- * Sets the listenng address, port and security information for the
+ * Sets the listening address, port and security information for the
  * receiver ... without this the receiver will not listen for incoming
  * requests.<br />
  * If anAddress is nil or empty, the receiver will listen on
