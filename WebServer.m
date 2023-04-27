@@ -1491,14 +1491,6 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
                 }
 	      [connection shutdown];
 	    }
-	  /* We also get rid of the headers which refer to us, so that
-	   * we can be released as soon as any connections/requests using
-	   * those headers have released us.
-	   */
-	  DESTROY(_xCountRequests);
-	  DESTROY(_xCountConnections);
-	  DESTROY(_xCountConnectedHosts);
-
 	  [_lock unlock];
 
           /* Wait for all connections to close.
@@ -1511,6 +1503,15 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
               if (0 == [_connections count])
                 {
                   limit = nil;  // No more to close
+
+                  /* Now that all connections which have been using them are
+                   * closed, we can get rid of the headers which refer to us,
+                   * so that we break retain cycles and can be deallocated if
+                   * nothing else is using this instance.
+                   */
+                  DESTROY(_xCountRequests);
+                  DESTROY(_xCountConnections);
+                  DESTROY(_xCountConnectedHosts);
                 }
               [_lock unlock];
             }
