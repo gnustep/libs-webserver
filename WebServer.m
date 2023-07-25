@@ -1416,10 +1416,12 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 - (void) _setupIO: (NSArray*)a
 {
   ENTER_POOL
-  NSString	*anAddress = [a objectAtIndex: 0];
-  NSString	*aPort = [a objectAtIndex: 1];
-  NSDictionary	*secure = [a objectAtIndex: 2];
-  BOOL		update = NO;
+  NSString		*anAddress = [a objectAtIndex: 0];
+  NSString		*aPort = [a objectAtIndex: 1];
+  NSDictionary		*secure = [a objectAtIndex: 2];
+  BOOL			update = NO;
+  NSMutableDictionary	*m;
+  NSString		*s;
 
   if ([anAddress length] == 0)
     {
@@ -1441,17 +1443,43 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     {
       secure = nil;
     }
+  m = AUTORELEASE([secure mutableCopy]);
 
-  if ([secure objectForKey: @"HSTS"] != nil)
+  /* HSTS header support for security.
+   */
+  if ((s = [secure objectForKey: @"HSTS"]) != nil)
     {
       NSUInteger        seconds;
 
-      seconds = (NSUInteger)[[secure objectForKey: @"HSTS"] integerValue];
+      seconds = (NSUInteger)[s integerValue];
       [self setStrictTransportSecurity: seconds];
+      [m removeObjectForKey: @"HSTS"];
     }
 
-  [self setSecureProxy: [[secure objectForKey: @"Proxy"] boolValue]];
+  /* Whether we are hidden behind a proxy ensuring that extension
+   * headers in requests can be trusted.
+   */
+  if ((s = [secure objectForKey: @"Proxy"]) != nil)
+    {
+      [self setSecureProxy: [s boolValue]];
+      [m removeObjectForKey: @"Proxy"];
+    }
+  else
+    {
+      [self setSecureProxy: NO];
+    }
 
+  /* Check to see if we still have TLS related config.
+   */
+  if ([m count])
+    {
+      secure = AUTORELEASE([m copy]);
+    }
+  else
+    {
+      secure = nil;
+    }
+ 
   if ((secure == nil && _sslConfig != nil)
     || (secure != nil && [secure isEqual: _sslConfig] == NO))
     {

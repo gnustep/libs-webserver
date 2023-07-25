@@ -849,23 +849,30 @@
  * If anAddress is nil or empty, the receiver will listen on
  * all available network interfaces.<br />
  * If secure is nil then the receiver listens on aPort for HTTP requests.<br />
- * If secure is a dictionary, it must either contain <code>Proxy</code>
- * with the value set to <code>YES</code> (to configure the receiver to
- * accept HTTP connections but treat them as coming via a secure proxy),
- * or it must contain <code>CertificateFile</code>,
- * <code>KeyFile</code> and <code>Password</code> to configure the server
- * to use the specified certificate and key files (which it will access
- * using the password) to support HTTPS rather than HTTP. Alternatively
- * both may be specified (if the connections are coming from a secure proxy
- * and the connection between the proxy and the server is also secure.<br />
- * If the dictionary also contains <code>HSTS</code> then this must be a
- * non-negative integer value specifying the number of seconds to set
- * in the Strict-Transport-Security header (defaults to 1 year).<br />
+ * If secure is a dictionary, it may contain a combination of the following:
+ * <deflist>
+ * <term>Proxy</term>
+ * <desc>A boolean which if set to YES configures the receiver trust
+ * request as having come from a trusted proxy and therefore having
+ * trusted request headers specifying where the request originated etc.
+ * </desc>
+ * <term>HSTS</term>
+ * <desc>A non-negative integer value specifying the number of seconds
+ * to set in the Strict-Transport-Security header (defaults to 1 year).
+ * when responding to requests.
+ * </desc>
+ * <term>CertificateFile</term>
+ * <desc>Along with <code>KeyFile</code> and <code>Password</code> this
+ * configures the server to use the specified certificate and key files
+ * (which it will access using the password) to support HTTPS rather
+ * than HTTP.<br />
  * The <em>secure</em> dictionary may also contain other dictionaries
  * keyed on IP addresses, and if the address that an incoming connection
  * arrived on matches the key of a dictionary, that dictionary is used
  * to provide the certificate information, with the top-level values
  * being used as a fallback.<br />
+ * </desc>
+ * </deflist>
  * This method returns YES on success, NO on failure ... if it returns NO
  * then the receiver will <em>not</em> be capable of handling incoming
  * web requests!<br />

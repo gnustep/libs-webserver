@@ -269,6 +269,18 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
   return (other == self) ? YES : NO;
 }
 
+- (BOOL) isLocal
+{
+  static NSString	*l = @"localhost";
+  NSString		*a = [self address];
+
+  if ([a isEqualToString: @"127.0.0.1"] || [a isEqualToString: l])
+    {
+      return YES;
+    }
+  return ([[NSHost hostWithAddress: a] isEqual: [NSHost hostWithName: l]]);
+}
+
 @end
 
 @implementation	WebServerResponse
@@ -1575,15 +1587,20 @@ else if (YES == hadRequest) \
   if (b)
     {
       NSData	*data;
+      NSString	*body;
+      int	seconds;
 
       [server _log:
-        @"%@ Requests for %@ blocked until %@. rejected", self, a, b];
+        @"%@ Request from remote (%@) blocked until %@. rejected", self, a, b];
       [self setShouldClose: YES];	// Not persistent.
       [self setResult:
         @"HTTP/1.0 429 Too Many Requests"];
-      data = [
-        @"HTTP/1.0 429 Too Many Requests\r\n\r\n"
-        dataUsingEncoding: NSASCIIStringEncoding];
+      seconds = ceil([b timeIntervalSinceNow]);
+      if (seconds < 1) seconds = 1;
+      body = [NSString stringWithFormat:
+        @"HTTP/1.0 429 Too Many Requests\r\nRetry-After: %d\r\n\r\n",
+	seconds];
+      data = [body dataUsingEncoding: NSASCIIStringEncoding];
       [self performSelector: @selector(_doWrite:)
                    onThread: ioThread->thread
                  withObject: data
