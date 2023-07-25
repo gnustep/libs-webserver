@@ -7,7 +7,8 @@
 	and clarify the documentation.  Improve the debug log when a request
 	is blocked due to authentication failures from the same IP address.
 	Improve the 429 response to have a Retry-After header showing when
-	blocking ends.
+	blocking ends.  Provide an explanatory html body for 429 response
+	since rfc6585 says that we *should*.
 
 2023-04-27 Richard Frith-Macdonald  <rfm@gnu.org>
 

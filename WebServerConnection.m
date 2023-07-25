@@ -1598,8 +1598,23 @@ else if (YES == hadRequest) \
       seconds = ceil([b timeIntervalSinceNow]);
       if (seconds < 1) seconds = 1;
       body = [NSString stringWithFormat:
-        @"HTTP/1.0 429 Too Many Requests\r\nRetry-After: %d\r\n\r\n",
-	seconds];
+        @"HTTP/1.0 429 Too Many Requests\r\n"
+	@"Content-Type: text/html\r\n"
+	@"Retry-After: %d\r\n"
+	@"\r\n"
+	@"<html>\r\n"
+	@"   <head>\r\n"
+	@"      <title>Too Many Requests</title>\r\n"
+	@"   </head>\r\n"
+	@"   <body>\r\n"
+	@"      <h1>Too Many Requests</h1>\r\n"
+	@"      <p>You are seeing this message because you sent a request\r\n"
+        @"	with invalid authentication and as a security measure your\r\n"
+	@"	requests are now throttled for a short time.<br />\r\n"
+	@"      Please try again after %d seconds.<br/>\r\n"
+	@"   </body>\r\n"
+	@"</html>\r\n",
+	seconds, seconds];
       data = [body dataUsingEncoding: NSASCIIStringEncoding];
       [self performSelector: @selector(_doWrite:)
                    onThread: ioThread->thread
