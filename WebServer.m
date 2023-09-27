@@ -902,6 +902,11 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   return _authBlock;
 }
 
+- (NSUInteger) blockOnAuthenticationFailureMaxRetry
+{
+  return _authBlockMaxRetry;
+}
+
 - (void) closeConnectionAfter: (WebServerResponse*)response
 {
   [_lock lock];
@@ -984,7 +989,8 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 {
   [self setAddress: nil port: nil secure: nil];
   [self setIOThreads: 0 andPool: 0];
-  DESTROY(_blocked);
+  DESTROY(_blockUntil);
+  DESTROY(_blockCount);
   DESTROY(_nc);
   DESTROY(_defs);
   DESTROY(_root);
@@ -1644,6 +1650,18 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     }
 }
 
+- (void) setBlockOnAuthenticationFailureMaxRetry: (NSUInteger)max
+{
+  if (max > 0)
+    {
+      _authBlockMaxRetry = max;
+    }
+  else
+    {
+      _authBlockMaxRetry = 0;
+    }
+}
+
 - (void) setDelegate: (id)anObject
 {
   _delegate = anObject;
@@ -2234,41 +2252,66 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   [_lock lock];
   if (ti > 0.0)
     {
-      NSDate    *when = [NSDate dateWithTimeIntervalSinceNow: ti];
+      NSDate          *until = [NSDate dateWithTimeIntervalSinceNow: ti];
+      NSNumber        *count;
 
-      if (nil == _blocked)
+      if (nil == _blockUntil)
         {
-          _blocked = [NSMutableDictionary new];
+          _blockUntil = [NSMutableDictionary new];
         }
-      [_blocked setObject: when forKey: address];
+      [_blockUntil setObject: until forKey: address];
+
+      if (nil == _blockCount)
+        {
+          _blockCount = [NSMutableDictionary new];
+        }
+      count = [_blockCount objectForKey: address];
+      if (nil == count)
+        {
+          count = [NSNumber numberWithUnsignedInteger: 1];
+        }
+      else
+        {
+          count = [NSNumber numberWithUnsignedInteger:
+            [count unsignedIntegerValue] + 1];
+        }
+      [_blockCount setObject: count forKey: address]; 
     }
   else
     {
-      [_blocked removeObjectForKey: address];
+      [_blockUntil removeObjectForKey: address];
+      [_blockCount removeObjectForKey: address];
     }
   [_lock unlock];
 }
 
 - (NSDate*) _blocked: (NSString*)address
 {
-  NSDate        *d;
+  NSDate        *until;
+  NSNumber      *count;
 
   [_lock lock];
-  d = [_blocked objectForKey: address];
-  if (d)
+  count = [_blockCount objectForKey: address];
+  if ([count unsignedIntegerValue] > _authBlockMaxRetry)
     {
-      if ([d timeIntervalSinceNow] > 0.0)
+      until = [_blockUntil objectForKey: address];
+      if ([until timeIntervalSinceNow] > 0.0)
         {
-          d = RETAIN(d);
+          until = RETAIN(until);
         }
       else
         {
-          d = nil;
-          [_blocked removeObjectForKey: address];
+          until = nil;
+          [_blockUntil removeObjectForKey: address];
+          [_blockCount removeObjectForKey: address];
         }
     }
+  else
+    {
+      until = nil;
+    }
   [_lock unlock];
-  return AUTORELEASE(d);
+  return AUTORELEASE(until);
 }
 
 - (void) _completedResponse: (WebServerResponse*)r duration: (NSTimeInterval)t
@@ -3094,6 +3137,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   _userInfoLock = [NSLock new];
   _strictTransportSecurity = 31536000;  // Default is 1 year
   _authBlock = 1.0;
+  _authBlockMaxRetry = 1;
 
   /* We need a timer so that the main thread can handle connection
    * timeouts.

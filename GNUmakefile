@@ -71,10 +71,7 @@ WebServer_LIBRARIES_DEPEND_UPON += -lPerformance
 
 WebServer_HEADER_FILES_INSTALL_DIR = WebServer
 
-TEST_TOOL_NAME+=testWebServer
-testWebServer_OBJC_FILES = testWebServer.m
-testWebServer_TOOL_LIBS += -lWebServer
-testWebServer_LIB_DIRS += -L./$(GNUSTEP_OBJ_DIR)
+WebServer_TEST_DIR = Tests
 
 -include GNUmakefile.preamble
 

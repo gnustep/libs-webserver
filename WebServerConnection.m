@@ -993,15 +993,20 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
 
       hdr = [response headerNamed: @"http"];
 
-      /* If the request had an Authorization but the response is asking for
-       * authorisation again (401) then this is a failed authentication
-       * attempt.
-       */
-      if (autoBlock
-        && (ti = [server blockOnAuthenticationFailure]) > 0.0
-        && [[hdr value] rangeOfString: @" 401 "].length > 0)
+      if (autoBlock && (ti = [server blockOnAuthenticationFailure]) > 0.0)
         {
-          [self block: ti];
+          /* If the request had an Authorization but the response is asking for
+           * authorisation again (401) then this is a failed authentication
+           * attempt.
+           */
+          if ([[hdr value] rangeOfString: @" 401 "].length > 0)
+            {
+              [self block: ti];
+            }
+          else
+            {
+              [self block: 0.0];
+            }
         }
 
       if (YES == simple)
