@@ -137,6 +137,7 @@
 @class	WebServerConfig;
 @class	WebServerRequest;
 @class	WebServerResponse;
+@class  WebServerAuthenticationFailureLog;
 @class	NSArray;
 @class	NSCountedSet;
 @class	NSDictionary;
@@ -436,8 +437,7 @@
   NSLock		*_lock;
   IOThread		*_ioMain;
   NSMutableArray	*_ioThreads;
-  NSMutableDictionary	*_blockUntil;
-  NSMutableDictionary *_blockCount;
+  WebServerAuthenticationFailureLog	 *_authenticationFailureLog;
   GSThreadPool		*_pool;
   WebServerConfig	*_conf;
   id		        UNUSED_QUAL *_unused1;

@@ -989,8 +989,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 {
   [self setAddress: nil port: nil secure: nil];
   [self setIOThreads: 0 andPool: 0];
-  DESTROY(_blockUntil);
-  DESTROY(_blockCount);
+  DESTROY(_authenticationFailureLog);
   DESTROY(_nc);
   DESTROY(_defs);
   DESTROY(_root);
@@ -2249,52 +2248,32 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     {
       ti = _authBlock;
     }
-  [_lock lock];
+
+  if (nil == _authenticationFailureLog)
+    {
+      _authenticationFailureLog = [WebServerAuthenticationFailureLog new];
+    }
+  
   if (ti > 0.0)
     {
-      NSDate          *until = [NSDate dateWithTimeIntervalSinceNow: ti];
-      NSNumber        *count;
-
-      if (nil == _blockUntil)
-        {
-          _blockUntil = [NSMutableDictionary new];
-        }
-      [_blockUntil setObject: until forKey: address];
-
-      if (nil == _blockCount)
-        {
-          _blockCount = [NSMutableDictionary new];
-        }
-      count = [_blockCount objectForKey: address];
-      if (nil == count)
-        {
-          count = [NSNumber numberWithUnsignedInteger: 1];
-        }
-      else
-        {
-          count = [NSNumber numberWithUnsignedInteger:
-            [count unsignedIntegerValue] + 1];
-        }
-      [_blockCount setObject: count forKey: address]; 
+      [_authenticationFailureLog addFailureForAddress: address
+                                        blockInterval: ti];
     }
   else
     {
-      [_blockUntil removeObjectForKey: address];
-      [_blockCount removeObjectForKey: address];
+      [_authenticationFailureLog removeFailuresForAddress: address];
     }
-  [_lock unlock];
 }
 
 - (NSDate*) _blocked: (NSString*)address
 {
   NSDate        *until;
-  NSNumber      *count;
+  NSUInteger    count;
 
-  [_lock lock];
-  count = [_blockCount objectForKey: address];
-  if ([count unsignedIntegerValue] > _authBlockMaxRetry)
+  count = [_authenticationFailureLog failureCountForAddress: address];
+  if (count > _authBlockMaxRetry)
     {
-      until = [_blockUntil objectForKey: address];
+      until = [_authenticationFailureLog blockUntilForAddress: address];
       if ([until timeIntervalSinceNow] > 0.0)
         {
           until = RETAIN(until);
@@ -2302,15 +2281,13 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       else
         {
           until = nil;
-          [_blockUntil removeObjectForKey: address];
-          [_blockCount removeObjectForKey: address];
+          [_authenticationFailureLog removeFailuresForAddress: address];
         }
     }
   else
     {
       until = nil;
     }
-  [_lock unlock];
   return AUTORELEASE(until);
 }
 
@@ -3195,6 +3172,164 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   [permittedMethods release];
   [super dealloc];
 }
+@end
+
+@implementation WebServerAuthenticationFailure
+
+- (id) initWithLastFailure: (NSDate*)lastFailure
+             blockInterval: (NSTimeInterval)blockInterval
+{
+  if (nil != (self = [super init]))
+    {
+      ASSIGN(_lastFailure, lastFailure);
+      _blockInterval = blockInterval;
+      _failureCount = 1;
+    }
+  return self;
+}
+
+- (void) dealloc
+{
+  DESTROY(_lastFailure);
+  [super dealloc];
+}
+
+- (void) addLastFailure: (NSDate*)lastFailure
+          blockInterval: (NSTimeInterval)blockInterval
+{
+  ASSIGN(_lastFailure, lastFailure);
+  _blockInterval = blockInterval;
+  _failureCount++;
+}
+
+- (NSDate*) lastFailure
+{
+  return _lastFailure;
+}
+
+- (NSTimeInterval) blockInterval
+{
+  return _blockInterval;
+}
+
+- (NSUInteger) failureCount
+{
+  return _failureCount;
+}
+
+- (NSDate*) blockUntil
+{
+  return [_lastFailure addTimeInterval: _blockInterval];
+}
+
+@end
+
+@implementation WebServerAuthenticationFailureLog
+
+- (id) init
+{
+  if (nil != (self = [super init]))
+    {
+      _failuresByAddress = [NSMutableDictionary new];
+      _lock = [NSLock new];
+      _cleanupTimer = [NSTimer scheduledTimerWithTimeInterval: 600.0
+                                                       target: self
+                                                     selector: @selector(cleanup)
+                                                     userInfo: 0
+                                                      repeats: YES];
+    }
+  return self;
+}
+
+- (void) dealloc
+{
+  [_cleanupTimer invalidate];
+  DESTROY(_cleanupTimer);
+  DESTROY(_failuresByAddress);
+  DESTROY(_lock);
+  [super dealloc];
+}
+
+- (void) addFailureForAddress: (NSString*)address
+                blockInterval: (NSTimeInterval)blockInterval
+{
+  WebServerAuthenticationFailure  *failure;
+  NSDate                          *when = [NSDate date];
+  
+  [_lock lock];
+  if (nil == (failure = [_failuresByAddress objectForKey: address]))
+    {
+      failure = [[WebServerAuthenticationFailure alloc] 
+        initWithLastFailure: when
+        blockInterval: blockInterval];
+      [_failuresByAddress setObject: failure forKey: address];
+      RELEASE(failure);
+    }
+  else
+    {
+      [failure addLastFailure: when
+                blockInterval: blockInterval];
+    }
+  [_lock unlock];
+}
+
+- (void) removeFailuresForAddress: (NSString*)address
+{
+  [_lock lock];
+  [_failuresByAddress removeObjectForKey: address];
+  [_lock unlock];
+}
+
+- (NSUInteger) failureCountForAddress: (NSString*)address
+{
+  WebServerAuthenticationFailure  *failure;
+  NSUInteger                      count = 0;
+  
+  [_lock lock];
+  if (nil != (failure = [_failuresByAddress objectForKey: address]))
+    {
+      count = [failure failureCount];
+    }
+  [_lock unlock];
+
+  return count;
+}
+
+- (NSDate*) blockUntilForAddress: (NSString*)address
+{
+  WebServerAuthenticationFailure  *failure;
+  NSDate                          *until = nil;
+  
+  [_lock lock];
+  if (nil != (failure = [_failuresByAddress objectForKey: address]))
+    {
+      until = [failure blockUntil];
+    }
+  [_lock unlock];
+
+  return until;
+}
+
+- (void) cleanup
+{
+  NSDate                          *now = [NSDate date];
+  NSEnumerator                    *enumerator;
+  NSString                        *address;
+  WebServerAuthenticationFailure  *failure;
+  
+  [_lock lock];
+  enumerator = [_failuresByAddress keyEnumerator];
+  while (nil != (address = [enumerator nextObject]))
+    {
+      failure = [_failuresByAddress objectForKey: address];
+      if ([now compare: [failure blockUntil]] == NSOrderedDescending)
+        {
+          [_failuresByAddress removeObjectForKey: address];
+        }
+    }
+  [_lock unlock];
+}
+
 @end
 
 @implementation	IOThread

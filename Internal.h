@@ -150,6 +150,37 @@ typedef	enum {
 - (id) initWithType: (WSHType)t andObject: (NSObject*)o;
 @end
 
+@interface  WebServerAuthenticationFailure : NSObject
+{
+  @private
+    NSDate          *_lastFailure;
+    NSTimeInterval  _blockInterval;
+    NSUInteger      _failureCount;
+}
+- (id) initWithLastFailure: (NSDate*)lastFailure
+             blockInterval: (NSTimeInterval)blockInterval;
+- (void) addLastFailure: (NSDate*)lastFailure
+          blockInterval: (NSTimeInterval)blockInterval;
+- (NSDate*) lastFailure;
+- (NSTimeInterval) blockInterval;
+- (NSUInteger) failureCount;
+- (NSDate*) blockUntil;
+@end
+
+@interface  WebServerAuthenticationFailureLog : NSObject
+{
+  @private
+    NSMutableDictionary *_failuresByAddress;
+    NSLock              *_lock;
+    NSTimer             *_cleanupTimer;
+}
+- (void) addFailureForAddress: (NSString*)address
+                blockInterval: (NSTimeInterval)blockInterval;
+- (void) removeFailuresForAddress: (NSString*)address;
+- (NSUInteger) failureCountForAddress: (NSString*)address;
+- (NSDate*) blockUntilForAddress: (NSString*)address;
+- (void) cleanup;
+@end
 
 @interface	WebServerConnection : GSListLink
 {
