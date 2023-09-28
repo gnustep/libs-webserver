@@ -993,7 +993,7 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
 
       hdr = [response headerNamed: @"http"];
 
-      if (autoBlock && (ti = [server blockOnAuthenticationFailure]) > 0.0)
+      if (autoBlock && (ti = [server authenticationFailureBanTime]) > 0.0)
         {
           /* If the request had an Authorization but the response is asking for
            * authorisation again (401) then this is a failed authentication
@@ -1002,10 +1002,6 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
           if ([[hdr value] rangeOfString: @" 401 "].length > 0)
             {
               [self block: ti];
-            }
-          else
-            {
-              [self block: 0.0];
             }
         }
 
@@ -1630,7 +1626,7 @@ else if (YES == hadRequest) \
   if ([[self request] headerNamed: @"authorization"])
     {
       /* This request contains an authorization header, so if the
-       * authentication fails and -[WebServer blockOnAuthenticationFailure]
+       * authentication fails and -[WebServer authenticationFailureBanTime]
        * is grater than zero, the address sending the request should
        * be automatically blocked.
        */

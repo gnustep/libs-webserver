@@ -153,33 +153,33 @@ typedef	enum {
 @interface  WebServerAuthenticationFailure : NSObject
 {
   @private
-    NSDate          *_lastFailure;
-    NSTimeInterval  _blockInterval;
-    NSUInteger      _failureCount;
+    NSDate          *_date;
+    NSTimeInterval  _banTime;
 }
-- (id) initWithLastFailure: (NSDate*)lastFailure
-             blockInterval: (NSTimeInterval)blockInterval;
-- (void) addLastFailure: (NSDate*)lastFailure
-          blockInterval: (NSTimeInterval)blockInterval;
-- (NSDate*) lastFailure;
-- (NSTimeInterval) blockInterval;
-- (NSUInteger) failureCount;
++ (id) failureWithBanTime: (NSTimeInterval)banTime;
+- (NSDate*) date;
+- (NSTimeInterval) banTime;
 - (NSDate*) blockUntil;
 @end
 
 @interface  WebServerAuthenticationFailureLog : NSObject
 {
   @private
-    NSMutableDictionary *_failuresByAddress;
-    NSLock              *_lock;
-    NSTimer             *_cleanupTimer;
+    NSTimeInterval       _findTime;
+    NSMutableDictionary  *_failuresByAddress;
+    NSLock               *_lock;
+    NSTimeInterval       _cleanupInterval;
+    NSTimer              *_cleanupTimer;
 }
+- (NSTimeInterval) findTime;
+- (NSTimeInterval) cleanupInterval;
+- (void) setFindTime: (NSTimeInterval)findTime;
+- (void) setCleanupInterval: (NSTimeInterval)interval;
 - (void) addFailureForAddress: (NSString*)address
-                blockInterval: (NSTimeInterval)blockInterval;
+                      banTime: (NSTimeInterval)banTime;
 - (void) removeFailuresForAddress: (NSString*)address;
-- (NSUInteger) failureCountForAddress: (NSString*)address;
-- (NSDate*) blockUntilForAddress: (NSString*)address;
-- (void) cleanup;
+- (NSUInteger) failureCountForAddress: (NSString*)address
+                           blockUntil: (NSDate**)until;
 @end
 
 @interface	WebServerConnection : GSListLink

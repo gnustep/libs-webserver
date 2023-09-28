@@ -897,14 +897,19 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   return [s autorelease];
 }
 
-- (NSTimeInterval) blockOnAuthenticationFailure
+- (NSTimeInterval) authenticationFailureBanTime
 {
-  return _authBlock;
+  return _authFailureBanTime;
 }
 
-- (NSUInteger) blockOnAuthenticationFailureMaxRetry
+- (NSUInteger) authenticationFailureMaxRetry
 {
-  return _authBlockMaxRetry;
+  return _authFailureMaxRetry;
+}
+
+- (NSTimeInterval) authenticationFailureFindTime
+{
+  return _authFailureFindTime;
 }
 
 - (void) closeConnectionAfter: (WebServerResponse*)response
@@ -989,7 +994,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 {
   [self setAddress: nil port: nil secure: nil];
   [self setIOThreads: 0 andPool: 0];
-  DESTROY(_authenticationFailureLog);
+  DESTROY(_authFailureLog);
   DESTROY(_nc);
   DESTROY(_defs);
   DESTROY(_root);
@@ -1637,27 +1642,39 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   return ok;
 }
 
-- (void) setBlockOnAuthenticationFailure: (NSTimeInterval)ti
+- (void) setAuthenticationFailureBanTime: (NSTimeInterval)ti
 {
   if (ti > 0.0)
     {
-      _authBlock = ti;
+      _authFailureBanTime = ti;
     }
   else
     {
-      _authBlock = 0.0;
+      _authFailureBanTime = 1.0;
     }
 }
 
-- (void) setBlockOnAuthenticationFailureMaxRetry: (NSUInteger)max
+- (void) setAuthenticationFailureMaxRetry: (NSUInteger)max
 {
-  if (max > 0)
+  if (max >= 0)
     {
-      _authBlockMaxRetry = max;
+      _authFailureMaxRetry = max;
     }
   else
     {
-      _authBlockMaxRetry = 0;
+      _authFailureMaxRetry = 0;
+    }
+}
+
+- (void) setAuthenticationFailureFindTime: (NSTimeInterval)ti
+{
+  if (ti > 0.0)
+    {
+      _authFailureFindTime = ti;
+    }
+  else
+    {
+      _authFailureFindTime = 1.0;
     }
 }
 
@@ -2237,31 +2254,26 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
 - (void) _blockAddress: (NSString*)address forInterval: (NSTimeInterval)ti
 {
-  if (NO == [address isKindOfClass: [NSString class]]
-    || [address isEqualToString: @"_"])
+  if (nil == _authFailureLog)
     {
-      return;
+      _authFailureLog = [WebServerAuthenticationFailureLog new];
     }
+
   /* For a bad time interval, we use the value set for authentication failures.
    */
   if (ti < 0.0)
     {
-      ti = _authBlock;
-    }
-
-  if (nil == _authenticationFailureLog)
-    {
-      _authenticationFailureLog = [WebServerAuthenticationFailureLog new];
+      ti = _authFailureBanTime;
     }
   
   if (ti > 0.0)
     {
-      [_authenticationFailureLog addFailureForAddress: address
-                                        blockInterval: ti];
+      [_authFailureLog addFailureForAddress: address
+                                    banTime: ti];
     }
   else
     {
-      [_authenticationFailureLog removeFailuresForAddress: address];
+      [_authFailureLog removeFailuresForAddress: address];
     }
 }
 
@@ -2270,25 +2282,20 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   NSDate        *until;
   NSUInteger    count;
 
-  count = [_authenticationFailureLog failureCountForAddress: address];
-  if (count > _authBlockMaxRetry)
+  count = [_authFailureLog failureCountForAddress: address
+                                       blockUntil: &until];
+  if (count > _authFailureMaxRetry)
     {
-      until = [_authenticationFailureLog blockUntilForAddress: address];
-      if ([until timeIntervalSinceNow] > 0.0)
-        {
-          until = RETAIN(until);
-        }
-      else
+      if (nil != until && [until timeIntervalSinceNow] <= 0.0)
         {
           until = nil;
-          [_authenticationFailureLog removeFailuresForAddress: address];
         }
     }
   else
     {
       until = nil;
     }
-  return AUTORELEASE(until);
+  return until;
 }
 
 - (void) _completedResponse: (WebServerResponse*)r duration: (NSTimeInterval)t
@@ -3113,8 +3120,9 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   _incrementalDataLock = [NSLock new];
   _userInfoLock = [NSLock new];
   _strictTransportSecurity = 31536000;  // Default is 1 year
-  _authBlock = 1.0;
-  _authBlockMaxRetry = 1;
+  _authFailureBanTime = 1.0;
+  _authFailureMaxRetry = 0;
+  _authFailureFindTime = 1.0;
 
   /* We need a timer so that the main thread can handle connection
    * timeouts.
@@ -3176,50 +3184,41 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
 @implementation WebServerAuthenticationFailure
 
-- (id) initWithLastFailure: (NSDate*)lastFailure
-             blockInterval: (NSTimeInterval)blockInterval
+- (id) initWithDate: (NSDate*)date
+            banTime: (NSTimeInterval)banTime
 {
   if (nil != (self = [super init]))
     {
-      ASSIGN(_lastFailure, lastFailure);
-      _blockInterval = blockInterval;
-      _failureCount = 1;
+      ASSIGN(_date, date);
+      _banTime = banTime;
     }
   return self;
 }
 
 - (void) dealloc
 {
-  DESTROY(_lastFailure);
+  DESTROY(_date);
   [super dealloc];
 }
 
-- (void) addLastFailure: (NSDate*)lastFailure
-          blockInterval: (NSTimeInterval)blockInterval
+- (NSDate*) date
 {
-  ASSIGN(_lastFailure, lastFailure);
-  _blockInterval = blockInterval;
-  _failureCount++;
+  return _date;
 }
 
-- (NSDate*) lastFailure
+- (NSTimeInterval) banTime
 {
-  return _lastFailure;
-}
-
-- (NSTimeInterval) blockInterval
-{
-  return _blockInterval;
-}
-
-- (NSUInteger) failureCount
-{
-  return _failureCount;
+  return _banTime;
 }
 
 - (NSDate*) blockUntil
 {
-  return [_lastFailure addTimeInterval: _blockInterval];
+  return [_date dateByAddingTimeInterval: _banTime];
+}
+
++ (id) failureWithBanTime: (NSTimeInterval)banTime
+{
+  return AUTORELEASE([[self alloc] initWithDate: [NSDate date] banTime: banTime]);
 }
 
 @end
@@ -3230,13 +3229,11 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 {
   if (nil != (self = [super init]))
     {
+      _findTime = 1.0;
       _failuresByAddress = [NSMutableDictionary new];
       _lock = [NSLock new];
-      _cleanupTimer = [NSTimer scheduledTimerWithTimeInterval: 600.0
-                                                       target: self
-                                                     selector: @selector(cleanup)
-                                                     userInfo: 0
-                                                      repeats: YES];
+      _cleanupInterval = 60.0;
+      [self setupCleanupTimer];
     }
   return self;
 }
@@ -3250,25 +3247,61 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   [super dealloc];
 }
 
-- (void) addFailureForAddress: (NSString*)address
-                blockInterval: (NSTimeInterval)blockInterval
+- (NSTimeInterval) findTime
 {
+  return _findTime;
+}
+
+- (NSTimeInterval) cleanupInterval
+{
+  return _cleanupInterval;
+}
+
+- (void) setupCleanupTimer
+{
+  [_cleanupTimer invalidate];
+  DESTROY(_cleanupTimer);
+  _cleanupTimer = [NSTimer scheduledTimerWithTimeInterval: _cleanupInterval
+                                                   target: self
+                                                 selector: @selector(cleanup)
+                                                 userInfo: 0
+                                                  repeats: YES];
+}
+
+- (void) setFindTime: (NSTimeInterval)findTime
+{
+  _findTime = findTime;
+}
+
+- (void) setCleanupInterval: (NSTimeInterval)cleanupInterval
+{
+  _cleanupInterval = cleanupInterval;
+  [self setupCleanupTimer];
+}
+
+- (void) addFailureForAddress: (NSString*)address
+                      banTime: (NSTimeInterval)banTime
+{
+  NSMutableArray                  *failures;
   WebServerAuthenticationFailure  *failure;
-  NSDate                          *when = [NSDate date];
   
-  [_lock lock];
-  if (nil == (failure = [_failuresByAddress objectForKey: address]))
+  if (NO == [address isKindOfClass: [NSString class]]
+    || [address isEqualToString: @"_"])
     {
-      failure = [[WebServerAuthenticationFailure alloc] 
-        initWithLastFailure: when
-        blockInterval: blockInterval];
-      [_failuresByAddress setObject: failure forKey: address];
-      RELEASE(failure);
+      return;
+    }
+
+  failure = [WebServerAuthenticationFailure failureWithBanTime: banTime];
+
+  [_lock lock];
+  if (nil != (failures = [_failuresByAddress objectForKey: address]))
+    {
+      [failures addObject: failure];
     }
   else
     {
-      [failure addLastFailure: when
-                blockInterval: blockInterval];
+      failures = [NSMutableArray arrayWithObject: failure];
+      [_failuresByAddress setObject: failures forKey: address];
     }
   [_lock unlock];
 }
@@ -3281,48 +3314,71 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 }
 
 - (NSUInteger) failureCountForAddress: (NSString*)address
+                           blockUntil: (NSDate**)until
 {
-  WebServerAuthenticationFailure  *failure;
+  NSMutableArray                  *failures;
   NSUInteger                      count = 0;
+  WebServerAuthenticationFailure  *failure;
+  NSDate                          *since;
+  NSDate                          *latest = nil;
+  NSDate                          *blockUntil;
   
   [_lock lock];
-  if (nil != (failure = [_failuresByAddress objectForKey: address]))
+  if (nil != (failures = [_failuresByAddress objectForKey: address]))
     {
-      count = [failure failureCount];
+      since = [NSDate dateWithTimeIntervalSinceNow: -_findTime];
+      for (NSInteger i = [failures count] - 1; i >= 0; i--)
+        {
+          failure = [failures objectAtIndex: i];
+          if ([[failure date] compare: since] == NSOrderedAscending)
+            {
+              [failures removeObjectAtIndex: i];
+            }
+          else
+            {
+              count++;
+              blockUntil = [failure blockUntil];
+              if (nil == latest 
+                || [blockUntil compare: latest] == NSOrderedDescending)
+                {
+                  latest = [failure blockUntil];
+                }
+            }
+        }
+    }
+  if (NULL != until)
+    {
+      *until = latest;
     }
   [_lock unlock];
 
   return count;
 }
 
-- (NSDate*) blockUntilForAddress: (NSString*)address
-{
-  WebServerAuthenticationFailure  *failure;
-  NSDate                          *until = nil;
-  
-  [_lock lock];
-  if (nil != (failure = [_failuresByAddress objectForKey: address]))
-    {
-      until = [failure blockUntil];
-    }
-  [_lock unlock];
-
-  return until;
-}
-
 - (void) cleanup
 {
-  NSDate                          *now = [NSDate date];
-  NSEnumerator                    *enumerator;
   NSString                        *address;
+  NSMutableArray                  *failures;
   WebServerAuthenticationFailure  *failure;
-  
+  NSDate                          *since;
+  NSArray                         *addresses;
+    
   [_lock lock];
-  enumerator = [_failuresByAddress keyEnumerator];
-  while (nil != (address = [enumerator nextObject]))
+  since = [NSDate dateWithTimeIntervalSinceNow: -_findTime];
+  addresses = [_failuresByAddress allKeys];
+  for (NSInteger i = [addresses count] - 1; i >= 0; i--)
     {
-      failure = [_failuresByAddress objectForKey: address];
-      if ([now compare: [failure blockUntil]] == NSOrderedDescending)
+      address = [addresses objectAtIndex: i];
+      failures = [_failuresByAddress objectForKey: address];
+      for (NSInteger j = [failures count] - 1; j >= 0; j--)
+        {
+          failure = [failures objectAtIndex: j];
+          if ([[failure date] compare: since] == NSOrderedAscending)
+            {
+              [failures removeObjectAtIndex: j];
+            }
+        }
+      if ([failures count] == 0)
         {
           [_failuresByAddress removeObjectForKey: address];
         }

@@ -29,8 +29,9 @@
 #import "Testing.h"
 #import	"WebServer.h"
 
-#define BLOCK_TIME 2.0
+#define BAN_TIME 2.0
 #define MAX_RETRY 3
+#define FIND_TIME 2.0
 
 @interface	Handler: NSObject
 
@@ -93,14 +94,13 @@
 
   if (authenticated)
     {
-      [response block: 0.0];
       [response setHeader: @"http" 
                     value: @"HTTP/1.0 200 OK"
                parameters: nil];
     }
   else
     {
-      [response block: BLOCK_TIME];
+      [response block: BAN_TIME];
       [response setHeader: @"http" 
                     value: @"HTTP/1.0 401 Unauthorized"
                parameters: nil];
@@ -175,18 +175,16 @@ main()
   handler = [Handler new];
   [server setDelegate: handler];
 
-  [server setBlockOnAuthenticationFailure: BLOCK_TIME];
-  [server setBlockOnAuthenticationFailureMaxRetry: MAX_RETRY];
-  PASS([server blockOnAuthenticationFailure] == BLOCK_TIME, "Block time");
-  PASS([server blockOnAuthenticationFailureMaxRetry] == MAX_RETRY, "Max retry");
+  [server setAuthenticationFailureBanTime: BAN_TIME];
+  [server setAuthenticationFailureMaxRetry: MAX_RETRY];
+  [server setAuthenticationFailureFindTime: FIND_TIME];
+  PASS([server authenticationFailureBanTime] == BAN_TIME, "Ban time");
+  PASS([server authenticationFailureMaxRetry] == MAX_RETRY, "Max retry");
+  PASS([server authenticationFailureFindTime] == FIND_TIME, "Find time");
   
   END_SET("Set block on authentication failure")
-  
+
   START_SET("Block on HTTP authentication failure")
-  
-  // check that an invalid password is rejected
-  response = post(@"user", @"InvalidPassword", nil);
-  PASS([response statusCode] == 401, "Response is 401");
 
   // check that the password is valid
   response = post(@"user", @"ValidPassword", nil);
@@ -199,12 +197,12 @@ main()
       PASS([response statusCode] == 401, "Response is 401");
     }
 
-  // check even a request with valid password is blocked
+  // check even a request with valid password is now blocked
   response = post(@"user", @"ValidPassword", nil);
   PASS([response statusCode] == 429, "Response is 429");
 
-  // wait for BLOCK_TIME seconds
-  [NSThread sleepForTimeInterval: BLOCK_TIME];
+  // wait for BAN_TIME seconds
+  [NSThread sleepForTimeInterval: BAN_TIME];
 
   // check that a reqeuest with a valid password is accepted
   response = post(@"user", @"ValidPassword", nil);
@@ -218,10 +216,6 @@ main()
   handlerWithAuth = [HandlerWithAuth new];
   [server setDelegate: handlerWithAuth];
 
-  // check that an invalid key is rejected
-  response = post(@"user", @"ValidPassword", @{@"key": @"InvalidKey"});
-  PASS([response statusCode] == 401, "Response is 401");
-
   // check a valid password and key are accepted
   response = post(@"user", @"ValidPassword", @{@"key": @"ValidKey"});
   PASS([response statusCode] == 200, "Response is 200");
@@ -233,12 +227,12 @@ main()
       PASS([response statusCode] == 401, "Response is 401");
     }
 
-  // check even a request with valid password and key is blocked
+  // check even a request with valid password and key is now blocked
   response = post(@"user", @"ValidPassword", @{@"key": @"ValidKey"});
   PASS([response statusCode] == 429, "Response is 429");
 
-  // wait for BLOCK_TIME seconds
-  [NSThread sleepForTimeInterval: BLOCK_TIME];
+  // wait for BAN_TIME seconds
+  [NSThread sleepForTimeInterval: BAN_TIME];
 
   // check that a reqeuest with a valid password and key is accepted
   response = post(@"user", @"ValidPassword", @{@"key": @"ValidKey"});

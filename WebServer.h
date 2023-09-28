@@ -437,7 +437,6 @@
   NSLock		*_lock;
   IOThread		*_ioMain;
   NSMutableArray	*_ioThreads;
-  WebServerAuthenticationFailureLog	 *_authenticationFailureLog;
   GSThreadPool		*_pool;
   WebServerConfig	*_conf;
   id		        UNUSED_QUAL *_unused1;
@@ -474,8 +473,10 @@
   NSMutableDictionary   *_incrementalDataMap;
   NSUInteger            _strictTransportSecurity;
   NSString              *_frameOptions;
-  NSTimeInterval        _authBlock;
-  NSUInteger            _authBlockMaxRetry;
+  WebServerAuthenticationFailureLog	 *_authFailureLog;
+  NSTimeInterval                     _authFailureBanTime;
+  NSTimeInterval                     _authFailureFindTime;
+  NSUInteger                         _authFailureMaxRetry;
   void			*_reserved;
 }
 
@@ -602,13 +603,19 @@
  * when an authentication attempt fails.<br />
  * Blocked requests will get a 429 response.
  */
-- (NSTimeInterval) blockOnAuthenticationFailure;
+- (NSTimeInterval) authenticationFailureBanTime;
 
 /** The number of failed authentications before blocking is enabled. 
  * If this is zero, then the first failed authentication will result in the 
  * subsequent request being blocked.
  */
-- (NSUInteger) blockOnAuthenticationFailureMaxRetry;
+- (NSUInteger) authenticationFailureMaxRetry;
+
+/** The number of seconds in the past for which the server should look
+ * for failed authentication attempts when deciding whether to block
+ * a request.
+ */
+- (NSTimeInterval) authenticationFailureFindTime;
 
 /**
  * Instructs the server that the connection handlind the current request
@@ -833,17 +840,21 @@
 /** Sets the time for which requests from the same host should be blocked
  * if a request from the host attempts to authenticate and fails.<br />
  * The default is 1 second but setting a value of zero or less turns this
- * feature off (sets the blocking interval to zero).<br />
- * The -[WebServerResponse block:] method may be used to
- * set a different timeout in response to a particular request.
+ * feature off (sets the blocking interval to zero).
  */
-- (void) setBlockOnAuthenticationFailure: (NSTimeInterval)ti;
+- (void) setAuthenticationFailureBanTime: (NSTimeInterval)ti;
 
 /** Sets the number of failed authentications before blocking is enabled. 
  * The default is 0, i.e. the first failed authentication will result in the 
  * subsequent requests being blocked.
  */
-- (void) setBlockOnAuthenticationFailureMaxRetry: (NSUInteger)maxRetry;
+- (void) setAuthenticationFailureMaxRetry: (NSUInteger)maxRetry;
+
+/** Sets the number of seconds in the past for which the server should look
+ * for failed authentication attempts when deciding whether to block
+ * a request. The default is 1 second.
+ */
+- (void) setAuthenticationFailureFindTime: (NSTimeInterval)ti;
 
 /**
  * Sets the time after which an idle connection should be shut down.<br />
@@ -1209,7 +1220,7 @@
  * A ti value more than zero establishes a new blocking.<br />
  * A ti value of zero cancels any existing blocking.<br />
  * A ti value of less than zero is ignored and the value returned by
- * the -[WebServer blockOnAuthenticationFailure] method is used instead.<br />
+ * the -[WebServer authenticationFailureBanTime] method is used instead.<br />
  * Subsequent requests from the blocked source will be responded to with
  * a 429 status code until the blocking expires.
  */ 
