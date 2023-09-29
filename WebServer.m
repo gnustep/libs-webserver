@@ -3244,7 +3244,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 - (void) dealloc
 {
   [_cleanupTimer invalidate];
-  DESTROY(_cleanupTimer);
+  _cleanupTimer = nil;
   DESTROY(_failuresByAddress);
   DESTROY(_lock);
   [super dealloc];
@@ -3263,7 +3263,6 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 - (void) setupCleanupTimer
 {
   [_cleanupTimer invalidate];
-  DESTROY(_cleanupTimer);
   _cleanupTimer = [NSTimer scheduledTimerWithTimeInterval: _cleanupInterval
                                                    target: self
                                                  selector: @selector(cleanup)
