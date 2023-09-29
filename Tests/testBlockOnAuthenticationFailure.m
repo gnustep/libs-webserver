@@ -24,14 +24,19 @@
    */ 
 
 #import	<Foundation/Foundation.h>
-#import	<GNUstepBase/GSMime.h>
 
 #import "Testing.h"
-#import	"WebServer.h"
+
+#define WEBSERVERINTERNAL       1
+
+#import "WebServer.h"
+#import "Internal.h"
 
 #define BAN_TIME 2.0
 #define MAX_RETRY 3
 #define FIND_TIME 2.0
+#define IP_ADDRESS @"1.2.3.4"
+#define CLEANUP_INTERVAL 1.0
 
 @interface	Handler: NSObject
 
@@ -111,6 +116,17 @@
 
 @end
 
+@interface WebServerAuthenticationFailureLog (Test)
+- (NSMutableDictionary*) failuresByAddress;
+@end
+
+@implementation WebServerAuthenticationFailureLog (Test)
+- (NSMutableDictionary*) failuresByAddress
+{
+  return _failuresByAddress;
+}
+@end
+
 static NSHTTPURLResponse* post(NSString *user, NSString *password, NSDictionary *body)
 {
   NSURL                      *url;
@@ -143,15 +159,24 @@ static NSHTTPURLResponse* post(NSString *user, NSString *password, NSDictionary 
   return response;
 }
 
+static void wait(NSTimeInterval interval)
+{
+  [[NSRunLoop currentRunLoop] runUntilDate: 
+    [NSDate dateWithTimeIntervalSinceNow: interval]];
+}
+
 int
 main()
 {
   CREATE_AUTORELEASE_POOL(pool);
-  WebServer		        *server;
-  Handler		          *handler;
-  HandlerWithAuth     *handlerWithAuth;
-  NSUserDefaults	    *defs;
-  NSHTTPURLResponse   *response;
+  WebServer		                       *server;
+  Handler		                         *handler;
+  HandlerWithAuth                    *handlerWithAuth;
+  NSUserDefaults	                   *defs;
+  NSHTTPURLResponse                  *response;
+  WebServerAuthenticationFailureLog  *authFailureLog;
+  NSUInteger                         count;
+  NSDate                             *until;
 
   defs = [NSUserDefaults standardUserDefaults];
   [defs registerDefaults: @{
@@ -168,6 +193,39 @@ main()
   server = [WebServer new];
   [server setPort: [defs stringForKey: @"Port"] secure: nil];
   [server setVerbose: [defs boolForKey: @"Debug"]];
+
+  START_SET("Test WebServerAuthenticationFailureLog")
+
+  authFailureLog = [WebServerAuthenticationFailureLog new];
+  [authFailureLog setFindTime: FIND_TIME];
+  [authFailureLog setCleanupInterval: CLEANUP_INTERVAL];
+
+  // add 3 failures
+  for (int i = 0; i < 3; i++) 
+    {
+      [authFailureLog addFailureForAddress: IP_ADDRESS banTime: BAN_TIME];
+    }
+
+  count = [authFailureLog failureCountForAddress: IP_ADDRESS blockUntil: &until];
+  PASS(count == 3, "Count is 3");
+  PASS([until timeIntervalSinceNow] > 0, "Until is in the future");
+
+  // wait for FIND_TIME seconds
+  wait(FIND_TIME);
+
+  // the failure count should be 0
+  count = [authFailureLog failureCountForAddress: IP_ADDRESS blockUntil: &until];
+  PASS(count == 0, "Count is 0");
+  PASS(until == nil, "Until is nil");
+
+  // wait for the cleanup method to run
+  wait(CLEANUP_INTERVAL);
+  
+  // check that the cleanup method removes the entries
+  count = [[[authFailureLog failuresByAddress] objectForKey: IP_ADDRESS] count];
+  PASS(count == 0, "No entries for IP address");  
+
+  END_SET("Test WebServerAuthenticationFailureLog")
 
   START_SET("Set block on authentication failure")
 
@@ -202,7 +260,7 @@ main()
   PASS([response statusCode] == 429, "Response is 429");
 
   // wait for BAN_TIME seconds
-  [NSThread sleepForTimeInterval: BAN_TIME];
+  wait(BAN_TIME);
 
   // check that a reqeuest with a valid password is accepted
   response = post(@"user", @"ValidPassword", nil);
@@ -232,7 +290,7 @@ main()
   PASS([response statusCode] == 429, "Response is 429");
 
   // wait for BAN_TIME seconds
-  [NSThread sleepForTimeInterval: BAN_TIME];
+  wait(BAN_TIME);
 
   // check that a reqeuest with a valid password and key is accepted
   response = post(@"user", @"ValidPassword", @{@"key": @"ValidKey"});
