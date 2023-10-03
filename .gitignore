@@ -1,0 +1,10 @@
+oldtests.log
+oldtests.sum
+tests.log
+tests.sum
+Tests/TestInfo
+Tests/GNUmakefile
+Tests/make-check.env
+Tests/make-check.mak
+WebServer
+obj
