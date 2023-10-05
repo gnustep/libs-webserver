@@ -177,6 +177,7 @@ main()
   WebServerAuthenticationFailureLog  *authFailureLog;
   NSUInteger                         count;
   NSDate                             *until;
+  NSDate                             *bannedUntil;
 
   defs = [NSUserDefaults standardUserDefaults];
   [defs registerDefaults: @{
@@ -248,25 +249,35 @@ main()
   response = post(@"user", @"ValidPassword", nil);
   PASS([response statusCode] == 200, "Response is 200");
 
-  // make MAX_RETRY + 1 invalid password attempts
-  for (int i = 0; i <= MAX_RETRY; i++) 
+  // make MAX_RETRY invalid password attempts
+  for (int i = 0; i < MAX_RETRY; i++) 
     {
       response = post(@"user", @"InvalidPassword", nil);
       PASS([response statusCode] == 401, "Response is 401");
+      wait(0.1);
     }
 
+  // make one more attempt to get banned
+  response = post(@"user", @"InvalidPassword", nil);
+  PASS([response statusCode] == 401, "Response is 401");
+  bannedUntil = [[NSDate date] dateByAddingTimeInterval: BAN_TIME];
+
   // check even a request with valid password is now blocked
-  response = post(@"user", @"ValidPassword", nil);
-  PASS([response statusCode] == 429, "Response is 429");
+  while ([bannedUntil timeIntervalSinceNow] > 0.0)
+    {
+      response = post(@"user", @"ValidPassword", nil);
+      PASS([response statusCode] == 429, "Response is 429");
+      wait(0.1);
+    }
 
-  // wait for BAN_TIME seconds
-  wait(BAN_TIME);
-
-  // check that a reqeuest with a valid password is accepted
+  // check that the ban time expired and a request is now accepted
   response = post(@"user", @"ValidPassword", nil);
   PASS([response statusCode] == 200, "Response is 200");
   
   END_SET("Block on HTTP authentication failure")
+
+  // wait for the authentication failure log to be cleaned up
+  wait(FIND_TIME);
 
   START_SET("Block on custom authentication failure")
 
@@ -278,30 +289,39 @@ main()
   response = post(@"user", @"ValidPassword", @{@"key": @"ValidKey"});
   PASS([response statusCode] == 200, "Response is 200");
 
-  // make MAX_RETRY + 1 invalid key attempts
-  for (int i = 0; i <= MAX_RETRY; i++) 
+  // make MAX_RETRY invalid key attempts
+  for (int i = 0; i < MAX_RETRY; i++) 
     {
       response = post(@"user", @"ValidPassword", @{@"key": @"InvalidKey"});
       PASS([response statusCode] == 401, "Response is 401");
+      wait(0.1);
     }
 
+  // make one more attempt to get banned
+  response = post(@"user", @"ValidPassword", @{@"key": @"InvalidKey"});
+  PASS([response statusCode] == 401, "Response is 401");
+  bannedUntil = [[NSDate date] dateByAddingTimeInterval: BAN_TIME];
+
   // check even a request with valid password and key is now blocked
-  response = post(@"user", @"ValidPassword", @{@"key": @"ValidKey"});
-  PASS([response statusCode] == 429, "Response is 429");
+  while ([bannedUntil timeIntervalSinceNow] > 0.0)
+    {
+      response = post(@"user", @"ValidPassword", @{@"key": @"ValidKey"});
+      PASS([response statusCode] == 429, "Response is 429");
+      wait(0.1);
+    }
 
-  // wait for BAN_TIME seconds
-  wait(BAN_TIME);
-
-  // check that a reqeuest with a valid password and key is accepted
+  // check that the ban time expired and a request is now accepted
   response = post(@"user", @"ValidPassword", @{@"key": @"ValidKey"});
   PASS([response statusCode] == 200, "Response is 200");
 
   END_SET("Block on custom authentication failure")
 
+  RELEASE(authFailureLog);
   RELEASE(handler);
   RELEASE(handlerWithAuth);
   RELEASE(server);
   RELEASE(pool);
+  
   return 0;
 }
 

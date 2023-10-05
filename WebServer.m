@@ -2284,6 +2284,11 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   NSDate        *until;
   NSUInteger    count;
 
+  if (nil != (until = [_authFailureLog isBanned: address]))
+    {
+      return until;
+    }
+
   count = [_authFailureLog failureCountForAddress: address
                                        blockUntil: &until];
   if (count > _authFailureMaxRetry)
@@ -2296,6 +2301,11 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   else
     {
       until = nil;
+    }
+
+  if (nil != until)
+    {
+      [_authFailureLog banAddress: address until: until];
     }
 
   return until;
@@ -3234,6 +3244,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     {
       _findTime = 1.0;
       _failuresByAddress = [NSMutableDictionary new];
+      _banUntilByAddress = [NSMutableDictionary new];
       _lock = [NSLock new];
       _cleanupInterval = 60.0;
       [self setupCleanupTimer];
@@ -3246,6 +3257,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   [_cleanupTimer invalidate];
   _cleanupTimer = nil;
   DESTROY(_failuresByAddress);
+  DESTROY(_banUntilByAddress);
   DESTROY(_lock);
   [super dealloc];
 }
@@ -3376,11 +3388,52 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     }
   if (NULL != until)
     {
-      *until = latest;
+      *until = AUTORELEASE(RETAIN(latest));
     }
   [_lock unlock];
 
   return count;
+}
+
+- (void) banAddress: (NSString*)address
+              until: (NSDate*)until
+{
+  if (NO == [self isValidAddress: address])
+    {
+      return;
+    }
+
+  [_lock lock];
+  if (nil != until)
+    {
+      [_banUntilByAddress setObject: until forKey: address];
+    }
+  else
+    {
+      [_banUntilByAddress removeObjectForKey: address];
+    }
+  [_lock unlock];
+}
+
+- (NSDate*) isBanned: (NSString*)address
+{
+  NSDate  *until;
+
+  if (NO == [self isValidAddress: address])
+    {
+      return nil;
+    }
+
+  [_lock lock];
+  until = RETAIN([_banUntilByAddress objectForKey: address]);
+  if (nil != until && [until compare: [NSDate date]] == NSOrderedAscending)
+    {
+      RELEASE(until);
+      until = nil;
+    }
+  [_lock unlock];
+
+  return AUTORELEASE(until);
 }
 
 - (void) cleanup
@@ -3390,10 +3443,12 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   WebServerAuthenticationFailure  *failure;
   NSDate                          *since;
   NSArray                         *addresses;
+  NSDate                          *until;
 
   since = [NSDate dateWithTimeIntervalSinceNow: -_findTime];
 
   [_lock lock];
+
   addresses = [_failuresByAddress allKeys];
   for (NSInteger i = [addresses count] - 1; i >= 0; i--)
     {
@@ -3412,6 +3467,18 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
           [_failuresByAddress removeObjectForKey: address];
         }
     }
+
+  addresses = [_banUntilByAddress allKeys];
+  for (NSInteger i = [addresses count] - 1; i >= 0; i--)
+    {
+      address = [addresses objectAtIndex: i];
+      until = [_banUntilByAddress objectForKey: address];
+      if ([until compare: [NSDate date]] == NSOrderedAscending)
+        {
+          [_banUntilByAddress removeObjectForKey: address];
+        }
+    }
+  
   [_lock unlock];
 }
 
