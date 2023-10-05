@@ -1650,13 +1650,13 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     }
   else
     {
-      _authFailureBanTime = 1.0;
+      _authFailureBanTime = 0.0;
     }
 }
 
 - (void) setAuthenticationFailureMaxRetry: (NSUInteger)max
 {
-  if (max >= 0)
+  if (max > 0)
     {
       _authFailureMaxRetry = max;
     }
@@ -2255,6 +2255,11 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
 - (void) _blockAddress: (NSString*)address forInterval: (NSTimeInterval)ti
 {
+  if (_authFailureBanTime <= 0.0)
+    {
+      return;
+    }
+
   if (nil == _authFailureLog)
     {
       _authFailureLog = [WebServerAuthenticationFailureLog new];
@@ -2283,6 +2288,11 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 {
   NSDate        *until;
   NSUInteger    count;
+
+  if (_authFailureBanTime <= 0.0)
+    {
+      return nil;
+    }
 
   if (nil != (until = [_authFailureLog isBanned: address]))
     {

@@ -316,6 +316,27 @@ main()
 
   END_SET("Block on custom authentication failure")
 
+  // wait for the authentication failure log to be cleaned up
+  wait(FIND_TIME);
+
+  START_SET("Disable block on authentication failure")
+
+  // disable block on authentication failure
+  [server setAuthenticationFailureBanTime: 0.0];
+
+  // make MAX_RETRY + 1 invalid password attempts
+  for (int i = 0; i <= MAX_RETRY; i++) 
+    {
+      response = post(@"user", @"ValidPassword", @{@"key": @"InvalidKey"});
+      PASS([response statusCode] == 401, "Response is 401");
+    }
+
+  // check that we are still not banned
+  response = post(@"user", @"ValidPassword", @{@"key": @"ValidKey"});
+  PASS([response statusCode] == 200, "Response is 200");
+  
+  END_SET("Disable block on authentication failure")
+
   RELEASE(authFailureLog);
   RELEASE(handler);
   RELEASE(handlerWithAuth);
