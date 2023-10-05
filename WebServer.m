@@ -3450,9 +3450,8 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   [_lock lock];
 
   addresses = [_failuresByAddress allKeys];
-  for (NSInteger i = [addresses count] - 1; i >= 0; i--)
+  for (address in addresses)
     {
-      address = [addresses objectAtIndex: i];
       failures = [_failuresByAddress objectForKey: address];
       for (NSInteger j = [failures count] - 1; j >= 0; j--)
         {
@@ -3469,9 +3468,8 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     }
 
   addresses = [_banUntilByAddress allKeys];
-  for (NSInteger i = [addresses count] - 1; i >= 0; i--)
+  for (address in addresses)
     {
-      address = [addresses objectAtIndex: i];
       until = [_banUntilByAddress objectForKey: address];
       if ([until compare: [NSDate date]] == NSOrderedAscending)
         {
