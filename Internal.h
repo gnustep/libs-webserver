@@ -167,6 +167,7 @@ typedef	enum {
   @private
     NSTimeInterval       _findTime;
     NSMutableDictionary  *_failuresByAddress;
+    NSMutableDictionary  *_banUntilByAddress;
     NSLock               *_lock;
     NSTimeInterval       _cleanupInterval;
     NSTimer              *_cleanupTimer;
@@ -180,6 +181,9 @@ typedef	enum {
 - (void) removeFailuresForAddress: (NSString*)address;
 - (NSUInteger) failureCountForAddress: (NSString*)address
                            blockUntil: (NSDate**)until;
+- (void) banAddress: (NSString*)address
+              until: (NSDate*)until;
+- (NSDate*) isBanned: (NSString*)address;
 @end
 
 @interface	WebServerConnection : GSListLink
