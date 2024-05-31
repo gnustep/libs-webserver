@@ -1679,6 +1679,11 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   [_authFailureLog setFindTime: _authFailureFindTime];
 }
 
+- (void) setContinue: (BOOL)aFlag
+{
+  _doContinue = (aFlag ? YES : NO);
+}
+
 - (void) setDelegate: (id)anObject
 {
   _delegate = anObject;
@@ -2188,32 +2193,6 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 @implementation	WebServer (Private)
 
 
-/* Adjust the per-host connection count, returning YES
- * if this causes the server to exceed the per-host limit.
- * This is used only where the connection is from a
- * trusted proxy.
- */
-- (BOOL) _connection: (WebServerConnection*)conn
-  changedAddressFrom: (NSString*)oldAddress
-{
-  NSString      *newAddress = [conn address];
-  BOOL		excessive = NO;
-
-  [_lock lock];
-  [_perHost removeObject: oldAddress];
-  [_perHost addObject: newAddress];
-  if (_maxPerHost > 0
-    && [_perHost countForObject: newAddress] > _maxPerHost)
-    {
-      excessive = YES;
-    }
-  [conn setQuiet:
-    [[_defs arrayForKey: @"WebServerQuiet"] containsObject: newAddress]];
-  [_lock unlock];
-
-  return excessive;
-}
-
 - (void) _alert: (NSString*)fmt, ...
 {
   va_list	args;
@@ -2326,6 +2305,64 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   if ([_delegate respondsToSelector: @selector(completedResponse:duration:)])
     {
       [_delegate completedResponse: r duration: t];
+    }
+}
+
+/* Adjust the per-host connection count, returning YES
+ * if this causes the server to exceed the per-host limit.
+ * This is used only where the connection is from a
+ * trusted proxy.
+ */
+- (BOOL) _connection: (WebServerConnection*)conn
+  changedAddressFrom: (NSString*)oldAddress
+{
+  NSString      *newAddress = [conn address];
+  BOOL		excessive = NO;
+
+  [_lock lock];
+  [_perHost removeObject: oldAddress];
+  [_perHost addObject: newAddress];
+  if (_maxPerHost > 0
+    && [_perHost countForObject: newAddress] > _maxPerHost)
+    {
+      excessive = YES;
+    }
+  [conn setQuiet:
+    [[_defs arrayForKey: @"WebServerQuiet"] containsObject: newAddress]];
+  [_lock unlock];
+
+  return excessive;
+}
+
+- (int) _continue: (WebServerConnection*)connection
+{
+  if ([_delegate respondsToSelector: @selector(continueRequest:response:for:)])
+    {
+      WebServerRequest	*request = [connection request];
+      WebServerResponse	*template = [connection response];
+      WebServerResponse	*response;
+
+      [template setHeader: @"http"
+		    value: @"HTTP/1.0 417 Expectation failed"
+	       parameters: nil];
+      response = [_delegate continueRequest: request
+				   response: template
+				        for: self];
+      if (response)
+	{
+	  [self completedWithResponse: response];
+	  return 0;	// Do not continue the request
+	}
+      [template deleteHeaderNamed: @"http"];
+      return 1;		// Send '100 continue'
+    }
+  else
+    {
+      if (_doContinue)
+	{
+	  return 1;	// Send '100 continue'
+	}
+      return -1;	// Ignore the expect header
     }
 }
 

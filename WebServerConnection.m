@@ -1580,14 +1580,54 @@ else if (YES == hadRequest) \
     [server _process1: self]; \
   }
 
-- (BOOL) _checkBlocked
+- (BOOL) _checkHeaders
 {
-  NSString      *a = [self address];
-  NSDate        *b = [server _blocked: a];
+  NSData	*data;
+  NSString      *a; 
+  NSDate        *b;
 
+  /* When a connection is from a trusted proxy, we do per-host counting by
+   * originating host (header information from the proxy) rather than the
+   * address of the remote end of the TCP/IP connection.
+   * We must therefore inform the server of the change in connections from
+   * each address.
+   */
+  if ([server isTrusted])
+    {
+      NSString  *newAddress;
+
+      newAddress = [(WebServerRequest*)[parser mimeDocument] address];
+      if (newAddress != nil && NO == [newAddress isEqual: address])
+        {
+          NSString      *oldAddress = AUTORELEASE(address);
+
+          address = [newAddress copy];
+          if (YES == [server _connection: self
+                      changedAddressFrom: oldAddress]) 
+            {
+              [server _log:
+                @"%@ Too many existing connections from host. rejected", self];
+              [self setShouldClose: YES];	// Not persistent.
+              [self setResult:
+                @"HTTP/1.0 503 Too many existing connections from host"];
+              data = [
+                @"HTTP/1.0 503 Too many existing connections from host\r\n\r\n"
+                dataUsingEncoding: NSASCIIStringEncoding];
+              [self performSelector: @selector(_doWrite:)
+                           onThread: ioThread->thread
+                         withObject: data
+                      waitUntilDone: NO];
+              return YES;
+            }
+        }
+    }
+
+  /* See if this request is blocked.
+   */
+  a = [self address];
+  b = [server _blocked: a];
   if (b)
     {
-      NSData	*data;
       NSString	*body;
       int	seconds;
 
@@ -1632,48 +1672,38 @@ else if (YES == hadRequest) \
        */
       autoBlock = YES;
     }
-  return NO;
-}
 
-- (BOOL) _checkProxying
-{
-  /* When a connection is from a trusted proxy, we do per-host counting by
-   * originating host (header information from the proxy) rather than the
-   * address of the remote end of the TCP/IP connection.
-   * We must therefore inform the server of the change in connections from
-   * each address.
+  /* See if we need to perform 100-continue processing.
    */
-  if ([server isTrusted])
+  a = [[[[self request] headerNamed: @"expect"] value] stringByTrimmingSpaces];
+  if (a && [a caseInsensitiveCompare: @"100-continue"] == NSOrderedSame)
     {
-      NSString  *newAddress;
+      switch ([server _continue: self])
+	{
+	  case 0:
+	    return YES;	// response already sent
 
-      newAddress = [(WebServerRequest*)[parser mimeDocument] address];
-      if (newAddress != nil && NO == [newAddress isEqual: address])
-        {
-          NSString      *oldAddress = AUTORELEASE(address);
+	  case 1:
+	    data = [@"HTTP/1.1 100 Continue\r\n\r\n"
+	      dataUsingEncoding: NSASCIIStringEncoding];
+	    if (YES == conf->logRawIO && NO == quiet)
+	      {
+		debugWrite(server, self, data);
+	      }
+	    /* Perform the write synchronously to avoid the possibility that
+	     * we would try to write the full response before it completes.
+	     */
+	    [handle performSelector: @selector(writeData:)
+			 onThread: ioThread->thread
+		       withObject: data
+		    waitUntilDone: YES];
+	    return NO;	// Sending instruction to continue;
 
-          address = [newAddress copy];
-          if (YES == [server _connection: self
-                      changedAddressFrom: oldAddress]) 
-            {
-              NSData	*data;
-
-              [server _log:
-                @"%@ Too many existing connections from host. rejected", self];
-              [self setShouldClose: YES];	// Not persistent.
-              [self setResult:
-                @"HTTP/1.0 503 Too many existing connections from host"];
-              data = [
-                @"HTTP/1.0 503 Too many existing connections from host\r\n\r\n"
-                dataUsingEncoding: NSASCIIStringEncoding];
-              [self performSelector: @selector(_doWrite:)
-                           onThread: ioThread->thread
-                         withObject: data
-                      waitUntilDone: NO];
-              return YES;
-            }
-        }
+	  default:
+	    return NO;	// Ignore the request
+	}
     }
+
   return NO;
 }
 
@@ -2035,11 +2065,11 @@ else if (YES == hadRequest) \
 	{
           if (NO == hadHeader)
             {
-              if ([self _checkProxying] || [self _checkBlocked])
+              hadHeader = YES;
+              if ([self _checkHeaders])
                 {
                   return;	// refused
                 }
-              hadHeader = YES;
               incremental = [server _incremental: self];
             }
 	  requestCount++;
@@ -2071,11 +2101,11 @@ else if (YES == hadRequest) \
        */
       if (NO == hadHeader)
         {
-          if ([self _checkProxying] || [self _checkBlocked])
+          hadHeader = YES;
+          if ([self _checkHeaders])
             {
               return;	// refused
             }
-          hadHeader = YES;
           incremental = [server _incremental: self];
         }
       requestCount++;
@@ -2090,11 +2120,11 @@ else if (YES == hadRequest) \
     {
       if (NO == hadHeader)
         {
-	  if ([self _checkProxying] || [self _checkBlocked])
+          hadHeader = YES;
+          if ([self _checkHeaders])
 	    {
 	      return;	// refused
 	    }
-          hadHeader = YES;
           incremental = [server _incremental: self];
           if (YES == [method isEqualToString: @"GET"])
             {
@@ -2321,7 +2351,7 @@ else if (YES == hadRequest) \
   if (YES == conf->logRawIO && NO == quiet)
     {
       debugWrite(server, self, d);
-   }
+    }
   [handle writeInBackgroundAndNotify: d];
 }
 

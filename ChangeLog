@@ -1,8 +1,18 @@
+2024-05-31 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* Internal.h:
+	* WebServer.h:
+	* WebServer.m:
+	* WebServerConnection.m:
+	Add support for 100-Continue processing either with default behavior
+	(activated by -setContinue: method) or at the instruction of the
+	delegate.
+
 2023-07-25 Richard Frith-Macdonald  <rfm@gnu.org>
 
-	WebServer.h:
-	WebServer.m:
-	WebServerConnection.m:
+	* WebServer.h:
+	* WebServer.m:
+	* WebServerConnection.m:
 	Make Proxy and HSTS setting configuration independent of TLS config
 	and clarify the documentation.  Improve the debug log when a request
 	is blocked due to authentication failures from the same IP address.
@@ -12,8 +22,8 @@
 
 2023-04-27 Richard Frith-Macdonald  <rfm@gnu.org>
 
-	WebServer.h: fix typo in comment
-	WebServer.m: fix crash on shutdown of a heavily used server (suggested
+	* WebServer.h: fix typo in comment
+	* WebServer.m: fix crash on shutdown of a heavily used server (suggested
 	fix by Wolfgang).
 
 2023-01-13 Richard Frith-Macdonald  <rfm@gnu.org>
