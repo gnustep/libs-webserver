@@ -1679,11 +1679,6 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   [_authFailureLog setFindTime: _authFailureFindTime];
 }
 
-- (void) setContinue: (BOOL)aFlag
-{
-  _doContinue = (aFlag ? YES : NO);
-}
-
 - (void) setDelegate: (id)anObject
 {
   _delegate = anObject;
@@ -2332,38 +2327,6 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   [_lock unlock];
 
   return excessive;
-}
-
-- (int) _continue: (WebServerConnection*)connection
-{
-  if ([_delegate respondsToSelector: @selector(continueRequest:response:for:)])
-    {
-      WebServerRequest	*request = [connection request];
-      WebServerResponse	*template = [connection response];
-      WebServerResponse	*response;
-
-      [template setHeader: @"http"
-		    value: @"HTTP/1.0 417 Expectation failed"
-	       parameters: nil];
-      response = [_delegate continueRequest: request
-				   response: template
-				        for: self];
-      if (response)
-	{
-	  [self completedWithResponse: response];
-	  return 0;	// Do not continue the request
-	}
-      [template deleteHeaderNamed: @"http"];
-      return 1;		// Send '100 continue'
-    }
-  else
-    {
-      if (_doContinue)
-	{
-	  return 1;	// Send '100 continue'
-	}
-      return -1;	// Ignore the expect header
-    }
 }
 
 - (void) _didConnect: (NSNotification*)notification

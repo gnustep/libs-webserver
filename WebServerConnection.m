@@ -1678,29 +1678,48 @@ else if (YES == hadRequest) \
   a = [[[[self request] headerNamed: @"expect"] value] stringByTrimmingSpaces];
   if (a && [a caseInsensitiveCompare: @"100-continue"] == NSOrderedSame)
     {
-      switch ([server _continue: self])
+      id		delegate = [server delegate];
+      WebServerResponse	*r = [self response];
+      GSMimeHeader	*h;
+
+      [r setHeader: @"http" value: @"HTTP/1.1 100 Continue" parameters: nil];
+
+      if ([delegate respondsToSelector:
+	@selector(continueRequest:response:for:)])
 	{
-	  case 0:
-	    return YES;	// response already sent
+	  r = [delegate continueRequest: [self request]
+			       response: r
+				    for: server];
+	}
 
-	  case 1:
-	    data = [@"HTTP/1.1 100 Continue\r\n\r\n"
-	      dataUsingEncoding: NSASCIIStringEncoding];
-	    if (YES == conf->logRawIO && NO == quiet)
-	      {
-		debugWrite(server, self, data);
-	      }
-	    /* Perform the write synchronously to avoid the possibility that
-	     * we would try to write the full response before it completes.
-	     */
-	    [handle performSelector: @selector(writeData:)
-			 onThread: ioThread->thread
-		       withObject: data
+      if (r == response && (h = [response headerNamed: @"http"]) != nil)
+	{
+	  if ([[h value] rangeOfString: @" 100 "].length == 0)
+	    {
+	      [server completedWithResponse: r];
+	      return YES;	// response sent
+	    }
+
+	  data = [@"HTTP/1.1 100 Continue\r\n\r\n"
+	    dataUsingEncoding: NSASCIIStringEncoding];
+	  [response deleteHeaderNamed: @"http"];
+	  if (YES == conf->logRawIO && NO == quiet)
+	    {
+	      debugWrite(server, self, data);
+	    }
+
+	  /* Perform the write synchronously to avoid the possibility that
+	   * we would try to write the full response before it completes.
+	   */
+	  [handle performSelector: @selector(writeData:)
+		       onThread: ioThread->thread
+		     withObject: data
 		    waitUntilDone: YES];
-	    return NO;	// Sending instruction to continue;
-
-	  default:
-	    return NO;	// Ignore the request
+	  return NO;	// Sent instruction to continue;
+	}
+      else
+	{
+	  return NO;	// Ignore the expectation
 	}
     }
 

@@ -1,3 +1,12 @@
+2024-06-01 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* Internal.h:
+	* WebServer.h:
+	* WebServer.m:
+	* WebServerConnection.m:
+	Simplify support for 100-Continue processing, and change the default
+	behavior to send the response to have the client complete the request.
+
 2024-05-31 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* Internal.h:

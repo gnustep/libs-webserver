@@ -304,7 +304,6 @@ typedef	enum {
 - (void) _completedResponse: (WebServerResponse*)r duration: (NSTimeInterval)t;
 - (BOOL) _connection: (WebServerConnection*)conn
   changedAddressFrom: (NSString*)oldAddress;
-- (int) _continue: (WebServerConnection*)connection;
 - (void) _didConnect: (NSNotification*)notification;
 - (void) _endConnect: (WebServerConnection*)connection;
 - (NSString*) _ioThreadDescription;

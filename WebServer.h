@@ -263,12 +263,22 @@
 
 /** If your delegate implements this method it will be called before the
  * first call to handle a request (ie before -preProcessRequest:response:for:
- * or -processRequest:response:for:) if (and only if) the request contains a
- * header asking whether the request should continue.  Returning nil causes
- * the client to be told to continue, while returning a WebServerResponse
- * object ends the request returning that result.  The supplied response
- * object is pre-populated with a value suitable for general rejection of
- * the request.
+ * or -processRequest:response:for:) if (and only if) the request contains an
+ * Expect header asking whether the request should continue.<br />
+ * Returning nil causes the server to ignore the request expectation,
+ * The delegate method may modify and return the supplied response object
+ * or may return nil.<br />
+ * If the returned response has an HTTP header containing a status other than
+ * 100 the request will immediately be completed using that response.
+ * Otherwise (if the response contains an HTTP header with status 100), the
+ * client is told to continue and the server waits for the remainder of the
+ * request.<br />
+ * The supplied response object is pre-populated with 100-continue status so
+ * the method merely needs to return that response to continue.<br />
+ * A typical response terminating the request might be a 417 status.<br />
+ * If the delegate does not implement this method, the server will act as
+ * if the method was implemented to return the unmodified response so
+ * that the client is asked to complete the request.
  */
 - (WebServerResponse*) continueRequest: (WebServerRequest*)request
 			      response: (WebServerResponse*)response
@@ -464,7 +474,6 @@
   BOOL			_pad2;
   BOOL			_doAudit;
   BOOL			_doIncremental;
-  BOOL			_doContinue;
   NSUInteger		_substitutionLimit;
   NSUInteger		_maxConnections;
   NSUInteger		_maxPerHost;
@@ -875,15 +884,6 @@
  * Default is 30.0
  */
 - (void) setConnectionTimeout: (NSTimeInterval)aDelay;
-
-/** Sets whether the server responds to an expect 100-continue header by
- * default.  If this option is not set the headers are ignored when the
- * delegate does not implement the -continueRequest:response:for method.
- * NB. The default behavior is suitable for a process running behind an
- * apache (or similar) proxy, where that proxy handles the task of sending
- * the 100-Continue response to the client.
- */
-- (void) setContinue: (BOOL)aFlag;
 
 /**
  * Sets the delegate object which processes requests for the receiver.
