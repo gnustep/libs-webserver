@@ -269,7 +269,8 @@
  * The delegate method may modify and return the supplied response object
  * or may return nil.<br />
  * If the returned response has an HTTP header containing a status other than
- * 100 the request will immediately be completed using that response.
+ * 100 the request will immediately be completed using that response and the
+ * conenction will be closed.<br />
  * Otherwise (if the response contains an HTTP header with status 100), the
  * client is told to continue and the server waits for the remainder of the
  * request.<br />

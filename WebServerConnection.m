@@ -1696,6 +1696,12 @@ else if (YES == hadRequest) \
 	{
 	  if ([[h value] rangeOfString: @" 100 "].length == 0)
 	    {
+	      /* When responding immediately rather than waiting for the
+	       * client to send the rest of the request, we must close
+	       * the connection in case the client decides to send the
+	       * remainder of the request anyway.
+	       */
+	      [self setShouldClose: YES];
 	      [server completedWithResponse: r];
 	      return YES;	// response sent
 	    }
