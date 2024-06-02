@@ -1682,17 +1682,19 @@ else if (YES == hadRequest) \
       WebServerResponse	*r = [self response];
       GSMimeHeader	*h;
 
-      [r setHeader: @"http" value: @"HTTP/1.1 100 Continue" parameters: nil];
+      [r setHeader: @"http"
+	     value: @"HTTP/1.1 100 Continue"
+	parameters: nil];
 
       if ([delegate respondsToSelector:
 	@selector(continueRequest:response:for:)])
 	{
-	  r = [delegate continueRequest: [self request]
-			       response: r
-				    for: server];
+	  [delegate continueRequest: [self request]
+			   response: r
+				for: server];
 	}
 
-      if (r == response && (h = [response headerNamed: @"http"]) != nil)
+      if ((h = [r headerNamed: @"http"]) != nil)
 	{
 	  if ([[h value] rangeOfString: @" 100 "].length == 0)
 	    {
@@ -1718,14 +1720,9 @@ else if (YES == hadRequest) \
 	   * we would try to write the full response before it completes.
 	   */
 	  [handle performSelector: @selector(writeData:)
-		       onThread: ioThread->thread
-		     withObject: data
+			 onThread: ioThread->thread
+		       withObject: data
 		    waitUntilDone: YES];
-	  return NO;	// Sent instruction to continue;
-	}
-      else
-	{
-	  return NO;	// Ignore the expectation
 	}
     }
 

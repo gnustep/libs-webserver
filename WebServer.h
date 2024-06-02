@@ -265,25 +265,25 @@
  * first call to handle a request (ie before -preProcessRequest:response:for:
  * or -processRequest:response:for:) if (and only if) the request contains an
  * Expect header asking whether the request should continue.<br />
- * Returning nil causes the server to ignore the request expectation,
- * The delegate method may modify and return the supplied response object
- * or may return nil.<br />
- * If the returned response has an HTTP header containing a status other than
- * 100 the request will immediately be completed using that response and the
- * conenction will be closed.<br />
- * Otherwise (if the response contains an HTTP header with status 100), the
- * client is told to continue and the server waits for the remainder of the
- * request.<br />
- * The supplied response object is pre-populated with 100-continue status so
- * the method merely needs to return that response to continue.<br />
- * A typical response terminating the request might be a 417 status.<br />
- * If the delegate does not implement this method, the server will act as
- * if the method was implemented to return the unmodified response so
- * that the client is asked to complete the request.
+ * The supplied request object contains the headers provided by the client,
+ * while the supplied response object contains the proposed response to
+ * the client (usually a 100 Continue response).<br />
+ * The delegate may then modify the response in order to override the default
+ * behavior as follows:<br />
+ * Removing the HTTP header from the response will cause the Expect header to
+ * be ignored (a well behaved client will send the remainder of the request
+ * after a short delay).<br />
+ * Setting the HTTP header in the response to indicate a 100 status (or leaving
+ * a header containing that status unmodified) will cause the server to send
+ * the response to the client and then wait for the client to send the
+ * remainder of the request as normal.<br />
+ * Setting the HTTP header in the response to indicate any other status (or
+ * leaving the header with a status other than 100) will cause the response to
+ * be sent to the client and the connection to the client to be closed.
  */
-- (WebServerResponse*) continueRequest: (WebServerRequest*)request
-			      response: (WebServerResponse*)response
-			 	   for: (WebServer*)http;
+- (void) continueRequest: (WebServerRequest*)request
+		response: (WebServerResponse*)response
+		     for: (WebServer*)http;
 
 /** If your delegate implements this method, it will be called before the
  * first call to handle a request (ie before -preProcessRequest:response:for:
