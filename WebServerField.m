@@ -462,7 +462,6 @@ static id null = nil;
   if (value == null) value = nil;
   if (YES == _multiple)
     {
-      NSUInteger	count;
       NSUInteger	index;
       NSMutableArray	*array;
 
@@ -472,7 +471,7 @@ static id null = nil;
 		      format: @"[%@-%@] value is not an array",
 	    NSStringFromClass([self class]), NSStringFromSelector(_cmd)];
 	}
-      index = count = [value count];
+      index = [value count];
       array = [[value mutableCopy] autorelease];
       while (index-- > 0)
 	{

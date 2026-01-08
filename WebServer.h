@@ -463,18 +463,17 @@
   NSMutableArray	*_ioThreads;
   GSThreadPool		*_pool;
   WebServerConfig	*_conf;
-  id		        UNUSED_QUAL *_unused1;
-  id		        UNUSED_QUAL *_unused2;
+  id		        UNUSED_QUAL *_unused1 __attribute__((unused));
+  id		        UNUSED_QUAL *_unused2 __attribute__((unused));
   NSDictionary		*_sslConfig;
   BOOL			_accepting;
   BOOL			_doPostProcess;
   BOOL			_doPreProcess;
   BOOL			_doProcess;
   uint8_t		_reject;
-  BOOL			_pad1;
-  BOOL			_pad2;
   BOOL			_doAudit;
   BOOL			_doIncremental;
+  BOOL			_pad1 __attribute__((unused));
   NSUInteger		_substitutionLimit;
   NSUInteger		_maxConnections;
   NSUInteger		_maxPerHost;
@@ -496,12 +495,11 @@
   NSLock                *_incrementalDataLock;
   NSMutableDictionary   *_incrementalDataMap;
   NSUInteger            _strictTransportSecurity;
-  NSString              *_frameOptions;
   WebServerAuthenticationFailureLog	*_authFailureLog;
   NSTimeInterval        _authFailureBanTime;
   NSTimeInterval        _authFailureFindTime;
   NSUInteger            _authFailureMaxRetry;
-  void			*_reserved;
+  void			*_reserved __attribute__((unused));
 }
 
 /** Returns the base URL used by the remote client to send the request.
