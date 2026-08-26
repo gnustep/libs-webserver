@@ -1,3 +1,12 @@
+2024-08262 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServer.h:
+	* WebServer.m:
+	* WebServerBundles.h:
+	* WebServerBundles.m:
+	Cleanups to avoid compiler errors/warnings. Removal of a deprecated old
+	method.  Double default limits for request header/body sizes.
+
 2024-06-02 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* WebServer.h:

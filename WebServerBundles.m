@@ -45,16 +45,18 @@
 - (BOOL) defaultsUpdate: (NSNotification *)aNotification
 {
   NSUserDefaults	*defs = [aNotification object];
+  NSString		*address;
   NSString		*port;
   NSDictionary		*secure;
 
+  address = [defs stringForKey: @"WebServerAddress"];	// May be nil
   port = [defs stringForKey: @"WebServerPort"];
   if ([port length] == 0)
     {
       return NO;	// Can't make web server active.
     }
   secure = [defs dictionaryForKey: @"WebServerSecure"];
-  return [_http setPort: port secure: secure];
+  return [_http setAddress: address port: port secure: secure];
 }
 
 - (id) handlerForPath: (NSString*)path info: (NSString**)info

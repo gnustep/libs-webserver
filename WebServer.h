@@ -990,7 +990,7 @@
 
 /**
  * Sets the maximum size of an uploaded request body.<br />
- * The default is 4M bytes.<br />
+ * The default is 8M bytes.<br />
  * The HTTP failure response for too large a body is 413.
  */
 - (void) setMaxBodySize: (NSUInteger)max;
@@ -1013,7 +1013,7 @@
 
 /**
  * Sets the maximum number of simultaneous connections with clients.<br />
- * The default is 128.<br />
+ * The default is 256.<br />
  * A value of zero permits unlimited connections.<br />
  * If this limit is reached, the behavior of the software depends upon
  * the value set by the -setMaxConnectionsReject: method.
@@ -1023,7 +1023,7 @@
 /**
  * Sets the maximum number of simultaneous connections with a particular
  * remote host.<br />
- * The default is 32.<br />
+ * The default is 64.<br />
  * A value of zero permits unlimited connections.<br />
  * If this value is greater than that of -setMaxConnections: then it will
  * have no effect as the maximum number of connections from one host
@@ -1069,7 +1069,7 @@
 /**
  * Sets the maximum size of an incoming request (including all headers,
  * but not the body).<br />
- * The default is 8K bytes.<br />
+ * The default is 16K bytes.<br />
  * The HTTP failure response for too large a request is 413.
  */
 - (void) setMaxRequestSize: (NSUInteger)max;
@@ -1081,10 +1081,6 @@
  * The default set contains only the GET and POST methods.
  */
 - (void) setPermittedMethods: (NSSet*)s;
-
-/** Deprecated ... use -setAddress:port:secure: instead.
- */
-- (BOOL) setPort: (NSString*)aPort secure: (NSDictionary*)secure;
 
 /**
  * Set root path for loading template files from.<br />

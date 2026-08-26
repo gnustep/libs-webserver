@@ -567,7 +567,15 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
  */
 - (NSString*) descriptionOut
 {
-  return descOut;
+  if (address == remAddr)
+    {
+      return descOut;
+    }
+  else
+    {
+      return [NSString stringWithFormat: @"%@ (request from %@)",
+	descOut, address];
+    }
 }
 
 /* Must be called on the IO thread.
@@ -1592,6 +1600,7 @@ else if (YES == hadRequest) \
    * We must therefore inform the server of the change in connections from
    * each address.
    */
+  ASSIGN(address, remAddr);
   if ([server isTrusted])
     {
       NSString  *newAddress;

@@ -31,7 +31,7 @@
 #import "WebServer.h"
 #import "Internal.h"
 
-#define	MAXCONNECTIONS	10000
+#define	MAXCONNECTIONS	50000
 
 static	Class	NSArrayClass = Nil;
 static	Class	NSDataClass = Nil;
@@ -1822,11 +1822,6 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   _conf = c;
 }
 
-- (BOOL) setPort: (NSString*)aPort secure: (NSDictionary*)secure
-{
-  return [self setAddress: nil port: aPort secure: secure];
-}
-
 - (void) setRoot: (NSString*)aPath
 {
   ASSIGN(_root, aPath);
@@ -3130,10 +3125,10 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   _conf->permittedMethods = [defaultPermittedMethods copy];
   _conf->maxConnectionRequests = 100;
   _conf->maxConnectionDuration = 10.0;
-  _conf->maxBodySize = 4*1024*1024;
-  _conf->maxRequestSize = 8*1024;
-  _maxPerHost = 32;
-  _maxConnections = 128;
+  _conf->maxBodySize = 8*1024*1024;
+  _conf->maxRequestSize = 16*1024;
+  _maxPerHost = 64;
+  _maxConnections = 256;
   _substitutionLimit = 4;
   _connections = [NSMutableSet new];
   _perHost = [NSCountedSet new];
@@ -3246,6 +3241,22 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
 @end
 
+@interface	WebServerAuthenticationFailureLog (Internal)
+- (void) _setupCleanupTimer;
+@end
+
+@implementation	WebServerAuthenticationFailureLog (Internal)
+- (void) _setupCleanupTimer
+{
+  [_cleanupTimer invalidate];
+  _cleanupTimer = [NSTimer scheduledTimerWithTimeInterval: _cleanupInterval
+                                                   target: self
+                                                 selector: @selector(cleanup)
+                                                 userInfo: 0
+                                                  repeats: YES];
+}
+@end
+
 @implementation WebServerAuthenticationFailureLog
 
 - (id) init
@@ -3257,7 +3268,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       _banUntilByAddress = [NSMutableDictionary new];
       _lock = [NSLock new];
       _cleanupInterval = 60.0;
-      [self setupCleanupTimer];
+      [self _setupCleanupTimer];
     }
   return self;
 }
@@ -3282,16 +3293,6 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   return _cleanupInterval;
 }
 
-- (void) setupCleanupTimer
-{
-  [_cleanupTimer invalidate];
-  _cleanupTimer = [NSTimer scheduledTimerWithTimeInterval: _cleanupInterval
-                                                   target: self
-                                                 selector: @selector(cleanup)
-                                                 userInfo: 0
-                                                  repeats: YES];
-}
-
 - (void) setFindTime: (NSTimeInterval)findTime
 {
   _findTime = findTime;
@@ -3300,7 +3301,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 - (void) setCleanupInterval: (NSTimeInterval)cleanupInterval
 {
   _cleanupInterval = cleanupInterval;
-  [self setupCleanupTimer];
+  [self _setupCleanupTimer];
 }
 
 - (BOOL) isValidAddress: (NSString*)address
@@ -3376,8 +3377,10 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   [_lock lock];
   if (nil != (failures = [_failuresByAddress objectForKey: address]))
     {
+      NSInteger	i;
+
       since = [NSDate dateWithTimeIntervalSinceNow: -_findTime];
-      for (NSInteger i = [failures count] - 1; i >= 0; i--)
+      for (i = [failures count] - 1; i >= 0; i--)
         {
           failure = [failures objectAtIndex: i];
           if ([[failure date] compare: since] == NSOrderedDescending)
@@ -3462,8 +3465,10 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   addresses = [_failuresByAddress allKeys];
   for (address in addresses)
     {
+      NSInteger	j;
+
       failures = [_failuresByAddress objectForKey: address];
-      for (NSInteger j = [failures count] - 1; j >= 0; j--)
+      for (j = [failures count] - 1; j >= 0; j--)
         {
           failure = [failures objectAtIndex: j];
           if ([[failure date] compare: since] == NSOrderedAscending)

@@ -61,13 +61,17 @@
  * WebServer configuration if necessary.<br />
  * <list>
  *   <item>
+ *     WebServeAddress may be used to specify the address that the server
+ *     listens on.  See [WebServer-setAddress:port:secure:] for details.
+ *   </item>
+ *   <item>
  *     WebServerPort must be used to specify the port that the server
- *     listens on.  See [WebServer-setPort:secure:] for details.
+ *     listens on.  See [WebServer-setAddress:port:secure:] for details.
  *   </item>
  *   <item>
  *     WebServerSecure may be supplied to make the server operate as an
  *     HTTPS server rather than an HTTP server.
- *     See [WebServer-setPort:secure:] for details.
+ *     See [WebServer-setAddress:port:secure:] for details.
  *   </item>
  *   <item>
  *     WebServerBundles is a dictionary keyed on path strings, whose
