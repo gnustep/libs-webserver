@@ -1,4 +1,10 @@
-2024-08262 Richard Frith-Macdonald  <rfm@gnu.org>
+2026-11-11 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServerConnection.m:
+	Fix error in counting concurrent hosts where we handle multiple
+	requests on the same connection.
+
+2026-08-26 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* WebServer.h:
 	* WebServer.m:

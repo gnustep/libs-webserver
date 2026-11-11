@@ -1594,41 +1594,49 @@ else if (YES == hadRequest) \
   NSString      *a; 
   NSDate        *b;
 
-  /* When a connection is from a trusted proxy, we do per-host counting by
-   * originating host (header information from the proxy) rather than the
-   * address of the remote end of the TCP/IP connection.
-   * We must therefore inform the server of the change in connections from
-   * each address.
+  /* On the first request on a new connection, we check to see if there
+   * is trusted host information in the request headers.
    */
-  ASSIGN(address, remAddr);
-  if ([server isTrusted])
+  if (nil == address)
     {
-      NSString  *newAddress;
+      NSString	*newAddr;
 
-      newAddress = [(WebServerRequest*)[parser mimeDocument] address];
-      if (newAddress != nil && NO == [newAddress isEqual: address])
-        {
-          NSString      *oldAddress = AUTORELEASE(address);
+      /* Store the actual remote IP address to ensure this code is not
+       * called on subsequent requests for this connection.
+       */
+      ASSIGN(address, remAddr);
 
-          address = [newAddress copy];
-          if (YES == [server _connection: self
-                      changedAddressFrom: oldAddress]) 
-            {
-              [server _log:
-                @"%@ Too many existing connections from host. rejected", self];
-              [self setShouldClose: YES];	// Not persistent.
-              [self setResult:
-                @"HTTP/1.0 503 Too many existing connections from host"];
-              data = [
-                @"HTTP/1.0 503 Too many existing connections from host\r\n\r\n"
-                dataUsingEncoding: NSASCIIStringEncoding];
-              [self performSelector: @selector(_doWrite:)
-                           onThread: ioThread->thread
-                         withObject: data
-                      waitUntilDone: NO];
-              return YES;
-            }
-        }
+      /* When a connection is from a trusted proxy, we do per-host counting by
+       * originating host (header information from the proxy) rather than the
+       * address of the remote end of the TCP/IP connection.
+       * We must therefore inform the server of the change in connections from
+       * each address.
+       */
+      if ([server isTrusted]
+	&& (newAddr = [(WebServerRequest*)[parser mimeDocument] address]) != nil
+	&& NO == [newAddr isEqual: address])
+	{
+	  NSString      *oldAddr = AUTORELEASE(address);
+
+	  address = [newAddr copy];
+	  if (YES == [server _connection: self
+		      changedAddressFrom: oldAddr]) 
+	    {
+	      [server _log:
+		@"%@ Too many existing connections from host. rejected", self];
+	      [self setShouldClose: YES];	// Not persistent.
+	      [self setResult:
+		@"HTTP/1.0 503 Too many existing connections from host"];
+	      data = [
+		@"HTTP/1.0 503 Too many existing connections from host\r\n\r\n"
+		dataUsingEncoding: NSASCIIStringEncoding];
+	      [self performSelector: @selector(_doWrite:)
+			   onThread: ioThread->thread
+			 withObject: data
+		      waitUntilDone: NO];
+	      return YES;
+	    }
+	}
     }
 
   /* See if this request is blocked.
