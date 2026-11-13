@@ -34,7 +34,7 @@
 #define	MAXCONNECTIONS	50000
 
 // Define to 1 to enable per-host record keeping logs
-#define	PERHOST	1
+#define	PERHOST	0
 
 static	Class	NSArrayClass = Nil;
 static	Class	NSDataClass = Nil;
