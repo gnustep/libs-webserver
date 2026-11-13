@@ -6,7 +6,7 @@
 	* WebServer.m:
 	Add PERHOST define to enable new debug logging of the tracking of
 	per-host connection counts.
-	Add a set to record the addresses we tink belong to a trusted proxy.
+	Add a set to record the addresses we think belong to a trusted proxy.
 	When reporting the count of current connections per host, say whether
 	the host is a proxy (exempt from the per-host limits).
 

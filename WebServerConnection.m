@@ -770,21 +770,15 @@ debugWrite(WebServer *server, WebServerConnection *c, NSData *data)
 	  remPort = @"unknown";
 	}
 
-      /* The address for counting hosts is initially nil because
-       * when we are behind a trusted proxy we expect to get it
-       * from the forwarding header in the first request sent
-       * to us via that proxy.
-       * If the request doesn't contain that information (or if
-       * we are not behind the proxy), we will set it to be the
-       * IP address of the remote end of the incoming connection.
-       */ 
-      address = nil;
+      /* The initial address for per-host connection counting.
+       */
+      ASSIGN(address, remAddr);
 
       descIn = [[NSStringClass alloc] initWithFormat:
-        @"WebServerConnection: %"PRIxPTR" [%@:%@ <-- %@:%@]",
+        @"WebServerConnection: %"PRIuPTR" [%@:%@ <-- %@:%@]",
         identity, locAddr, locPort, remAddr, remPort];
       descOut = [[NSStringClass alloc] initWithFormat:
-        @"WebServerConnection: %"PRIxPTR" [%@:%@ --> %@:%@]",
+        @"WebServerConnection: %"PRIuPTR" [%@:%@ --> %@:%@]",
         identity, locAddr, locPort, remAddr, remPort];
       conf = [c retain];
       quiet = q;
@@ -1599,31 +1593,41 @@ else if (YES == hadRequest) \
   NSString      *a; 
   NSDate        *b;
 
-  /* On the first request on a new connection, we check to find any trusted
-   * host information in the request X-Forwarded-For header and we ask the
-   * server whether the per-host count of connections has been exceeded.
+  /* On each a new request, we check to find any trusted host
+   * information in the request X-Forwarded-For header and we
+   * ask the server whether the per-host count of connections
+   * has been exceeded.
    */
-  if (nil == address && [server isTrusted])
+  if ([server isTrusted])
     {
       NSString	*newAddr = [(WebServerRequest*)[parser mimeDocument] address];
-      NSString  *oldAddr = remAddr;
+      NSString  *oldAddr = address;
 
-      address = [(newAddr ? newAddr : oldAddr) copy];
-      if ([server _connection: self changedAddressFrom: oldAddr]) 
+      if (nil == newAddr)
 	{
 	  [server _log:
-	    @"%@ Too many existing connections from host. rejected", self];
-	  [self setShouldClose: YES];	// Not persistent.
-	  [self setResult:
-	    @"HTTP/1.0 503 Too many existing connections from host"];
-	  data = [
-	    @"HTTP/1.0 503 Too many existing connections from host\r\n\r\n"
-	    dataUsingEncoding: NSASCIIStringEncoding];
-	  [self performSelector: @selector(_doWrite:)
-		       onThread: ioThread->thread
-		     withObject: data
-		  waitUntilDone: NO];
-	  return YES;
+	    @"%@ No valid X-Forwarded-For value set by trusted proxy", self];
+	}
+      else if (NO == [newAddr isEqual: oldAddr])
+	{
+	  oldAddr = AUTORELEASE(RETAIN(oldAddr));
+	  ASSIGNCOPY(address, newAddr);
+	  if ([server _connection: self changedAddressFrom: oldAddr]) 
+	    {
+	      [server _log:
+		@"%@ Too many existing connections from host. rejected", self];
+	      [self setShouldClose: YES];	// Not persistent.
+	      [self setResult:
+		@"HTTP/1.0 503 Too many existing connections from host"];
+	      data = [
+		@"HTTP/1.0 503 Too many existing connections from host\r\n\r\n"
+		dataUsingEncoding: NSASCIIStringEncoding];
+	      [self performSelector: @selector(_doWrite:)
+			   onThread: ioThread->thread
+			 withObject: data
+		      waitUntilDone: NO];
+	      return YES;
+	    }
 	}
     }
 

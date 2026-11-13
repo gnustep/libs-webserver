@@ -34,7 +34,7 @@
 #define	MAXCONNECTIONS	50000
 
 // Define to 1 to enable per-host record keeping logs
-#define	PERHOST	0
+#define	PERHOST	1
 
 static	Class	NSArrayClass = Nil;
 static	Class	NSDataClass = Nil;
@@ -2321,39 +2321,38 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   BOOL		excessive = NO;
 
   [_lock lock];
-  /* The address has changed so the old address must be
-   * the address of a trusted proxy.
-   */
-  if (NO == [oldAddress isEqual: newAddress])
-    {
-      [_trusted addObject: oldAddress];
-    }
 #if	PERHOST
   unsigned	o, n;
 
   o = [_perHost countForObject: oldAddress];
   [_perHost removeObject: oldAddress];
   n = [_perHost countForObject: oldAddress];
-  NSLog(@"%p rem from %@ perhost %u->%u", conn, oldAddress, o, n);
+  NSLog(@"%@ rem from %@ perhost %u->%u", conn, oldAddress, o, n);
 
   o = [_perHost countForObject: newAddress];
   [_perHost addObject: newAddress];
   n = [_perHost countForObject: newAddress];
-  NSLog(@"%p add from %@ perhost %u->%u", conn, newAddress, o, n);
+  NSLog(@"%@ add from %@ perhost %u->%u", conn, newAddress, o, n);
 
   if (_maxPerHost > 0 && n > _maxPerHost)
     {
-      excessive = YES;
+      if (nil == [_trusted member: newAddress])
+	{
+	  excessive = YES;
+	}
     }
 
-  NSLog(@"%p count %@ perhost is %u (max %u, excessive:%d)",
+  NSLog(@"%@ count %@ perhost is %u (max %u, excessive:%d)",
     conn, newAddress, n, (unsigned)_maxPerHost, excessive);
 #else
   [_perHost removeObject: oldAddress];
   [_perHost addObject: newAddress];
   if (_maxPerHost > 0 && [_perHost countForObject: newAddress] > _maxPerHost)
     {
-      excessive = YES;
+      if (nil == [_trusted member: newAddress])
+	{
+	  excessive = YES;
+	}
     }
 #endif
 
@@ -2537,6 +2536,10 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	  refusal = nil;
 	}
       quiet = [[_defs arrayForKey: @"WebServerQuiet"] containsObject: address];
+      if ([self isTrusted])
+	{
+	  [_trusted addObject: address];
+	}
 
       /* Find the I/O thread handling the fewest connections and use that.
        */
@@ -2621,7 +2624,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 
   [_perHost removeObject: a];
   n = [_perHost countForObject: a];
-  NSLog(@"%p disconnect from %@ perhost %u->%u", connection, a, o, n);
+  NSLog(@"%@ disconnect from %@ perhost %u->%u", connection, a, o, n);
 #else
   [_perHost removeObject: [connection address]];
 #endif
