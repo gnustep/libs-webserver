@@ -1,3 +1,15 @@
+2026-11-13 Richard Frith-Macdonald  <rfm@gnu.org>
+
+	* WebServerConnection.m:
+	Fix error initialising the trusted address of the connection.
+	* WebServer.h:
+	* WebServer.m:
+	Add PERHOST define to enable new debug logging of the tracking of
+	per-host connection counts.
+	Add a set to record the addresses we tink belong to a trusted proxy.
+	When reporting the count of current connections per host, say whether
+	the host is a proxy (exempt from the per-host limits).
+
 2026-11-11 Richard Frith-Macdonald  <rfm@gnu.org>
 
 	* WebServerConnection.m:

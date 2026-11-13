@@ -33,6 +33,9 @@
 
 #define	MAXCONNECTIONS	50000
 
+// Define to 1 to enable per-host record keeping logs
+#define	PERHOST	0
+
 static	Class	NSArrayClass = Nil;
 static	Class	NSDataClass = Nil;
 static	Class	NSDateClass = Nil;
@@ -1000,6 +1003,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   DESTROY(_root);
   DESTROY(_conf);
   DESTROY(_perHost);
+  DESTROY(_trusted);
   DESTROY(_lock);
   if (nil != _ioMain)
     {
@@ -1086,18 +1090,22 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
         {
           [byHost appendString: @","];
         }
-      [byHost appendFormat: @"%@:%"PRIuPTR, h, [_perHost countForObject: h]];
+      [byHost appendFormat: @"%@%@:%"PRIuPTR, h,
+	([_trusted member: h] ? @"(proxy)" : @""),
+	[_perHost countForObject: h]];
     }
   [byHost appendString: @")"];
 
   result = [NSStringClass stringWithFormat: @"%@ on %@(%@),"
-    @"\n  %"PRIuPTR" %@ of %"PRIuPTR" (%"PRIuPTR"/host) connections,"
+    @"\n  %"PRIuPTR" %@ of %"PRIuPTR" (%"PRIuPTR"/%@) connections,"
     @"\n  %"PRIuPTR" active, %"PRIuPTR" idle, %"PRIuPTR" ended,"
     @" %"PRIuPTR " requests,"
     @" listening: %@%@%@",
     [super description], _port, ([self isSecure] ? @"https" : @"http"),
-    count, byHost, _maxConnections, _maxPerHost, active, idle,
-    _handled, _requests, _accepting ? @"yes" : @"no",
+    count, byHost, _maxConnections, _maxPerHost,
+    ([self isTrusted] ? @"non-proxy-host" : @"host"),
+    active, idle, _handled, _requests,
+    (_accepting ? @"yes" : @"no"),
     [self _ioThreadDescription], [self _poolDescription]];
   [_lock unlock];
   return result;
@@ -2302,6 +2310,9 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
  * if this causes the server to exceed the per-host limit.
  * This is used only where the connection is from a
  * trusted proxy.
+ * NB. This is also called even if old and new addresses
+ * are the same, in which case it simply acts as a check
+ * that the per-host limit has not been exceeded.
  */
 - (BOOL) _connection: (WebServerConnection*)conn
   changedAddressFrom: (NSString*)oldAddress
@@ -2310,13 +2321,42 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   BOOL		excessive = NO;
 
   [_lock lock];
+  /* The address has changed so the old address must be
+   * the address of a trusted proxy.
+   */
+  if (NO == [oldAddress isEqual: newAddress])
+    {
+      [_trusted addObject: oldAddress];
+    }
+#if	PERHOST
+  unsigned	o, n;
+
+  o = [_perHost countForObject: oldAddress];
   [_perHost removeObject: oldAddress];
+  n = [_perHost countForObject: oldAddress];
+  NSLog(@"%p rem from %@ perhost %u->%u", conn, oldAddress, o, n);
+
+  o = [_perHost countForObject: newAddress];
   [_perHost addObject: newAddress];
-  if (_maxPerHost > 0
-    && [_perHost countForObject: newAddress] > _maxPerHost)
+  n = [_perHost countForObject: newAddress];
+  NSLog(@"%p add from %@ perhost %u->%u", conn, newAddress, o, n);
+
+  if (_maxPerHost > 0 && n > _maxPerHost)
     {
       excessive = YES;
     }
+
+  NSLog(@"%p count %@ perhost is %u (max %u, excessive:%d)",
+    conn, newAddress, n, (unsigned)_maxPerHost, excessive);
+#else
+  [_perHost removeObject: oldAddress];
+  [_perHost addObject: newAddress];
+  if (_maxPerHost > 0 && [_perHost countForObject: newAddress] > _maxPerHost)
+    {
+      excessive = YES;
+    }
+#endif
+
   [conn setQuiet:
     [[_defs arrayForKey: @"WebServerQuiet"] containsObject: newAddress]];
   [_lock unlock];
@@ -2498,11 +2538,6 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 	}
       quiet = [[_defs arrayForKey: @"WebServerQuiet"] containsObject: address];
 
-      /* Record the new connection by the remote host IP address.
-       * This may be adjusted as requests arrive for a proxied connection.
-       */
-      [_perHost addObject: address];
-
       /* Find the I/O thread handling the fewest connections and use that.
        */
       counter = [_ioThreads count];
@@ -2533,6 +2568,21 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
 					quiet: quiet
 					  ssl: ssl
 				      refusal: refusal];
+      /* Record the new connection by the remote host IP address.
+       * This may be adjusted as requests arrive for a proxied connection.
+       */
+#if	PERHOST
+      unsigned	o, n;
+
+      o = [_perHost countForObject: address];
+      [_perHost addObject: address];
+      n = [_perHost countForObject: address];
+      NSLog(@"%@ connect from %@ perhost %u->%u",
+	connection, address, o, n);
+#else
+      [_perHost addObject: address];
+#endif
+
       [connection setTicked: _ticked];
       [connection setConnectionStart: _ticked];
       [_connections addObject: connection];
@@ -2564,7 +2614,17 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
       [self _audit: connection];
       _handled++;
     }
+#if	PERHOST
+  NSString	*a = [connection address];
+  unsigned	o = [_perHost countForObject: a];
+  unsigned	n;
+
+  [_perHost removeObject: a];
+  n = [_perHost countForObject: a];
+  NSLog(@"%p disconnect from %@ perhost %u->%u", connection, a, o, n);
+#else
   [_perHost removeObject: [connection address]];
+#endif
   [_connections removeObject: connection];
   [_lock unlock];
   [self _listen];
@@ -3132,6 +3192,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   _substitutionLimit = 4;
   _connections = [NSMutableSet new];
   _perHost = [NSCountedSet new];
+  _trusted = [NSMutableSet new];
   _ioThreads = [NSMutableArray new];
   _incrementalDataMap = [NSMutableDictionary new];
   _userInfoMap = [NSMutableDictionary new];

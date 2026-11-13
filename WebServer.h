@@ -464,7 +464,7 @@
   GSThreadPool		*_pool;
   WebServerConfig	*_conf;
   id		        UNUSED_QUAL *_unused1 __attribute__((unused));
-  id		        UNUSED_QUAL *_unused2 __attribute__((unused));
+  NSMutableSet		*_trusted;
   NSDictionary		*_sslConfig;
   BOOL			_accepting;
   BOOL			_doPostProcess;
