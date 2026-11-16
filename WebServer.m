@@ -34,7 +34,7 @@
 #define	MAXCONNECTIONS	50000
 
 // Define to 1 to enable per-host record keeping logs
-#define	PERHOST	0
+#define	PERHOST	1
 
 static	Class	NSArrayClass = Nil;
 static	Class	NSDataClass = Nil;
@@ -2306,23 +2306,24 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     }
 }
 
-/* Adjust the per-host connection count, returning YES
- * if this causes the server to exceed the per-host limit.
+/* Adjust the per-host connection count, returning the new count.
+ * If this causes the server to exceed the per-host limit, returns
+ * zero instead of a count.
  * This is used only where the connection is from a
  * trusted proxy.
  * NB. This is also called even if old and new addresses
  * are the same, in which case it simply acts as a check
  * that the per-host limit has not been exceeded.
  */
-- (BOOL) _connection: (WebServerConnection*)conn
+- (unsigned) _connection: (WebServerConnection*)conn
   changedAddressFrom: (NSString*)oldAddress
 {
   NSString      *newAddress = [conn address];
-  BOOL		excessive = NO;
+  unsigned	n;
 
   [_lock lock];
 #if	PERHOST
-  unsigned	o, n;
+  unsigned	o;
 
   o = [_perHost countForObject: oldAddress];
   [_perHost removeObject: oldAddress];
@@ -2334,24 +2335,26 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
   n = [_perHost countForObject: newAddress];
   NSLog(@"%@ add from %@ perhost %u->%u", conn, newAddress, o, n);
 
+  o = n;
   if (_maxPerHost > 0 && n > _maxPerHost)
     {
       if (nil == [_trusted member: newAddress])
 	{
-	  excessive = YES;
+	  n = 0;
 	}
     }
 
-  NSLog(@"%@ count %@ perhost is %u (max %u, excessive:%d)",
-    conn, newAddress, n, (unsigned)_maxPerHost, excessive);
+  NSLog(@"%@ count %@ perhost is %u (max %u, excessive:%s)",
+    conn, newAddress, o, (unsigned)_maxPerHost, ((n < 0) ? "Y" : "N"));
 #else
   [_perHost removeObject: oldAddress];
   [_perHost addObject: newAddress];
-  if (_maxPerHost > 0 && [_perHost countForObject: newAddress] > _maxPerHost)
+  n = [_perHost countForObject: newAddress];
+  if (_maxPerHost > 0 && n > _maxPerHost)
     {
       if (nil == [_trusted member: newAddress])
 	{
-	  excessive = YES;
+	  n = 0;
 	}
     }
 #endif
@@ -2360,7 +2363,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     [[_defs arrayForKey: @"WebServerQuiet"] containsObject: newAddress]];
   [_lock unlock];
 
-  return excessive;
+  return n;
 }
 
 - (void) _didConnect: (NSNotification*)notification

@@ -1600,8 +1600,9 @@ else if (YES == hadRequest) \
    */
   if ([server isTrusted])
     {
-      NSString	*newAddr = [(WebServerRequest*)[parser mimeDocument] address];
-      NSString  *oldAddr = address;
+      WebServerRequest	*r = (WebServerRequest*)[parser mimeDocument];
+      NSString		*newAddr = [r address];
+      NSString  	*oldAddr = address;
 
       if (nil == newAddr)
 	{
@@ -1610,9 +1611,12 @@ else if (YES == hadRequest) \
 	}
       else if (NO == [newAddr isEqual: oldAddr])
 	{
+	  unsigned	count;
+
 	  oldAddr = AUTORELEASE(RETAIN(oldAddr));
 	  ASSIGNCOPY(address, newAddr);
-	  if ([server _connection: self changedAddressFrom: oldAddr]) 
+	  count = [server _connection: self changedAddressFrom: oldAddr];
+	  if (0 == count)
 	    {
 	      [server _log:
 		@"%@ Too many existing connections from host. rejected", self];
@@ -1627,6 +1631,13 @@ else if (YES == hadRequest) \
 			 withObject: data
 		      waitUntilDone: NO];
 	      return YES;
+	    }
+	  else
+	    {
+	      [r setHeader: @"x-count-host-connections"
+		     value: [NSStringClass stringWithFormat: @"%u", count]
+		parameters: nil];
+
 	    }
 	}
     }

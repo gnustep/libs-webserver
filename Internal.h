@@ -302,7 +302,7 @@ typedef	enum {
 - (void) _blockAddress: (NSString*)address forInterval: (NSTimeInterval)ti;
 - (NSDate*) _blocked: (NSString*)address;
 - (void) _completedResponse: (WebServerResponse*)r duration: (NSTimeInterval)t;
-- (BOOL) _connection: (WebServerConnection*)conn
+- (unsigned) _connection: (WebServerConnection*)conn
   changedAddressFrom: (NSString*)oldAddress;
 - (void) _didConnect: (NSNotification*)notification;
 - (void) _endConnect: (WebServerConnection*)connection;
