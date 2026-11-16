@@ -34,7 +34,7 @@
 #define	MAXCONNECTIONS	50000
 
 // Define to 1 to enable per-host record keeping logs
-#define	PERHOST	1
+#define	PERHOST	0
 
 static	Class	NSArrayClass = Nil;
 static	Class	NSDataClass = Nil;
@@ -2345,7 +2345,7 @@ escapeData(const uint8_t *bytes, NSUInteger length, NSMutableData *d)
     }
 
   NSLog(@"%@ count %@ perhost is %u (max %u, excessive:%s)",
-    conn, newAddress, o, (unsigned)_maxPerHost, ((n < 0) ? "Y" : "N"));
+    conn, newAddress, o, (unsigned)_maxPerHost, (n ? "N" : "Y"));
 #else
   [_perHost removeObject: oldAddress];
   [_perHost addObject: newAddress];
